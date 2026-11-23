@@ -772,3 +772,11 @@ a.btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .progress__fill { transition: none; }
 }
+
+/* Charts (CORE-6): the box a chart draws into; the chart fills its width */
+.chart-box {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.chart-box canvas { display: block; }

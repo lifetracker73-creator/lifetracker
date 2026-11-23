@@ -257,3 +257,28 @@
   if the laptop's web server isn't running. The phone and the live link work exactly as before.
 - One time only: in laptop Chrome, tap "New version available — tap to refresh" (or close and reopen
   the tab) so this new helper takes over.
+
+## CORE-6: Charts (24 Nov 2026)
+**Built**
+- `core/vendor/chart.umd.min.js`: the free chart tool Chart.js (version 4.4.7, MIT licence), saved
+  in the app so charts work offline. Downloaded once; the download site's note was removed,
+  Chart.js's own licence note kept.
+- New `core/charts.js`: the only file that uses the chart tool. Modules call `barChart()` or
+  `lineChart()` with dates and numbers and get a chart in the house style: Nunito font, the module's
+  pastel colour, rounded bars, a soft pastel wash under lines, soft grid, no hard borders.
+- Extras ready for later units: a dashed goal line with a small label (water goal, sleep target,
+  weight goal), a second softer dashed line for averages (weight 7-day average) with a small
+  legend, dates shown as "23 Nov" (full date when tapped), gaps for days with no data,
+  numbers shown with the module's own format (e.g. "2.5 L", "72.0 kg").
+- Redraws in the new colours when the phone switches light/dark; no animation when the phone asks
+  for reduced motion; screen readers hear a short summary (date range, lowest and highest).
+- `core/styles.css`: small `.chart-box` style. `sw.js`: cache version 5 with the 2 new files.
+- Checked with a temporary sample page at 360px, light and dark: bar chart (30 days with goal line),
+  line chart with average, and an empty chart all draw correctly, no sideways scrolling, no errors.
+  The sample page was only a temporary file and is not in the app. Home screen still opens.
+
+**Known issues**
+- No charts in the app yet; the first one comes with WTR-3.
+- The chart file contains two web links in its licence notes (chartjs.org and a GitHub page). The
+  release secret scan will find them; they are harmless licence/credit links, not secrets.
+- The phone gets this at the final "release".
