@@ -500,3 +500,28 @@
 - `core/styles.css`: boxes and secondary buttons (e.g. Cancel, unselected emoji) inside a list row now use
   the card colour, so they stand out from the row's pale background. This helps every edit row in the
   app (weight, sleep, expenses, categories). Checked at 360px in light and dark.
+
+## MON-3: Monthly summary (24 Nov 2026)
+**Built**
+- 💸 Money screen: new "This month" card (butter yellow) between "Add expense" and the Expenses list.
+- ◀ ▶ buttons around the month name ("Nov 2026") to look back at earlier months; ▶ is greyed out on the
+  current month.
+- The month's total in large text ("₹2,250.50") and "4 expenses in Nov 2026" (or "No expenses in Nov 2026 yet").
+- Compared with the month before: "📈 ₹450.50 more than Oct 2026", "📉 … less than …" or "➖ Same as …".
+  If the month before has no expenses: "No expenses in Oct 2026 to compare with."
+- One row per category, biggest first: emoji and name, share of the month and count ("56% · 1 expense"),
+  and its total. Expenses with a deleted category are counted under "❓ Unknown category".
+- Updates straight away after adding, editing (also moving an expense to another month), deleting, Undo
+  and renaming a category. Worked out on screen; saved data unchanged.
+- `core/styles.css`: new small `.month-nav` style (◀ month ▶ in one row).
+- Checked at 360px, light and dark, with 7 pretend expenses over Sep–Nov (removed afterwards, with their
+  waiting Google Sync changes): totals and differences checked by hand, all months back to an empty one,
+  ▶ stops at this month, delete and Undo, edit moving to October, category rename, no sideways scrolling,
+  buttons 44px, no new errors.
+
+**Known issues**
+- For the current month, the comparison is this month so far against the whole of last month, so early
+  in the month it usually says "less".
+- Percentages are rounded, so they can add up to 99% or 101%.
+- Months show the way the shared date helper writes them, so September is "Sept 2026".
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".

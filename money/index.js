@@ -1,13 +1,14 @@
 // 💸 money module screens.
 // MON-1: add an expense (amount first), list grouped by day with each day's total, edit/delete with Undo.
 // MON-2: Categories card: add, edit (name + emoji icon), delete with Undo.
+// MON-3: This month card: month total, per-category totals, compare to last month (◀ ▶ to look back).
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import {
   add, update, remove, restore, list as listAll, getSettings, saveSettings,
 } from '../core/storage.js';
-import { today, formatDate } from '../core/dates.js';
+import { today, formatDate, formatMonth, addDays, monthStart, monthEnd } from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
 
 const DEFAULT_CATEGORIES = [
@@ -195,6 +196,22 @@ function expenseFields(categories, values = {}) {
 // Paise -> what goes back into the amount box: 25050 -> "250.5", 25000 -> "250".
 const amountText = (paise) => String(paise / 100);
 
+// Months as 'YYYY-MM' (MON-3).
+const prevMonth = (ym) => addDays(`${ym}-01`, -1).slice(0, 7);
+const nextMonth = (ym) => addDays(monthEnd(`${ym}-01`), 1).slice(0, 7);
+const countText = (n) => (n === 1 ? '1 expense' : `${n} expenses`);
+
+// "📉 ₹1,200 less than Oct 2026" and friends.
+function compareText(thisPaise, lastPaise, lastCount, lastYm) {
+  const last = formatMonth(lastYm);
+  if (!lastCount) return `No expenses in ${last} to compare with.`;
+  const diff = thisPaise - lastPaise;
+  if (diff === 0) return `➖ Same as ${last}`;
+  return diff < 0
+    ? `📉 ${formatMoney(-diff)} less than ${last}`
+    : `📈 ${formatMoney(diff)} more than ${last}`;
+}
+
 export async function render(root) {
   // `categories` and `catById` are replaced whenever a category is added, changed or deleted (MON-2).
   let categories = await loadCategories();
@@ -304,9 +321,60 @@ export async function render(root) {
     }));
   }
 
-  // Both lists: expenses, then categories (their "N expenses" counts change with expenses).
+  // ---- This month (MON-3): worked out on screen from saved expenses ----
+  let shownMonth = today().slice(0, 7);
+  const monthTitle = el('div', { className: 'month-nav__title', 'aria-live': 'polite' });
+  const prevBtn = button({
+    label: '◀', variant: 'secondary', ariaLabel: 'Previous month',
+    onClick: () => { shownMonth = prevMonth(shownMonth); refreshMonth(); },
+  });
+  const nextBtn = button({
+    label: '▶', variant: 'secondary', ariaLabel: 'Next month',
+    onClick: () => { shownMonth = nextMonth(shownMonth); refreshMonth(); },
+  });
+  const monthTotal = el('div', { className: 'progress-stats__amount' });
+  const monthCount = el('p', { className: 'progress-note' });
+  const monthCompare = el('p', { className: 'progress-note' });
+  const monthCats = el('div');
+
+  async function refreshMonth() {
+    const atNow = shownMonth >= today().slice(0, 7);
+    nextBtn.disabled = atNow;
+    monthTitle.textContent = formatMonth(shownMonth);
+    const all = await listAll('expenses');
+    const inMonth = (ym) => all.filter((x) => x.date >= monthStart(`${ym}-01`) && x.date <= monthEnd(`${ym}-01`));
+    const sum = (items) => items.reduce((s, x) => s + x.amountPaise, 0);
+    const items = inMonth(shownMonth);
+    const lastItems = inMonth(prevMonth(shownMonth));
+    const total = sum(items);
+    monthTotal.textContent = formatMoney(total);
+    monthCount.textContent = items.length
+      ? `${countText(items.length)} in ${formatMonth(shownMonth)}`
+      : `No expenses in ${formatMonth(shownMonth)}${atNow ? ' yet' : ''}`;
+    monthCompare.textContent = compareText(total, sum(lastItems), lastItems.length, prevMonth(shownMonth));
+    if (!items.length) {
+      monthCats.replaceChildren();
+      return;
+    }
+    const byCat = new Map();
+    for (const x of items) {
+      const c = byCat.get(x.category) || { paise: 0, count: 0 };
+      c.paise += x.amountPaise;
+      c.count += 1;
+      byCat.set(x.category, c);
+    }
+    const rows = [...byCat.entries()].sort((a, b) => b[1].paise - a[1].paise);
+    monthCats.replaceChildren(list(rows.map(([id, c]) => listItem({
+      title: catText(id),
+      subtitle: `${Math.round((c.paise / total) * 100)}% · ${countText(c.count)}`,
+      meta: formatMoney(c.paise),
+    }))));
+  }
+
+  // Everything: expenses, the month summary, then categories (their "N expenses" counts change with expenses).
   async function refreshAll() {
     await refresh();
+    await refreshMonth();
     await refreshCategories();
   }
 
@@ -432,6 +500,11 @@ export async function render(root) {
 
   root.append(el('div', { className: 'mod-money stack' }, [
     card({ title: 'Add expense', module: 'money', children: [form] }),
+    card({ title: 'This month', module: 'money', children: [el('div', { className: 'stack' }, [
+      el('div', { className: 'month-nav' }, [prevBtn, monthTitle, nextBtn]),
+      el('div', {}, [monthTotal, monthCount, monthCompare]),
+      monthCats,
+    ])] }),
     card({ title: 'Expenses', children: [listBox] }),
     card({ title: 'Categories', module: 'money', children: [catForm, catListBox] }),
   ]));
