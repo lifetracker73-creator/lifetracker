@@ -270,11 +270,23 @@ export async function restore(storeName, record) {
   return record;
 }
 
-/** All records in a store. Dated stores come back oldest date first. */
+/** All records in a store. Dated stores come back oldest date first; records without a date come last. */
 export async function list(storeName) {
   const { store } = await storeFor(storeName);
-  const source = STORES[storeName].dateField ? store.index('date') : store;
-  return done(source.getAll());
+  const all = await done(store.getAll());
+  const field = STORES[storeName].dateField;
+  if (!field) return all;
+  // Sorted here instead of through the date index, which skips records with no date
+  // (e.g. tasks with no due date). Same order as before for records that have one.
+  const dateOf = (r) => (typeof r[field] === 'string' ? r[field] : null);
+  return all.sort((a, b) => {
+    const da = dateOf(a);
+    const db = dateOf(b);
+    if (da === db) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da < db ? -1 : 1;
+  });
 }
 
 /** Records for one date ('YYYY-MM-DD'). */

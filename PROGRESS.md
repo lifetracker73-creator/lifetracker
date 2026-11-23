@@ -620,3 +620,30 @@
 
 **Known issues**
 - Budgets are monthly, so the Budgets table appears only in "Month" exports, not for picked dates.
+
+## TSK-1: Tasks (24 Nov 2026)
+**Built**
+- ✅ Tasks screen, "Add a task" card: task name, optional due date (with quick "Today", "Tomorrow" and
+  "No date" pills) and optional notes. A friendly message if the name is left empty. After adding, the
+  list it went into opens so you see it.
+- "My tasks" card with four pill buttons (2 × 2 on a phone): **Today** (due today plus overdue, marked
+  "⚠️ Overdue"), **Upcoming** (later dates, soonest first), **No date** and **Done** (newest first,
+  crossed out, with when it was done). A small line shows e.g. "2 to do · 1 overdue". Each list has its
+  own friendly empty message. Long task names wrap instead of being cut off.
+- Tap the circle to tick a task off ("Done! 🎉" with Undo); tap the tick in Done to bring it back.
+- Tap a task to edit it in place (Cancel / Save); if its date changes list, a message says where it went.
+- 🗑️ deletes with Undo.
+- Saved fields: `title`, `notes`, `dueDate` (or empty), `done`, `doneAt` ('YYYY-MM-DD HH:MM'). Due time,
+  priority and repeating come in TSK-2.
+- `core/storage.js`: "list everything" used to skip records with no date (it would have hidden tasks with
+  no due date). Fixed; other modules get exactly the same results and order as before. Saved data unchanged.
+- `core/ui.js`: two new icons (circle, tick). `core/styles.css`: done rows, wrapping rows, 2 × 2 button grid.
+- `sw.js`: cache version 7.
+- Checked at 360px in light and dark mode: add, empty-name message, tick + Undo, untick + Undo, edit
+  (moved to Upcoming), delete + Undo; all buttons and boxes ≥ 44px, no sideways scrolling. The 4 pretend
+  tasks were removed and the waiting Google Sync list is back to its 12 entries.
+
+**Known issues**
+- The built-in preview browser on this laptop refuses to start the offline helper for any file (a limit of
+  that browser, not the app); everything else worked there. Offline use is unchanged in real browsers.
+- The phone gets this at the final "release".

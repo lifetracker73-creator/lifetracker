@@ -405,6 +405,18 @@ textarea.input {
   gap: var(--space-1);
 }
 
+/* A row whose title wraps onto more lines instead of being cut off (e.g. tasks, TSK-1). */
+.list-item--wrap .list-item__title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A finished item (e.g. a done task, TSK-1): crossed out and softer. */
+.list-item--done .list-item__title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
 /* A heading over a group of rows, e.g. a day with its total (MON-1) */
 .list-group__title {
   display: flex;
@@ -644,6 +656,16 @@ textarea.input {
 
 .btn-row .btn {
   padding: 0 var(--space-2);
+}
+
+/* Four buttons as 2 × 2 on a phone, one line on wider screens (e.g. task lists, TSK-1). */
+.btn-row--grid {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 560px) {
+  .btn-row--grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* Boxes and secondary buttons inside a list row (e.g. a row being edited) use the card colour,
