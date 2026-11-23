@@ -803,6 +803,9 @@ a.btn { text-decoration: none; }
   background: var(--accent, var(--color-primary));
   transition: width 400ms ease;
 }
+/* Over the limit (MON-5 budgets): soft coral fill instead of the module colour */
+.progress--over .progress__fill { background: var(--color-danger); }
+.list-item__main > .progress { margin-top: var(--space-2); height: 14px; }
 .progress-stats {
   display: flex;
   flex-wrap: wrap;

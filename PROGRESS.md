@@ -548,3 +548,28 @@
 - Month labels on the axis are just the month ("Dec", "Jan"), so the year shows only when a bar is tapped.
 - Days with no spending show as no bar (₹0).
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+## MON-5: Budgets (24 Nov 2026)
+**Built**
+- 💸 Money screen: new "Budgets" card (butter yellow) under "This month". It follows the month picked
+  there with ◀ ▶. The same budget counts for every month.
+- Every category is listed. Tap a category (or its pencil) to set or change its monthly budget in the row
+  (Cancel / Save). Leave the box empty to have no budget. "Remove budget" takes it off, with Undo.
+  Friendly messages for a wrongly typed, zero or huge amount.
+- Categories with a budget come first, each with "₹2,150.50 spent of ₹3,000 · ₹849.50 left" and a soft bar.
+  When over: "⚠️ ₹400 over budget" and the bar turns soft coral. Categories without a budget say
+  "No budget · tap to set one" (plus what was spent, if anything).
+- At the top: all budgets together ("₹449.50 left", "₹3,550.50 spent of ₹4,000 budget in Nov 2026") with a bar.
+  Only categories that have a budget count here.
+- Saved data unchanged: the budget goes in the category's existing `monthlyBudgetPaise` (empty = none).
+  Deleting a category and tapping Undo brings its budget back. Budgets sync to Google Sheets like before.
+- `core/styles.css`: bars can show "over" in soft coral (`.progress--over`); slimmer bars inside list rows.
+- Checked at 360px, light and dark, with 6 pretend expenses and budgets over Oct–Nov (removed afterwards,
+  and the waiting Google Sync list put back exactly as it was): totals checked by hand, set / change /
+  empty box / remove + Undo, wrong amount message, ◀ to Oct, category delete + Undo keeps the budget,
+  no sideways scrolling, buttons ≥ 44px, no new errors.
+
+**Known issues**
+- Changing a budget also changes it for past months (there is one budget per category, not one per month).
+- The Budgets list shows every category, so with many categories it gets long.
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".

@@ -4,9 +4,10 @@
 // MON-3: This month card: month total, per-category totals, compare to last month (◀ ▶ to look back).
 // MON-4: Charts card: spend by category for the month shown above, and spend over time
 //        (each day of that month, or the 12 months up to it).
+// MON-5: Budgets card: a monthly budget per category (same every month) with "spent / left" bars.
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
-import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
+import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, update, remove, restore, list as listAll, getSettings, saveSettings,
 } from '../core/storage.js';
@@ -358,6 +359,7 @@ export async function render(root) {
       : `No expenses in ${formatMonth(shownMonth)}${atNow ? ' yet' : ''}`;
     monthCompare.textContent = compareText(total, sum(lastItems), lastItems.length, prevMonth(shownMonth));
     await refreshCharts(all);
+    refreshBudgets(items);
     if (!items.length) {
       monthCats.replaceChildren();
       return;
@@ -375,6 +377,125 @@ export async function render(root) {
       subtitle: `${Math.round((c.paise / total) * 100)}% · ${countText(c.count)}`,
       meta: formatMoney(c.paise),
     }))));
+  }
+
+  // ---- Budgets (MON-5): the same budget every month, compared with the month chosen above ----
+  // The budget lives on the category (`monthlyBudgetPaise`, null = no budget). Tap a row to set or change it.
+  const budgetSummary = el('div');
+  const budgetListBox = el('div');
+  let editingBudgetId = null;
+  let budgetItems = [];
+
+  async function saveBudget(cat, paise) {
+    await update('categories', cat.id, { monthlyBudgetPaise: paise });
+    editingBudgetId = null;
+    await categoriesChanged();
+  }
+
+  function budgetEditRow(cat) {
+    const box = input({
+      label: `Monthly budget for ${cat.icon} ${cat.name} (₹)`, name: 'budget', type: 'text', inputmode: 'decimal',
+      value: cat.monthlyBudgetPaise ? amountText(cat.monthlyBudgetPaise) : '', placeholder: 'e.g. 5000',
+    });
+    box.input.addEventListener('input', () => box.setError(''));
+    const buttons = [
+      button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingBudgetId = null; refreshBudgets(); } }),
+      button({ label: 'Save', variant: 'primary', type: 'submit' }),
+    ];
+    const editForm = el('form', { className: 'stack', novalidate: true }, [box, el('div', { className: 'btn-row' }, buttons)]);
+    if (cat.monthlyBudgetPaise) {
+      editForm.append(button({
+        label: 'Remove budget', variant: 'ghost', block: true,
+        onClick: async () => {
+          const before = cat.monthlyBudgetPaise;
+          await saveBudget(cat, null);
+          toast({
+            message: `Removed the budget for ${cat.icon} ${cat.name}`,
+            actionLabel: 'Undo',
+            onAction: async () => {
+              await update('categories', cat.id, { monthlyBudgetPaise: before });
+              await categoriesChanged();
+            },
+          });
+        },
+      }));
+    }
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // An empty box means "no budget".
+      if (!box.input.value.trim()) {
+        await saveBudget(cat, null);
+        return;
+      }
+      const { paise, error } = checkAmount(box.input.value);
+      if (error) {
+        box.setError(error.replace('Type the amount, e.g. 250', 'Type a budget, e.g. 5000'));
+        return;
+      }
+      await saveBudget(cat, paise);
+      toast({ message: `Budget for ${cat.icon} ${cat.name}: ${formatMoney(paise)} a month ✨` });
+    });
+    queueMicrotask(() => box.input.focus());
+    return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [editForm])]);
+  }
+
+  function budgetRow(cat, spent) {
+    if (cat.id === editingBudgetId) return budgetEditRow(cat);
+    const budget = cat.monthlyBudgetPaise;
+    const open = () => { editingBudgetId = cat.id; refreshBudgets(); };
+    if (!budget) {
+      return listItem({
+        title: `${cat.icon} ${cat.name}`,
+        subtitle: `No budget · tap to set one${spent ? ` · ${formatMoney(spent)} spent` : ''}`,
+        onClick: open,
+      });
+    }
+    const left = budget - spent;
+    const row = listItem({
+      title: `${cat.icon} ${cat.name}`,
+      subtitle: left >= 0
+        ? `${formatMoney(spent)} spent of ${formatMoney(budget)} · ${formatMoney(left)} left`
+        : `${formatMoney(spent)} spent of ${formatMoney(budget)} · ⚠️ ${formatMoney(-left)} over budget`,
+      onClick: open,
+      actions: [button({ icon: 'edit', variant: 'ghost', ariaLabel: `Change the budget for ${cat.name}`, onClick: open })],
+    });
+    const bar = progressBar({ value: spent, max: budget, label: `${cat.name}: spent of budget` });
+    bar.classList.toggle('progress--over', left < 0);
+    row.querySelector('.list-item__main').append(bar);
+    return row;
+  }
+
+  // `items` = this month's expenses (kept so tapping a row can redraw without reloading).
+  function refreshBudgets(items = budgetItems) {
+    budgetItems = items;
+    const month = formatMonth(shownMonth);
+    if (!categories.length) {
+      budgetSummary.replaceChildren();
+      budgetListBox.replaceChildren(emptyState({
+        emoji: '🎯', title: 'No categories yet', text: 'Add a category below, then give it a budget here.',
+      }));
+      return;
+    }
+    const spentBy = new Map();
+    for (const x of items) spentBy.set(x.category, (spentBy.get(x.category) || 0) + x.amountPaise);
+    const budgeted = categories.filter((c) => c.monthlyBudgetPaise);
+    if (budgeted.length) {
+      const total = budgeted.reduce((s, c) => s + c.monthlyBudgetPaise, 0);
+      const spent = budgeted.reduce((s, c) => s + (spentBy.get(c.id) || 0), 0);
+      const left = total - spent;
+      const bar = progressBar({ value: spent, max: total, label: `All budgets in ${month}` });
+      bar.classList.toggle('progress--over', left < 0);
+      budgetSummary.replaceChildren(
+        el('div', { className: 'progress-stats__amount', text: left >= 0 ? `${formatMoney(left)} left` : `${formatMoney(-left)} over` }),
+        el('p', { className: 'progress-note', text: `${formatMoney(spent)} spent of ${formatMoney(total)} budget in ${month}` }),
+        el('div', { className: 'progress-note' }, [bar]),
+      );
+    } else {
+      budgetSummary.replaceChildren(el('p', { className: 'progress-note', text: 'Tap a category to give it a monthly budget. 🎯' }));
+    }
+    // Categories with a budget first, then the rest, each in the usual order.
+    const rows = [...budgeted, ...categories.filter((c) => !c.monthlyBudgetPaise)];
+    budgetListBox.replaceChildren(list(rows.map((c) => budgetRow(c, spentBy.get(c.id) || 0))));
   }
 
   // ---- Charts (MON-4): follow the month chosen in "This month" ----
@@ -597,6 +718,11 @@ export async function render(root) {
       el('div', { className: 'month-nav' }, [prevBtn, monthTitle, nextBtn]),
       el('div', {}, [monthTotal, monthCount, monthCompare]),
       monthCats,
+    ])] }),
+    card({ title: 'Budgets', module: 'money', children: [el('div', { className: 'stack' }, [
+      el('p', { className: 'progress-note', text: 'The same budget every month. Follows the month chosen above.' }),
+      budgetSummary,
+      budgetListBox,
     ])] }),
     card({ title: 'Charts', module: 'money', children: [el('div', { className: 'stack' }, [
       el('h3', { className: 'list-group__title' }, [catTitle]),
