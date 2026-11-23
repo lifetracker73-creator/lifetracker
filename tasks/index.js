@@ -2,10 +2,12 @@
 // TSK-1: add, edit, complete, delete tasks; lists for Today (incl. overdue), Upcoming, No date, Done.
 // TSK-2: due time, priority (low / normal / high) and repeating tasks (daily / weekly / monthly).
 // TSK-3: reminders (`reminderAt`): a notification when due while the app is open, a banner for missed ones.
+// TSK-4: "Add to calendar" saves a dated task as an .ics file for the phone's calendar.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import { add, update, remove, restore, list as listAll, getSettings, saveSettings } from '../core/storage.js';
 import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, formatDateTime, monthEnd } from '../core/dates.js';
 import { notify, showBanner, notificationState, askPermission } from '../core/notify.js';
+import { saveFile } from '../core/xlsx.js';
 
 const MAX_TITLE = 200;
 const MAX_NOTES = 2000;
@@ -242,6 +244,89 @@ function datePills(dateField, timeField) {
   ]);
 }
 
+// ---- calendar file (TSK-4) ----
+// A task with a due date can be saved as an .ics file, which the phone's calendar app opens
+// and adds as an event with its own alarm (works even when Lifetracker is closed).
+// A task with a time becomes a 30-minute event; a date only becomes an all-day event.
+// The alarm is the task's reminder, or at the due time (9:00 am for all-day) if it has none.
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// Kolkata 'YYYY-MM-DD HH:MM' → calendar UTC time '20261124T043000Z' (Kolkata is always 5 h 30 min ahead).
+function icsUtc(dt) {
+  const utc = shiftMinutes(dt, -330);
+  return `${utc.slice(0, 10).replaceAll('-', '')}T${utc.slice(11).replace(':', '')}00Z`;
+}
+
+// Calendar text can't contain bare commas, semicolons, backslashes or line breaks.
+const icsText = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+// Calendar lines longer than 75 bytes are split, with the follow-on lines starting with a space.
+function icsFold(line) {
+  const enc = new TextEncoder();
+  const out = [];
+  let cur = '';
+  let bytes = 0;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (bytes + n > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch;
+    bytes += n;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+
+// How the calendar repeats it, matching the app (the 29th–31st fall back to a shorter month's last day).
+function icsRepeat(task) {
+  const repeat = repeatOf(task);
+  if (repeat === 'daily') return 'RRULE:FREQ=DAILY';
+  if (repeat === 'weekly') return 'RRULE:FREQ=WEEKLY';
+  if (repeat !== 'monthly') return null;
+  const day = Number(task.dueDate.slice(8));
+  if (day <= 28) return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${day}`;
+  if (day === 31) return 'RRULE:FREQ=MONTHLY;BYMONTHDAY=-1';
+  const days = Array.from({ length: day - 27 }, (_, i) => 28 + i).join(',');
+  return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${days};BYSETPOS=-1`;
+}
+
+function taskCalendar(task) {
+  const start = dueMoment(task);
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lifetracker//Tasks//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:lifetracker-task-${task.id || Date.now()}`,
+    `DTSTAMP:${icsUtc(nowDateTime())}`,
+  ];
+  if (task.dueTime) {
+    lines.push(`DTSTART:${icsUtc(start)}`, `DTEND:${icsUtc(shiftMinutes(start, 30))}`);
+  } else {
+    lines.push(`DTSTART;VALUE=DATE:${task.dueDate.replaceAll('-', '')}`,
+      `DTEND;VALUE=DATE:${addDays(task.dueDate, 1).replaceAll('-', '')}`, 'TRANSP:TRANSPARENT');
+  }
+  lines.push(`SUMMARY:${icsText(`✅ ${task.title}`)}`);
+  if (task.notes) lines.push(`DESCRIPTION:${icsText(task.notes)}`);
+  const rule = icsRepeat(task);
+  if (rule) lines.push(rule);
+  // Alarm: minutes from the start of the event (negative = before).
+  const offset = task.reminderAt ? minutesBetween(start, task.reminderAt) : (task.dueTime ? 0 : 9 * 60);
+  const sign = offset < 0 ? '-' : '';
+  lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(task.title)}`,
+    `TRIGGER:${sign}PT${Math.abs(offset)}M`, 'END:VALARM');
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return lines.map(icsFold).join('\r\n') + '\r\n';
+}
+
+// Downloads the task's calendar file, e.g. "Pay rent.ics".
+function addToCalendar(task) {
+  if (!task.dueDate) {
+    toast({ message: 'Give the task a due date first 📅' });
+    return;
+  }
+  const name = task.title.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim().slice(0, 60) || 'Task';
+  saveFile(new Blob([taskCalendar(task)], { type: 'text/calendar;charset=utf-8' }), `${name}.ics`);
+  toast({ message: `Saved "${name}.ics" · open it to add to your calendar 📅` });
+}
+
 // Saving a reminder is a good moment to ask the phone for notifications (only if not yet asked).
 function askIfReminder(values) {
   if (values.reminderAt && notificationState() === 'off') askPermission();
@@ -394,7 +479,12 @@ export async function render(root) {
       title: task.title,
       subtitle: subtitleOf(task, now),
       onClick: () => { editingId = task.id; refresh(); },
-      actions: [button({
+      actions: [!task.done && task.dueDate ? button({
+        icon: 'calendar',
+        variant: 'ghost',
+        ariaLabel: `Add "${task.title}" to calendar`,
+        onClick: () => addToCalendar(task),
+      }) : null, button({
         icon: 'trash',
         variant: 'ghost',
         ariaLabel: `Delete "${task.title}"`,
@@ -413,6 +503,12 @@ export async function render(root) {
     const fields = taskFields(task);
     const editForm = el('form', { className: 'stack', novalidate: true }, [
       ...formParts(fields, { narrow: true }),
+      // Uses what's in the boxes now, so a changed date or time doesn't need saving first.
+      button({ label: 'Add to calendar', icon: 'calendar', variant: 'secondary', block: true, onClick: () => {
+        const { values, errors } = readForm(fields);
+        if (errors) { showErrors(fields, errors); return; }
+        addToCalendar({ ...values, id: task.id });
+      } }),
       el('div', { className: 'btn-row' }, [
         button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingId = null; refresh(); } }),
         button({ label: 'Save', variant: 'primary', type: 'submit' }),

@@ -736,3 +736,32 @@
   notification after the final "release".
 - A reminder that passes while a task is deleted and then brought back with Undo may show again once.
 - The phone gets this at the final "release".
+
+## TSK-4: Add to calendar (24 Nov 2026)
+**Built**
+- ✅ Tasks: each not-done task with a due date has a small 📅 calendar button next to the bin. Tapping it saves
+  an .ics file (named after the task, e.g. "Pay rent.ics") to Downloads; opening it adds the task to the
+  phone's calendar, which alerts even when Lifetracker is closed. A message says "Saved … · open it to add to
+  your calendar 📅".
+- The edit row has an "Add to calendar" button that uses what's in the boxes right now (no need to save first).
+  Without a due date it says "Give the task a due date first 📅".
+- What goes into the calendar: the task name (with ✅) and notes; a task with a time becomes a 30-minute event,
+  a date only becomes an all-day event. The alarm is the task's reminder (e.g. 10 min before), or at the due time
+  if it has none (9:00 am for all-day tasks). Repeating tasks repeat in the calendar too (daily / weekly /
+  monthly; a monthly task on the 29th–31st falls back to a shorter month's last day, like the app).
+- Times are India time, written so any calendar shows them correctly. The same task always gets the same
+  event ID, so some calendars update the event instead of adding a second one.
+- `core/ui.js`: new small calendar icon. No new files, no saved data changed, nothing new stored.
+- Checked at 360px in dark mode with pretend tasks: timed monthly task (7:30 pm → correct time, alarm 10 min
+  before, commas/semicolons/line breaks in the name and notes handled), all-day task (alarm 9:00 am), edit row
+  with a changed date (31 Dec → "last day of the month" repeat), undated task message, very long Hindi name
+  (lines split correctly), no sideways scrolling. Pretend tasks removed; Google Sync waiting list is back to 12.
+
+**Known issues**
+- The file couldn't be opened in a real calendar from the preview browser; check on the phone after the final
+  "release". On Android, open the downloaded file and pick your calendar app (Google Calendar may ask which
+  account). On iPhone, tap the download, then "Add to Calendar".
+- The calendar event is a copy: later changes or ticking the task off in Lifetracker don't change it. Tapping
+  📅 again after a change may update it or add a second event, depending on the calendar app.
+- Some calendar apps ignore alarms in imported files and use their own default alert instead.
+- The phone gets this at the final "release".
