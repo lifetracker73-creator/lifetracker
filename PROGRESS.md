@@ -188,3 +188,40 @@
   GitHub "noreply" email, so no personal email is in the project or its history.
 - Known issue: data logged on the old link stays with the old link (a different web address);
   it doesn't carry over. The app has to be installed again on the phone from the new link.
+
+## SHEETS-SYNC: automatic copy to Google Sheets (24 Nov 2026)
+**Built**
+- Every add, change, delete and Undo in any module (now and future) is saved on the phone first,
+  then copied to a Google Sheet in my Google account. Nothing extra is needed per module.
+- `core/storage.js`: new "outbox" drawer (database version 2, a safe upgrade; existing data untouched).
+  It's written together with each entry, so no change can be missed, and keeps only the latest
+  change of each entry. Settings are never synced.
+- `core/sync.js`: sends the outbox in batches when the app opens, comes back on screen, comes back
+  online, and shortly after each change. Retries on its own (30 s up to 10 min). Turns entries into
+  readable rows: column names like "Amount (ml)" / "Amount (₹)", dates as 23-11-2026, money in
+  rupees, linked items shown by name, lists as readable text.
+- Status icon in the title bar: ✅ synced / ⏳ X waiting / ⚠️ problem. Tapping it explains in plain
+  words, with "Try again" and "Settings".
+- ⚙️ Settings screen (from More, `core/settings.js`): Google Sync section with link + key + Connect,
+  "Connected: …@gmail.com ✅", "Sync everything now", "Change account" (with steps), privacy reminder.
+  CORE-8 adds the rest of Settings later.
+- `google-apps-script/` (Code.gs + appsscript.json): the script pasted into Google. Write-only,
+  checks a secret key kept in Google's Script Properties, rejects anything that isn't a valid
+  entry, saves text as plain text (never as a formula), uses the narrowest permission (only
+  files it creates + my email). Creates "LifeTracker/LifeTracker <year>" files with 8 tabs, India
+  region; mixed tabs have a "Type" column. Ready to save blood test photos/PDFs in
+  "LifeTracker/Reports" (the app side comes with BLD-2).
+- `sw.js`: cache version 3 with the 2 new files. CLAUDE.md: secret scan added as step 1 of "release".
+- Set up in my Google account and tested from the laptop with real Google: connect,
+  new entry, delete, offline then back online, "Sync everything now" (no duplicates). All passed.
+  Edit, wrong key, broken link and offline were also tested with a pretend Google endpoint.
+
+**Known issues**
+- The phone app gets this only at the next "release"; then connect it in Settings with the same
+  link and key.
+- The laptop test entries live only in the laptop browser (localhost), not on the phone.
+- Change account is untested (needs a second Google account).
+- If the Apps Script project is ever re-created, it can't see the old files (narrow permission), so it
+  makes a new LifeTracker folder; "Sync everything now" refills it.
+- If the outbox ever has an entry Google refuses, sync stops with ⚠️ until fixed (data stays safe on the phone).
+- CORE-7 (Backup) must leave out the Google Sync link and key, and add "Export to Excel".

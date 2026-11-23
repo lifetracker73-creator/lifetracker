@@ -24,15 +24,16 @@ export function navigate(path = '') {
  * outlet: the element screens are drawn into.
  * home: function(root) that draws the home screen.
  * onChange: function(name) called before each screen is drawn ('home' or a module key).
+ * screens: extra screens that aren't modules, e.g. { settings: () => import('./settings.js') }.
  */
-export function startRouter({ outlet, home, onChange }) {
+export function startRouter({ outlet, home, onChange, screens = {} }) {
   let latest = 0;
 
   async function show() {
     const ticket = ++latest;
     const [name, ...rest] = currentPath();
 
-    if (name && !modules[name]) {
+    if (name && !modules[name] && !screens[name]) {
       // Unknown address: quietly go home instead.
       history.replaceState(null, '', '#/');
       return show();
@@ -42,7 +43,7 @@ export function startRouter({ outlet, home, onChange }) {
     let failed = false;
     if (name) {
       try {
-        render = (await import(`../${name}/index.js`)).render;
+        render = (screens[name] ? await screens[name]() : await import(`../${name}/index.js`)).render;
       } catch (err) {
         console.error(err);
         failed = true;

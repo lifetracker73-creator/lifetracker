@@ -122,6 +122,18 @@ export function formatDateTime(dt) {
   return `${formatDate(ymd)}, ${formatTime(hm)}`;
 }
 
+/** An ISO timestamp (e.g. createdAt) -> 'YYYY-MM-DD HH:MM' in Kolkata time. */
+export function isoToKolkata(iso) {
+  const p = parts(new Date(iso));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+
+/** Indian style for Google Sheets: 'YYYY-MM-DD' -> '23-11-2026' (a time after it is kept). */
+export function toIndianDate(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(.*)$/.exec(value);
+  return m ? `${m[3]}-${m[2]}-${m[1]}${m[4]}` : value;
+}
+
 // 'YYYY-MM-DD HH:MM' -> minutes counted from 1 Jan 1970 (Kolkata has no clock changes).
 function toMinutes(dt) {
   const [ymd, hm] = dt.split(' ');

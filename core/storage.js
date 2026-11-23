@@ -5,6 +5,9 @@
 //            getSettings, saveSettings } from '../core/storage.js';
 //
 // Every record gets `id` (random UUID), `createdAt` and `updatedAt` (ISO timestamps).
+// Every add, update, remove and restore also goes into the outbox for Google Sync (SHEETS-SYNC).
+
+import { isoToKolkata } from './dates.js';
 
 const DB_NAME = 'lifetracker';
 
@@ -28,6 +31,12 @@ export const STORES = {
 
 const SETTINGS = 'settings'; // one row per module, keyed by module name
 
+// SHEETS-SYNC: the outbox is a waiting list of changes still to be copied to Google Sheets.
+// One row per record ("water:<id>"), so it always holds only the latest change of each record.
+// It is written in the same step as the record itself, so a change can never be missed.
+// Settings are never put in the outbox.
+const OUTBOX = 'outbox';
+
 // Migrations: entry N upgrades the database from version N-1 to version N.
 // To change the data structure later, ADD a new entry at the end (never edit old ones).
 // Each step gets the open database and the upgrade transaction, so it can also
@@ -40,6 +49,10 @@ const migrations = [
       if (dateField) store.createIndex('date', dateField);
     }
     db.createObjectStore(SETTINGS, { keyPath: 'module' });
+  },
+  // Version 2 (SHEETS-SYNC): add the outbox. Existing data is not touched.
+  (db) => {
+    db.createObjectStore(OUTBOX, { keyPath: 'key' });
   },
 ];
 
@@ -109,15 +122,109 @@ function uuid() {
 
 const nowIso = () => new Date().toISOString();
 
+// ---------- outbox (SHEETS-SYNC) ----------
+
+/** Which year's Google Sheet a record goes in: the year of its date, else the year it was created. */
+export function yearOf(storeName, record) {
+  const field = STORES[storeName]?.dateField;
+  const value = field ? record?.[field] : null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return Number(value.slice(0, 4));
+  return Number(isoToKolkata(record?.createdAt || nowIso()).slice(0, 4));
+}
+
+// A record store plus the outbox, in one step, for writing.
+async function writeTx(name) {
+  checkStore(name);
+  const db = await openDb();
+  const tx = db.transaction([name, OUTBOX], 'readwrite');
+  return { tx, store: tx.objectStore(name), outbox: tx.objectStore(OUTBOX) };
+}
+
+/**
+ * Put a change in the outbox (inside an open transaction).
+ * op: 'upsert' (added/changed) or 'delete'. `before` is the record as it was, if it was changed.
+ * staleYears lists other years' Sheets the record must be removed from (when its date moved year).
+ */
+function queueChange(outbox, storeName, op, record, before = null) {
+  const key = `${storeName}:${record.id}`;
+  const req = outbox.get(key);
+  req.onsuccess = () => {
+    const prev = req.result;
+    const year = yearOf(storeName, record);
+    const stale = new Set(prev?.staleYears ?? []);
+    if (prev) stale.add(prev.year);
+    if (before) stale.add(yearOf(storeName, before));
+    stale.delete(year);
+    outbox.put({
+      key, store: storeName, id: record.id, op,
+      record: op === 'upsert' ? record : null,
+      year, staleYears: [...stale], version: uuid(), queuedAt: nowIso(),
+    });
+  };
+}
+
+// Tell the sync helper that the outbox changed.
+function outboxChanged() {
+  globalThis.dispatchEvent?.(new Event('lifetracker:outbox'));
+}
+
+/** The oldest `limit` waiting changes. */
+export async function listOutbox(limit) {
+  const db = await openDb();
+  const all = await done(db.transaction(OUTBOX).objectStore(OUTBOX).getAll());
+  all.sort((a, b) => a.queuedAt.localeCompare(b.queuedAt));
+  return limit ? all.slice(0, limit) : all;
+}
+
+/** How many changes are waiting. */
+export async function countOutbox() {
+  const db = await openDb();
+  return done(db.transaction(OUTBOX).objectStore(OUTBOX).count());
+}
+
+/** Remove changes that were sent, unless the record changed again while sending. */
+export async function clearSent(entries) {
+  const db = await openDb();
+  const tx = db.transaction(OUTBOX, 'readwrite');
+  const outbox = tx.objectStore(OUTBOX);
+  for (const entry of entries) {
+    const req = outbox.get(entry.key);
+    req.onsuccess = () => {
+      if (req.result?.version === entry.version) outbox.delete(entry.key);
+    };
+  }
+  await txDone(tx);
+  outboxChanged();
+}
+
+/** Put every saved record (not settings) in the outbox, for "Sync everything now". */
+export async function queueEverything() {
+  const db = await openDb();
+  const names = Object.keys(STORES);
+  const tx = db.transaction([...names, OUTBOX], 'readwrite');
+  const outbox = tx.objectStore(OUTBOX);
+  let count = 0;
+  for (const name of names) {
+    const records = await done(tx.objectStore(name).getAll());
+    for (const record of records) queueChange(outbox, name, 'upsert', record);
+    count += records.length;
+  }
+  await txDone(tx);
+  outboxChanged();
+  return count;
+}
+
 // ---------- records ----------
 
 /** Save a new record. Returns the saved record (with id, createdAt, updatedAt). */
 export async function add(storeName, data) {
   const now = nowIso();
   const record = { ...data, id: uuid(), createdAt: now, updatedAt: now };
-  const { tx, store } = await storeFor(storeName, 'readwrite');
+  const { tx, store, outbox } = await writeTx(storeName);
   store.add(record);
+  queueChange(outbox, storeName, 'upsert', record);
   await txDone(tx);
+  outboxChanged();
   return record;
 }
 
@@ -129,29 +236,37 @@ export async function get(storeName, id) {
 
 /** Change some fields of a record. Returns the updated record, or null if not found. */
 export async function update(storeName, id, changes) {
-  const { tx, store } = await storeFor(storeName, 'readwrite');
+  const { tx, store, outbox } = await writeTx(storeName);
   const existing = await done(store.get(id));
   if (!existing) { await txDone(tx); return null; }
   const record = { ...existing, ...changes, id, createdAt: existing.createdAt, updatedAt: nowIso() };
   store.put(record);
+  queueChange(outbox, storeName, 'upsert', record, existing);
   await txDone(tx);
+  outboxChanged();
   return record;
 }
 
 /** Delete a record. Returns the deleted record (keep it to offer Undo), or null. */
 export async function remove(storeName, id) {
-  const { tx, store } = await storeFor(storeName, 'readwrite');
+  const { tx, store, outbox } = await writeTx(storeName);
   const existing = await done(store.get(id));
-  if (existing) store.delete(id);
+  if (existing) {
+    store.delete(id);
+    queueChange(outbox, storeName, 'delete', existing);
+  }
   await txDone(tx);
+  if (existing) outboxChanged();
   return existing ?? null;
 }
 
 /** Put a deleted record back exactly as it was (for Undo). */
 export async function restore(storeName, record) {
-  const { tx, store } = await storeFor(storeName, 'readwrite');
+  const { tx, store, outbox } = await writeTx(storeName);
   store.put(record);
+  queueChange(outbox, storeName, 'upsert', record);
   await txDone(tx);
+  outboxChanged();
   return record;
 }
 

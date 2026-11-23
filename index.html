@@ -20,17 +20,20 @@
     <div class="app-header__inner">
       <span id="screen-badge"></span>
       <h1 id="screen-title" class="app-header__title" tabindex="-1">Lifetracker</h1>
+      <button id="sync-status" class="sync-status" type="button" aria-haspopup="dialog" hidden></button>
     </div>
   </header>
   <main id="app" class="page app-main"></main>
   <nav id="bottom-nav" class="bottom-nav" aria-label="Main menu"></nav>
   <dialog id="more-sheet" class="sheet" aria-labelledby="more-title"></dialog>
+  <dialog id="sync-sheet" class="sheet" aria-labelledby="sync-title"></dialog>
 
   <script type="module">
     import { el, badge, button, card, modules } from './core/ui.js';
     import { startRouter } from './core/router.js';
     import { getSettings } from './core/storage.js';
     import { today, currentHour, formatDate } from './core/dates.js';
+    import { startSync, onStatus, syncNow } from './core/sync.js';
 
     // Modules on the bottom bar; the rest sit in the "More" panel.
     const barModules = ['water', 'food', 'money', 'tasks'];
@@ -76,10 +79,55 @@
         button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => sheet.close() }),
       ]),
       el('div', { className: 'tile-grid' }, moreModules.map(tile)),
+      el('a', { className: 'btn btn--secondary btn--block more-settings', href: '#/settings' }, [
+        el('span', { 'aria-hidden': 'true', text: '⚙️' }),
+        el('span', { text: 'Settings' }),
+      ]),
     );
     sheet.addEventListener('click', (e) => {
-      if (e.target === sheet || e.target.closest('.tile')) sheet.close();
+      if (e.target === sheet || e.target.closest('.tile, .more-settings')) sheet.close();
     });
+
+    // Google Sync status icon (SHEETS-SYNC): ✅ synced / ⏳ X waiting / ⚠️ problem.
+    // Tapping it explains in plain words, with "Try again" and "Settings" buttons.
+    const syncButton = document.getElementById('sync-status');
+    const syncSheet = document.getElementById('sync-sheet');
+    const syncText = el('p', { className: 'sync-sheet__text' });
+    const syncWhen = el('p', { className: 'muted sync-sheet__when' });
+    syncSheet.append(
+      el('div', { className: 'sheet__head' }, [
+        el('h2', { id: 'sync-title', className: 'sheet__title', text: 'Google Sync' }),
+        button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => syncSheet.close() }),
+      ]),
+      syncText,
+      syncWhen,
+      el('div', { className: 'btn-row' }, [
+        button({ label: 'Try again', variant: 'primary', onClick: () => syncNow() }),
+        el('a', { className: 'btn btn--secondary', href: '#/settings', onClick: () => syncSheet.close() }, [
+          el('span', { text: 'Settings' }),
+        ]),
+      ]),
+    );
+    syncSheet.addEventListener('click', (e) => { if (e.target === syncSheet) syncSheet.close(); });
+    syncButton.addEventListener('click', () => syncSheet.showModal());
+    onStatus((s) => {
+      const icon = { synced: '✅', waiting: '⏳', sending: '⏳', problem: '⚠️' }[s.state];
+      const short = s.state === 'synced' ? 'Synced'
+        : s.state === 'problem' ? 'Sync problem'
+        : `${s.waiting} waiting`;
+      syncButton.hidden = false;
+      syncButton.className = `sync-status sync-status--${s.state}`;
+      syncButton.replaceChildren(
+        el('span', { 'aria-hidden': 'true', text: icon }),
+        ...(s.waiting && s.state !== 'synced' ? [el('span', { text: String(s.waiting) })] : []),
+      );
+      syncButton.setAttribute('aria-label', `Google Sync: ${short}`);
+      syncText.textContent = `${icon} ${s.message}`;
+      syncWhen.textContent = s.lastSyncAt
+        ? `Last sent: ${new Date(s.lastSyncAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}`
+        : '';
+    });
+    startSync();
 
     // Offline helper (CORE-5): saves the app on the phone so it works with no internet.
     // When a new version has been downloaded, a message offers to switch to it.
@@ -183,12 +231,13 @@
     let firstScreen = true;
     function onChange(name) {
       if (sheet.open) sheet.close();
-      const mod = modules[name];
+      const mod = modules[name] || (name === 'settings' ? { emoji: '⚙️', label: 'Settings' } : null);
       titleEl.textContent = mod ? mod.label : 'Lifetracker';
-      badgeEl.replaceChildren(mod ? badge(name) : '');
+      badgeEl.replaceChildren(modules[name] ? badge(name)
+        : mod ? el('span', { className: 'badge', 'aria-hidden': 'true', text: mod.emoji }) : '');
       document.title = mod ? `${mod.label} · Lifetracker` : 'Lifetracker';
 
-      const activeKey = moreModules.includes(name) ? 'more' : name;
+      const activeKey = moreModules.includes(name) || name === 'settings' ? 'more' : name;
       for (const item of nav.querySelectorAll('.nav-item')) {
         const active = item.dataset.key === activeKey;
         item.classList.toggle('is-active', active);
@@ -204,7 +253,10 @@
       firstScreen = false;
     }
 
-    startRouter({ outlet: app, home: homeScreen, onChange });
+    startRouter({
+      outlet: app, home: homeScreen, onChange,
+      screens: { settings: () => import('./core/settings.js') },
+    });
   </script>
 </body>
 </html>

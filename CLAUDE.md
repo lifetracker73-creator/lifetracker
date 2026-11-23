@@ -40,7 +40,8 @@ Before any work, read SPEC.md (features and unit codes) and PROGRESS.md (what's 
 ## Folder structure
 ```
 index.html  manifest.webmanifest  sw.js  icons/
-core/     storage.js dates.js format.js ui.js router.js charts.js notify.js styles.css vendor/ fonts/
+core/     storage.js dates.js format.js ui.js router.js charts.js notify.js sync.js settings.js styles.css vendor/ fonts/
+google-apps-script/   Code.gs appsscript.json   (pasted into Google by hand; never contains secrets)
 water/  sleep/  weight/  food/  money/  tasks/  reading/  bloodtests/
 ```
 - Each module folder has `index.js` (its screens). Add `module.css` only if really needed.
@@ -60,11 +61,17 @@ water/  sleep/  weight/  food/  money/  tasks/  reading/  bloodtests/
 - "commit it" (and the commit at the end of a unit) only saves on my laptop. NEVER push unless I say "release".
 - Never upload personal data, backups or exports. `.gitignore` blocks them; check `git status` before every commit.
 - When I say "release":
-  1. Bump `CACHE_VERSION` in `sw.js` by 1 and check every app file is in its list.
-  2. Commit with the message: `Release v<number>: <short description>`.
-  3. Push to GitHub (`git push origin main`).
-  4. Check the live link shows the new `CACHE_VERSION` (it can take 1–2 minutes).
-  5. Tell me: open the app on my phone with internet and tap "New version available — tap to refresh".
+  1. Secret scan: search every file that will be uploaded for links, keys, emails and secrets
+     (Apps Script links `script.google.com/macros/s/…`, secret keys like `ABCD-EFGH-JKLM-…`,
+     email addresses, API keys/tokens, private keys, passwords). Only these are allowed: the app's
+     own GitHub/GitHub Pages links, the link pattern and Google permission addresses in the sync
+     code, licence links in `core/fonts/OFL.txt`, and made-up examples like `name@gmail.com`.
+     If anything else is found, STOP the release and tell me what and where.
+  2. Bump `CACHE_VERSION` in `sw.js` by 1 and check every app file is in its list.
+  3. Commit with the message: `Release v<number>: <short description>`.
+  4. Push to GitHub (`git push origin main`).
+  5. Check the live link shows the new `CACHE_VERSION` (it can take 1–2 minutes).
+  6. Tell me: open the app on my phone with internet and tap "New version available — tap to refresh".
 
 ## At the end of every unit
 1. Give me a 3-step "How to test" checklist I can follow in my phone or browser.

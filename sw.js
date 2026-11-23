@@ -4,7 +4,7 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
 
 const FILES = [
@@ -19,6 +19,8 @@ const FILES = [
   './core/router.js',
   './core/dates.js',
   './core/format.js',
+  './core/sync.js',
+  './core/settings.js',
   './core/fonts/Nunito-Variable.ttf',
 
   // modules

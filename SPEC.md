@@ -21,8 +21,8 @@ Build one unit at a time, in the order below unless I say otherwise.
 | CORE-4 | Dates and formatting helpers: Kolkata dates, ₹ formatting, metric unit formatting |
 | CORE-5 | PWA offline: manifest, icons, service worker, "Install app" prompt, works with no internet |
 | CORE-6 | Charts: local Chart.js plus one wrapper for bar/line charts in the house style |
-| CORE-7 | Backup: export all data to one JSON file, import it back (with a preview and confirmation) |
-| CORE-8 | Settings screen: per-module goals and preferences in one place, plus "Customise menu" (see below) |
+| CORE-7 | Backup: export all data to one JSON file, import it back (with a preview and confirmation); "Export to Excel" button (one sheet per module) as an extra manual backup. The Google Sync link and key are never included. |
+| CORE-8 | Settings screen: per-module goals and preferences in one place, plus "Customise menu" (see below). Keeps the Google Sync section added by SHEETS-SYNC. |
 | CORE-9 | Notifications helper (`core/notify.js`): permission request, show a notification, in-app banner fallback |
 | HOME-1 | Today dashboard: one card per module summarising today (water, sleep, food, spend, tasks due) |
 
@@ -33,6 +33,73 @@ Build one unit at a time, in the order below unless I say otherwise.
 - The same up/down arrows also set the order of the module cards on the home screen.
 - My choice is saved in storage, so it stays after closing the app.
 - A "Reset to default" button brings back the original menu (Water, Food, Money, Tasks) and card order.
+
+---
+
+## SHEETS-SYNC: automatic copy of every entry to my Google Sheets
+Goal: every add, edit and delete is copied to a Google Sheet in my own Google account, so I never
+have to think about backups. Reliability and security come before features. Keep it simple.
+
+**How it works**
+- Built into `core/storage.js` (CORE-2), so every module, now and future, syncs with no extra work.
+  After an entry is safely saved on the phone, a note "send this" goes into a waiting list (outbox)
+  that is also stored on the phone. The outbox keeps only the latest version of each entry.
+- The outbox is sent to a Google Apps Script web app that runs in my Google account
+  (no Google Cloud project, no "Sign in with Google" button). Works from the installed phone app.
+- The phone always saves first. If I'm offline or sync fails, the app works normally and the outbox
+  is sent automatically when the app is open and back online (on app open, on reconnect, after each change).
+- Every record has `id`, `createdAt`, `updatedAt` (already true since CORE-2). The Sheet uses the ID:
+  an edit updates the same row, a delete removes it, and sending twice never makes duplicates.
+- Settings rows are never synced (they hold the secret key).
+
+**Sheets and Drive**
+- One Google Sheet file per year ("LifeTracker 2026"), created automatically, inside a "LifeTracker"
+  folder in my Drive. An entry goes into the year of its date; library items with no date
+  (foods, categories, markers, books) go into the year they were created. If an edit moves an entry
+  to another year, it is removed from the old year's file.
+- Exactly 8 tabs, one per module: Water, Sleep, Weight, Food, Expenses, Tasks, Reading, Blood tests.
+  Modules that save more than one kind of thing share their tab, with a "Type" column first:
+  Food (Food log / Food library / Recipe), Expenses (Expense / Category),
+  Reading (Book / Check-in / Weekly reflection), Blood tests (Report / Marker).
+  Anything a future unit stores that doesn't fit these goes into an "Other" tab.
+- Readable column names (e.g. "Amount (ml)", "Amount (₹)"), dates as DD-MM-YYYY, times as HH:MM,
+  money in rupees, lists (e.g. report results) as readable text, links to other entries shown by
+  name (e.g. the marker or book name, not its ID). ID, Created and Updated columns last.
+  Future modules get sensible column names automatically.
+- Blood test photos/PDFs: photos are shrunk on the phone before upload; PDFs are sent as they are
+  (up to a size limit). Files are saved in "LifeTracker/Reports" in Drive; the Sheet stores only the link.
+  The Apps Script supports this now; the app side is built with the blood test units (BLD-2).
+
+**Status icon (title bar)**
+- ✅ synced / ⏳ X waiting / ⚠️ problem. Tapping it explains in plain words what's wrong
+  (no internet, wrong key, link not working, Google error) with a "Try again" button.
+
+**Settings → Google Sync** (a minimal Settings screen now; CORE-8 adds the rest later)
+- Paste the Apps Script link and secret key; "Connect" tests them.
+- Shows "Connected: name@gmail.com ✅".
+- "Change account": step-by-step guide to set up the script in another Google account, paste its
+  link and key, then upload all existing data to that account's Sheets.
+- "Sync everything now": re-uploads all data. Safe anytime; never makes duplicates.
+- Reminder to keep the Sheets and folder private (never "Anyone with the link").
+
+**Security (the GitHub repo is public)**
+- The Apps Script link and secret key are never in the code or on GitHub. I paste them into
+  Settings and they're stored only on my phone. They are left out of backups/exports (CORE-7).
+- The secret key is stored in the script's own private settings (Script Properties), not in its code,
+  so the script code itself can safely live in the repo.
+- Every request must carry the correct key or it is rejected. Anything that doesn't look like a
+  valid entry (unknown tab, bad ID, wrong shapes, too big) is rejected. Text that could act as a
+  spreadsheet formula is stored as plain text.
+- Write-only: the script only accepts entries. It never sends my data back; its replies contain only
+  "ok"/error, counts and the connected email. A leaked link reveals nothing.
+- Narrowest Google permission: only files and folders the script itself creates (`drive.file`),
+  plus seeing my own email address. Not my whole Drive.
+- Release rule (CLAUDE.md): before every release, scan all files for links, keys, emails or
+  secrets and stop if one is found.
+
+| Code | Unit |
+|---|---|
+| SHEETS-SYNC | Outbox in storage, sync engine, status icon, Settings → Google Sync, Apps Script code, setup guide |
 
 ---
 
@@ -174,7 +241,7 @@ Each result is flagged Low / Normal / High against that report's range.
 | Code | Unit |
 |---|---|
 | BLD-1 | Marker library: add, edit, delete markers; preload the common list above |
-| BLD-2 | Add a report: date, lab, cost, then enter values for chosen markers with ranges |
+| BLD-2 | Add a report: date, lab, cost, then enter values for chosen markers with ranges; optionally attach a photo/PDF of the report (uploaded to Drive by SHEETS-SYNC, only the link saved in the Sheet) |
 | BLD-3 | Report view: all results with Low / Normal / High flags; list of past reports |
 | BLD-4 | Marker trend: line chart of one marker over time with its reference range shaded |
 | BLD-5 | Totals: spend on tests per year and per lab |
@@ -182,7 +249,7 @@ Each result is flagged Low / Normal / High against that report's range.
 ---
 
 ## Suggested build order
-CORE-1 → CORE-2 → CORE-3 → CORE-4 → CORE-5 → WTR-1 → WTR-2 → CORE-6 → WTR-3 → WGT-1…3 →
+CORE-1 → CORE-2 → CORE-3 → CORE-4 → CORE-5 → WTR-1 → SHEETS-SYNC → WTR-2 → CORE-6 → WTR-3 → WGT-1…3 →
 SLP-1…2 → MON-1…6 → TSK-1…2 → CORE-9 → TSK-3…4 → RDG-1…4 → FOOD-1…6 → BLD-1…5 →
 CORE-7 → CORE-8 → HOME-1 → HOME-SUMMARY
 
