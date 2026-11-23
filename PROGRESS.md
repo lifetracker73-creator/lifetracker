@@ -225,3 +225,9 @@
   makes a new LifeTracker folder; "Sync everything now" refills it.
 - If the outbox ever has an entry Google refuses, sync stops with ⚠️ until fixed (data stays safe on the phone).
 - CORE-7 (Backup) must leave out the Google Sync link and key, and add "Export to Excel".
+
+## Plan decision (24 Nov 2026): release once, when the whole app is built
+- All remaining units are built and committed on the laptop first; the phone gets them in one
+  "release" at the end. Until then, entries made on the phone have no Google backup.
+- After that release: on the phone, open More → ⚙️ Settings → Google Sync, paste the same Apps Script
+  link and type the key, tap Connect. Everything logged so far is then uploaded.
