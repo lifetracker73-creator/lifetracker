@@ -421,3 +421,25 @@
 **Known issues**
 - Between 10 pm and 6 am, "I'm awake" isn't on Home (e.g. waking at 5:30 am); use the 😴 Sleep screen then.
 - Going to bed before 10 pm also needs the 😴 Sleep screen.
+
+## SLP-2: Sleep history (24 Nov 2026)
+**Built**
+- 😴 Sleep screen: new "History" card (lavender) under the Nights list.
+- "Days to show" pill buttons: 7, 14 and 30 (7 added to the spec's 14/30, as asked). The chosen one
+  lights up; it opens on 7.
+- Bar chart of hours slept each night (filed under the morning you woke up), with a dashed "Target"
+  line at 8 h (sleep settings, so CORE-8 can change it). Nights with nothing logged show as gaps.
+  The side axis reads "0 h, 5 h, 10 h"; tapping a bar shows e.g. "7 h 30 m".
+- Under the chart: average sleep ("7 h 22 m"), average bedtime ("11:36 pm") and average wake time
+  ("6:58 am") for the nights in the chosen view, plus "From 6 nights in the last 7 days."
+  Bedtimes either side of midnight average correctly (11:30 pm and 12:30 am → 12:00 am, not noon).
+  With no nights in view: "Log a few nights to see your averages ✨".
+- Updates straight away after saving, editing, deleting, Undo, "I'm awake" or an auto wake.
+  Worked out on screen; saved data unchanged.
+- Checked at 360px, light and dark, with 19 pretend nights over 25 days (removed afterwards, with their
+  waiting Google Sync changes; Google Sync isn't set up in the test browser): all 3 views, averages
+  checked by hand, delete and Undo, empty message, no sideways scrolling, buttons 44px, no new errors.
+
+**Known issues**
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- With a long Nights list, you have to scroll past it to reach the History card.

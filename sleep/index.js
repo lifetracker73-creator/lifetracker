@@ -2,13 +2,16 @@
 // SLP-1: log a night (bed and wake time, defaults to last night), one entry per night (the morning you
 // woke up), list of nights, edit/delete with Undo. Plus a quick "Going to bed" / "I'm awake" pair and a
 // wake-up cut-off time: if "I'm awake" is forgotten, the wake time is set to the cut-off automatically.
+// SLP-2: history chart of hours slept (7/14/30 days) with the target line; average sleep, bed and wake time.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import {
   add, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
 } from '../core/storage.js';
 import {
-  today, yesterday, currentHour, nowDateTime, addDays, daysBetween, formatDate, formatTime, formatDuration,
+  today, yesterday, currentHour, nowDateTime, addDays, daysBetween, dateRange,
+  formatDate, formatTime, formatDuration,
 } from '../core/dates.js';
+import { barChart } from '../core/charts.js';
 
 // wakeCutoff: 'HH:MM', or '' when switched off. pendingBedTime: 'YYYY-MM-DD HH:MM' after
 // "Going to bed" until the night is finished (kept in settings, so it's never a half-filled entry).
@@ -16,6 +19,7 @@ const DEFAULTS = { targetHours: 8, wakeCutoff: '10:00', pendingBedTime: null };
 const DEFAULT_BED = '23:00';
 const DEFAULT_WAKE = '07:00';
 const MAX_MINUTES = 24 * 60;
+const HISTORY_DAYS = [7, 14, 30];
 
 const hmToMinutes = (hm) => {
   const [h, m] = hm.split(':').map(Number);
@@ -65,6 +69,20 @@ async function saveNight(bedTime, wakeTime, autoWake) {
   const data = { date, bedTime, wakeTime, autoWake };
   if (existing) await update('sleep', existing.id, data);
   else await add('sleep', data);
+}
+
+// Average clock time of 'HH:MM' values, treating the clock as a circle so that
+// 11:30 pm and 12:30 am average to midnight (not midday). Gives back 'HH:MM'.
+function averageClock(times) {
+  let x = 0;
+  let y = 0;
+  for (const t of times) {
+    const angle = (hmToMinutes(t) / 1440) * 2 * Math.PI;
+    x += Math.cos(angle);
+    y += Math.sin(angle);
+  }
+  const minutes = Math.round((((Math.atan2(y, x) / (2 * Math.PI)) * 1440) + 1440) % 1440) % 1440;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
 const nightText = (n) => `${formatTime(n.bedTime.slice(11))} → ${formatTime(n.wakeTime.slice(11))}`;
@@ -319,11 +337,73 @@ export async function render(root) {
     });
   }
 
+  // ---------- History (SLP-2): worked out on screen from the saved nights ----------
+  let historyDays = HISTORY_DAYS[0];
+  let chart = null;
+  const chartBox = el('div', { className: 'chart-box' });
+  const averagesBox = el('div');
+  const rangeButtons = HISTORY_DAYS.map((days) => {
+    const btn = button({
+      label: String(days),
+      variant: days === historyDays ? 'primary' : 'secondary',
+      ariaLabel: `Show the last ${days} days`,
+      onClick: async () => {
+        historyDays = days;
+        rangeButtons.forEach((b) => {
+          const on = b.dataset.days === String(days);
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        await refreshHistory();
+      },
+    });
+    btn.dataset.days = String(days);
+    btn.setAttribute('aria-pressed', String(days === historyDays));
+    return btn;
+  });
+
+  async function refreshHistory() {
+    const dates = dateRange(addDays(today(), -(historyDays - 1)), today());
+    const byDate = {};
+    for (const night of entries) if (!byDate[night.date]) byDate[night.date] = night; // newest first
+    const inView = dates.map((d) => byDate[d]).filter(Boolean);
+    const minutes = (n) => minutesBetween(n.bedTime, n.wakeTime);
+    // Hours, so the side axis reads "6 h", "8 h". No night = gap.
+    const values = dates.map((d) => (byDate[d] ? Math.round((minutes(byDate[d]) / 60) * 100) / 100 : null));
+    const config = { labels: dates, values };
+    if (!chartBox.isConnected) return;
+    if (chart) (await chart).update(config);
+    else {
+      // Keep the promise so quick taps never draw a second chart.
+      chart = barChart(chartBox, {
+        module: 'sleep', ...config, goal: settings.targetHours, goalLabel: 'Target',
+        format: (v) => (v ? formatDuration(v * 60) : '0 h'),
+      });
+      await chart;
+    }
+    if (!inView.length) {
+      averagesBox.replaceChildren(el('p', { className: 'progress-note', text: 'Log a few nights to see your averages ✨' }));
+      return;
+    }
+    const avgMinutes = inView.reduce((sum, n) => sum + minutes(n), 0) / inView.length;
+    const nights = `${inView.length} night${inView.length === 1 ? '' : 's'}`;
+    averagesBox.replaceChildren(
+      list([
+        listItem({ title: '💤 Average sleep', meta: formatDuration(avgMinutes) }),
+        listItem({ title: '🌙 Average bedtime', meta: formatTime(averageClock(inView.map((n) => n.bedTime.slice(11)))) }),
+        listItem({ title: '☀️ Average wake time', meta: formatTime(averageClock(inView.map((n) => n.wakeTime.slice(11)))) }),
+      ]),
+      el('p', { className: 'progress-note', text: `From ${nights} in the last ${historyDays} days.` }),
+    );
+  }
+
   async function refresh() {
     entries = await listAll('sleep');
     entries.sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt));
     showTonight();
     showPreview();
+    await refreshHistory();
     if (!entries.length) {
       listBox.replaceChildren(emptyState({
         emoji: '😴',
@@ -394,6 +474,14 @@ export async function render(root) {
     card({ title: 'Bedtime', module: 'sleep', children: [tonightBox] }),
     card({ title: 'Log a night', module: 'sleep', children: [form] }),
     card({ title: 'Nights', children: [listBox] }),
+    card({ title: 'History', module: 'sleep', children: [el('div', { className: 'stack' }, [
+      el('div', { className: 'stack' }, [
+        el('p', { className: 'progress-note', text: 'Days to show' }),
+        el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Days to show' }, rangeButtons),
+      ]),
+      chartBox,
+      averagesBox,
+    ])] }),
     card({ title: 'Wake-up cut-off', module: 'sleep', children: [cutoffForm] }),
   ]));
 
