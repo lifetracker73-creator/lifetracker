@@ -4,8 +4,11 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
+
+// Laptop testing address (not the live link). Phones and the live link keep using saved copies first.
+const IS_LAPTOP = ['localhost', '127.0.0.1'].includes(self.location.hostname);
 
 const FILES = [
   './',
@@ -70,6 +73,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+
+  // On the laptop (localhost), always get the newest files so every change shows on reload.
+  // Falls back to the saved copy only if the laptop's local server isn't running.
+  if (IS_LAPTOP) {
+    event.respondWith(
+      fetch(request.url, { cache: 'no-cache' }).catch(() => (request.mode === 'navigate'
+        ? caches.match('./index.html')
+        : caches.match(request, { ignoreSearch: true }))),
+    );
+    return;
+  }
 
   // Opening the app (any page address) always gets the saved index.html.
   if (request.mode === 'navigate') {

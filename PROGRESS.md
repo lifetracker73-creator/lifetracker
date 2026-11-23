@@ -250,3 +250,10 @@
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - Python on this laptop is broken (the "py"/"python" commands fail), so the test used a small
   temporary PowerShell web server instead.
+
+## Laptop always shows the newest version (24 Nov 2026)
+- `sw.js` (cache version 4): when the app is opened on the laptop (localhost / 127.0.0.1), it always
+  loads the newest files, so every change shows after a normal reload. It uses the saved copy only
+  if the laptop's web server isn't running. The phone and the live link work exactly as before.
+- One time only: in laptop Chrome, tap "New version available — tap to refresh" (or close and reopen
+  the tab) so this new helper takes over.
