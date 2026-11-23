@@ -367,3 +367,36 @@
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - Feet + inches are shown rounded to the nearest inch. Height and goal move to the full Settings
   screen with CORE-8 (they stay in the same saved place, so nothing is lost).
+
+## SLP-1: Log a night (24 Nov 2026)
+**Built**
+- 😴 Sleep screen (lavender), four cards:
+  - **Bedtime**: "🌙 Going to bed" saves the bed time now and shows "😴 Sleeping since 11:15 pm" with
+    "☀️ I'm awake" (saves the night, "Good morning ☀️ You slept 7 h 30 m") and Cancel.
+  - **Log a night**: bed date + time and wake date + time, starting on last night (11:00 pm → 7:00 am;
+    before 7 am it starts on the night before). Shows "You slept 8 h 💤" before saving. Friendly
+    messages if wake isn't after bed, the night is over 24 hours, or the wake time is in the future.
+  - **Nights** list, newest first ("7 h 30 m · 11:00 pm → 7:00 am · 23 Nov 2026"), with edit (all four
+    boxes in the row) and delete with "Deleted 7 h 30 m · Undo".
+  - **Wake-up cut-off** (my extra request): a time, 10:00 am to start with; leave empty to switch off.
+    If "Going to bed" was tapped and "I'm awake" forgotten, the night is saved with the wake time at the
+    cut-off (the first cut-off after bed time), marked "⏰ auto wake", with a message to edit if needed.
+- One entry per night, filed under the morning you woke up; saving a night for a morning that already
+  has one replaces it (the button says "Update" and a note warns). Editing can't move a night onto a
+  morning that already has one.
+- Saved data: sleep entries are `date`, `bedTime`, `wakeTime` as in the spec, plus a new `autoWake`
+  (Yes/No; shown as an "Auto wake" column in Google Sheets). Editing a night sets it back to No.
+  Sleep settings now also hold `wakeCutoff` and `pendingBedTime` (the bed time while a night is open;
+  settings are never synced). Nothing existing was changed.
+- `core/styles.css`: new shared `.field-row` (date box wider than time box) so dates aren't cut off at 360px.
+- Checked at 360px, light and dark, with pretend nights (removed afterwards; Google Sync isn't set up in
+  the test browser): save, replace, all 3 error messages, bed → awake, forgotten wake → auto 10:00 am,
+  edit, edit clash, delete and Undo, cut-off off/on, no sideways scrolling, buttons ≥ 44px, no new errors.
+
+**Known issues**
+- The automatic wake time is filled in when the 😴 Sleep screen is opened (or while it's open), not
+  while the app is closed. The time saved is still the cut-off, so nothing is lost; it just reaches
+  Google Sheets once the Sleep screen is opened. (HOME-1 could also do this from the home screen.)
+- Tapping "I'm awake" after the cut-off has passed saves the cut-off time, not the actual time; edit it if needed.
+- The cut-off setting moves to the full Settings screen with CORE-8 (same saved place, nothing lost).
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
