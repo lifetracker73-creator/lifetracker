@@ -573,3 +573,34 @@
 - Changing a budget also changes it for past months (there is one budget per category, not one per month).
 - The Budgets list shows every category, so with many categories it gets long.
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+## MON-6: Export a month to Excel (24 Nov 2026)
+**Built**
+- Changed from the spec's CSV to a real Excel file (.xlsx), as asked, so it can have colours and be
+  understood in 15–20 seconds. SPEC.md updated.
+- 💸 Money screen: new "Export" card under Charts. It follows the month picked in "This month" with ◀ ▶.
+  "⬇️ Download Nov 2026 (Excel)" saves `lifetracker-expenses-2026-11.xlsx` to Downloads, with a message.
+  A month with no expenses shows "No expenses in Sept 2026 to export." and the button is greyed out.
+- **Summary tab** (no grid lines, butter-yellow headings): big total; number of expenses; compared with
+  last month (green if less, red if more); daily average; biggest expense; top category; budgets left/over.
+  Then three small tables with coloured bars made of █ blocks: "Where the money went" (category, amount,
+  share %, count, total row), "Budgets" (budget, spent, % used, a green or red bar with ₹ left/over; only
+  if a budget is set) and "How you paid" (UPI / Cash / Card / Other).
+- **Expenses tab**: every expense, oldest first: Date ("01 Nov 2026"), Amount (₹), Category, Paid by, Note,
+  with a total row, the header row frozen and filter buttons. Amounts are real numbers (Excel can add
+  them up) shown with Indian grouping (₹1,23,45,678.90); dates are real dates.
+- New `core/xlsx.js`: a small Excel file maker built into the app (no outside library, works offline),
+  using the colours from `core/styles.css`. CORE-7's "Export to Excel" can reuse it. Text from the app is
+  always saved as plain text, so a note like "=SUM(A1)" can't act as a formula.
+- `sw.js`: cache version 6 with the new file.
+- Checked: the file opens in real Excel on this laptop with no repair message; all values, ₹ crore
+  grouping, dates, colours and bars checked. Money screen checked at 360px in light and dark mode:
+  Nov, Oct and an empty Sept, button 44px tall, no sideways scrolling, no new errors. The 13 pretend
+  expenses and 2 budgets were removed afterwards, and the waiting Google Sync list put back to its 12 entries.
+
+**Known issues**
+- Not yet opened in Google Sheets or a phone spreadsheet app (should work: it's a standard Excel file).
+  If Google Sheets shows the ₹ amounts oddly, tell me.
+- The bars are made of █ blocks (they work everywhere); there are no Excel charts in the file.
+- On iPhone, the file may open in a preview first; use Share → Save to Files.
+- The phone gets this at the final "release".

@@ -4,7 +4,7 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
 
 // Laptop testing address (not the live link). Phones and the live link keep using saved copies first.
@@ -25,6 +25,7 @@ const FILES = [
   './core/sync.js',
   './core/settings.js',
   './core/charts.js',
+  './core/xlsx.js',
   './core/vendor/chart.umd.min.js',
   './core/fonts/Nunito-Variable.ttf',
 

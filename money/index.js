@@ -5,6 +5,7 @@
 // MON-4: Charts card: spend by category for the month shown above, and spend over time
 //        (each day of that month, or the 12 months up to it).
 // MON-5: Budgets card: a monthly budget per category (same every month) with "spent / left" bars.
+// MON-6: Export card: the month chosen above as an Excel file (a colourful Summary tab + all Expenses).
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
@@ -16,6 +17,7 @@ import {
 } from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
 import { barChart } from '../core/charts.js';
+import { makeXlsx, saveFile } from '../core/xlsx.js';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Food', icon: '🍔' },
@@ -218,6 +220,171 @@ function compareText(thisPaise, lastPaise, lastCount, lastYm) {
     : `📈 ${formatMoney(diff)} more than ${last}`;
 }
 
+// ---- Export (MON-6): one month as an Excel file, made to be understood at a glance ----
+// Summary tab: big total, compare to last month, daily average, biggest expense, then coloured
+// tables with text bars (█) for categories, budgets and payment methods. Expenses tab: every expense.
+const BAR_WIDTH = 16;
+const textBar = (part, whole) => {
+  if (!whole || part <= 0) return '';
+  return '█'.repeat(Math.max(1, Math.round(Math.min(part / whole, 1) * BAR_WIDTH)));
+};
+
+function monthWorkbook({ ym, items, lastItems, categories, catText }) {
+  const month = formatMonth(ym);
+  const lastMonth = formatMonth(prevMonth(ym));
+  const rupees = (paise) => paise / 100;
+  const sum = (list) => list.reduce((s, x) => s + x.amountPaise, 0);
+  const total = sum(items);
+  const lastTotal = sum(lastItems);
+
+  // Styles (colours come from core/styles.css via the PALETTE in core/xlsx.js)
+  const S = {
+    title: { bold: true, size: 18, fill: 'money' },
+    sub: { italic: true, size: 10, color: 'muted' },
+    label: { bold: true, color: 'muted' },
+    big: { bold: true, size: 16, num: 'money', align: 'left' },
+    text: { align: 'left' },
+    money: { num: 'money' },
+    moneyBold: { num: 'money', bold: true },
+    pct: { num: 'percent', align: 'right' },
+    int: { num: 'int', align: 'center' },
+    good: { bold: true, color: 'success', align: 'left' },
+    bad: { bold: true, color: 'error', align: 'left' },
+    muted: { italic: true, color: 'muted', align: 'left' },
+    section: { bold: true, size: 13, fill: 'money' },
+    head: { bold: true, fill: 'lilac' },
+    headRight: { bold: true, fill: 'lilac', align: 'right' },
+    headCenter: { bold: true, fill: 'lilac', align: 'center' },
+    bar: { color: 'warning' },
+    barGood: { color: 'success' },
+    barBad: { color: 'error' },
+    totalLabel: { bold: true, fill: 'cream' },
+    totalMoney: { bold: true, fill: 'cream', num: 'money' },
+    totalPct: { bold: true, fill: 'cream', num: 'percent', align: 'right' },
+    totalInt: { bold: true, fill: 'cream', num: 'int', align: 'center' },
+    totalBlank: { fill: 'cream' },
+    date: { num: 'date', align: 'left' },
+  };
+  const c = (v, s) => ({ v, s });
+
+  const rows = [];
+  const merges = [];
+  const heights = {};
+  const wide = (text, style) => { // a label in A and a value across B:E
+    rows.push([c(text, S.label), style]);
+    merges.push(`B${rows.length}:E${rows.length}`);
+  };
+  const section = (text) => {
+    rows.push([]);
+    rows.push([c(text, S.section), c('', S.section), c('', S.section), c('', S.section), c('', S.section)]);
+    merges.push(`A${rows.length}:E${rows.length}`);
+    heights[rows.length - 1] = 24;
+  };
+
+  rows.push([c(`💸 Spending · ${month}`, S.title), c('', S.title), c('', S.title), c('', S.title), c('', S.title)]);
+  merges.push('A1:E1');
+  heights[0] = 34;
+  rows.push([c(`From Lifetracker · made ${formatDate(today())}`, S.sub)]);
+  merges.push('A2:E2');
+  rows.push([]);
+
+  // Key numbers
+  wide('Total spent', c(rupees(total), S.big));
+  heights[rows.length - 1] = 26;
+  wide('Expenses', c(countText(items.length), S.text));
+  const diff = total - lastTotal;
+  wide(`Compared with ${lastMonth}`, !lastItems.length
+    ? c(`No expenses in ${lastMonth} to compare`, S.muted)
+    : diff === 0 ? c('➖ The same', S.text)
+      : diff < 0 ? c(`📉 ${formatMoney(-diff)} less (${lastMonth}: ${formatMoney(lastTotal)})`, S.good)
+        : c(`📈 ${formatMoney(diff)} more (${lastMonth}: ${formatMoney(lastTotal)})`, S.bad));
+  const days = ym === today().slice(0, 7) ? Number(today().slice(8)) : Number(monthEnd(`${ym}-01`).slice(8));
+  wide('Daily average', c(rupees(Math.round(total / days)), { ...S.money, align: 'left' }));
+  const biggest = [...items].sort((a, b) => b.amountPaise - a.amountPaise)[0];
+  wide('Biggest expense', c([formatMoney(biggest.amountPaise), catText(biggest.category),
+    formatDate(biggest.date), biggest.note].filter(Boolean).join(' · '), S.text));
+
+  // Per category, biggest first
+  const byCat = new Map();
+  for (const x of items) {
+    const g = byCat.get(x.category) || { paise: 0, count: 0 };
+    g.paise += x.amountPaise;
+    g.count += 1;
+    byCat.set(x.category, g);
+  }
+  const catRows = [...byCat.entries()].sort((a, b) => b[1].paise - a[1].paise);
+  const [topId, top] = catRows[0];
+  wide('Top category', c(`${catText(topId)} · ${Math.round((top.paise / total) * 100)}% of spending`, S.text));
+
+  const spentBy = new Map(catRows.map(([id, g]) => [id, g.paise]));
+  const budgeted = categories.filter((cat) => cat.monthlyBudgetPaise);
+  if (budgeted.length) {
+    const budget = budgeted.reduce((s, cat) => s + cat.monthlyBudgetPaise, 0);
+    const spent = budgeted.reduce((s, cat) => s + (spentBy.get(cat.id) || 0), 0);
+    wide('Budgets', spent <= budget
+      ? c(`✅ ${formatMoney(budget - spent)} left of ${formatMoney(budget)}`, S.good)
+      : c(`⚠️ ${formatMoney(spent - budget)} over ${formatMoney(budget)}`, S.bad));
+  }
+
+  section('🏷️ Where the money went');
+  rows.push([c('Category', S.head), c('Amount', S.headRight), c('Share', S.headRight), c('Count', S.headCenter), c('', S.head)]);
+  for (const [id, g] of catRows) {
+    rows.push([c(catText(id), S.text), c(rupees(g.paise), S.money), c(g.paise / total, S.pct),
+      c(g.count, S.int), c(textBar(g.paise, top.paise), S.bar)]);
+  }
+  rows.push([c('Total', S.totalLabel), c(rupees(total), S.totalMoney), c(1, S.totalPct),
+    c(items.length, S.totalInt), c('', S.totalBlank)]);
+
+  if (budgeted.length) {
+    section('🎯 Budgets');
+    rows.push([c('Category', S.head), c('Budget', S.headRight), c('Spent', S.headRight), c('Used', S.headRight), c('Left', S.head)]);
+    for (const cat of budgeted) {
+      const spent = spentBy.get(cat.id) || 0;
+      const left = cat.monthlyBudgetPaise - spent;
+      const used = spent / cat.monthlyBudgetPaise;
+      const bar = '█'.repeat(Math.round(Math.min(used, 1) * 10)).padEnd(10, '░');
+      rows.push([
+        c(`${cat.icon} ${cat.name}`, S.text), c(rupees(cat.monthlyBudgetPaise), S.money), c(rupees(spent), S.money),
+        c(used, S.pct),
+        left >= 0 ? c(`${bar} ${formatMoney(left)} left`, S.barGood) : c(`${bar} ⚠️ ${formatMoney(-left)} over`, S.barBad),
+      ]);
+    }
+  }
+
+  section('💳 How you paid');
+  rows.push([c('Paid by', S.head), c('Amount', S.headRight), c('Share', S.headRight), c('Count', S.headCenter), c('', S.head)]);
+  const byMethod = new Map();
+  for (const x of items) {
+    const g = byMethod.get(x.paymentMethod) || { paise: 0, count: 0 };
+    g.paise += x.amountPaise;
+    g.count += 1;
+    byMethod.set(x.paymentMethod, g);
+  }
+  const methodRows = [...byMethod.entries()].sort((a, b) => b[1].paise - a[1].paise);
+  for (const [m, g] of methodRows) {
+    rows.push([c(methodLabel(m), S.text), c(rupees(g.paise), S.money), c(g.paise / total, S.pct),
+      c(g.count, S.int), c(textBar(g.paise, methodRows[0][1].paise), S.bar)]);
+  }
+
+  // Every expense, oldest first, with filter buttons on the header row.
+  const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  const expenseRows = [
+    [c('Date', S.head), c('Amount', S.headRight), c('Category', S.head), c('Paid by', S.head), c('Note', S.head)],
+    ...sorted.map((x) => [c(x.date, S.date), c(rupees(x.amountPaise), S.money), c(catText(x.category), S.text),
+      c(methodLabel(x.paymentMethod), S.text), c(x.note || '', S.text)]),
+    [c('Total', S.totalLabel), c(rupees(total), S.totalMoney), c(countText(items.length), S.totalLabel),
+      c('', S.totalBlank), c('', S.totalBlank)],
+  ];
+
+  return makeXlsx([
+    { name: 'Summary', cols: [26, 15, 10, 10, 34], rows, merges, heights, gridLines: false },
+    {
+      name: 'Expenses', cols: [14, 14, 22, 10, 36], rows: expenseRows, frozenRows: 1,
+      filter: `A1:E${sorted.length + 1}`,
+    },
+  ]);
+}
+
 export async function render(root) {
   // `categories` and `catById` are replaced whenever a category is added, changed or deleted (MON-2).
   let categories = await loadCategories();
@@ -360,6 +527,7 @@ export async function render(root) {
     monthCompare.textContent = compareText(total, sum(lastItems), lastItems.length, prevMonth(shownMonth));
     await refreshCharts(all);
     refreshBudgets(items);
+    refreshExport(items, lastItems);
     if (!items.length) {
       monthCats.replaceChildren();
       return;
@@ -496,6 +664,33 @@ export async function render(root) {
     // Categories with a budget first, then the rest, each in the usual order.
     const rows = [...budgeted, ...categories.filter((c) => !c.monthlyBudgetPaise)];
     budgetListBox.replaceChildren(list(rows.map((c) => budgetRow(c, spentBy.get(c.id) || 0))));
+  }
+
+  // ---- Export (MON-6): the month chosen in "This month" as an Excel file ----
+  const exportBox = el('div', { className: 'stack' });
+  function refreshExport(items, lastItems) {
+    const ym = shownMonth;
+    const month = formatMonth(ym);
+    const fileName = `lifetracker-expenses-${ym}.xlsx`;
+    const btn = button({
+      label: `⬇️ Download ${month} (Excel)`,
+      variant: 'primary',
+      block: true,
+      onClick: () => {
+        saveFile(monthWorkbook({ ym, items, lastItems, categories, catText }), fileName);
+        toast({ message: `Saved ${fileName} to Downloads ✨` });
+      },
+    });
+    btn.disabled = !items.length;
+    exportBox.replaceChildren(
+      el('p', {
+        className: 'progress-note',
+        text: items.length
+          ? `A colourful summary of ${month} first, then every expense. Opens in Excel or Google Sheets.`
+          : `No expenses in ${month} to export.`,
+      }),
+      btn,
+    );
   }
 
   // ---- Charts (MON-4): follow the month chosen in "This month" ----
@@ -733,6 +928,7 @@ export async function render(root) {
       timeChartBox,
       timeNote,
     ])] }),
+    card({ title: 'Export', module: 'money', children: [exportBox] }),
     card({ title: 'Expenses', children: [listBox] }),
     card({ title: 'Categories', module: 'money', children: [catForm, catListBox] }),
   ]));

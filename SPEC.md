@@ -183,7 +183,7 @@ Default categories: Food, Groceries, Transport, Bills, Shopping, Health, Enterta
 | MON-3 | Monthly summary: total, per-category totals, compare to last month |
 | MON-4 | Charts: spend by category (month) and spend by day/month over time |
 | MON-5 | Budgets: monthly budget per category with "spent / left" bars |
-| MON-6 | Export expenses for a chosen month to a CSV file |
+| MON-6 | Export expenses for a chosen month to an Excel file (.xlsx): a colourful Summary tab you understand in seconds, plus all expenses |
 
 ---
 
