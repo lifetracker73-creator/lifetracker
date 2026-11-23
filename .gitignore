@@ -1,0 +1,29 @@
+# Files that must never be uploaded to GitHub.
+# Your tracker data lives inside the phone/browser (IndexedDB), never in this folder,
+# but exported files might be saved here by accident. These rules keep them off GitHub.
+
+# Backups and exports (CORE-7 backup, MON-6 CSV, TSK-4 calendar files)
+*backup*
+*.backup
+backups/
+exports/
+*.csv
+*.ics
+*.xlsx
+*-export*.json
+lifetracker*.json
+
+# Secrets and personal settings
+.env
+.env.*
+*.key
+*.pem
+.claude/settings.local.json
+
+# Computer clutter and logs
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+~$*

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#fff8f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1c1a24" media="(prefers-color-scheme: dark)">
+  <title>Lifetracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Lifetracker">
+  <link rel="stylesheet" href="core/styles.css">
+</head>
+<body>
+  <!-- App shell (CORE-3): title bar, screen area, bottom menu bar and the "More" panel. -->
+  <header class="app-header">
+    <div class="app-header__inner">
+      <span id="screen-badge"></span>
+      <h1 id="screen-title" class="app-header__title" tabindex="-1">Lifetracker</h1>
+    </div>
+  </header>
+  <main id="app" class="page app-main"></main>
+  <nav id="bottom-nav" class="bottom-nav" aria-label="Main menu"></nav>
+  <dialog id="more-sheet" class="sheet" aria-labelledby="more-title"></dialog>
+
+  <script type="module">
+    import { el, badge, button, card, modules } from './core/ui.js';
+    import { startRouter } from './core/router.js';
+    import { getSettings } from './core/storage.js';
+    import { today, currentHour, formatDate } from './core/dates.js';
+
+    // Modules on the bottom bar; the rest sit in the "More" panel.
+    const barModules = ['water', 'food', 'money', 'tasks'];
+    const moreModules = Object.keys(modules).filter((key) => !barModules.includes(key));
+
+    const app = document.getElementById('app');
+    const nav = document.getElementById('bottom-nav');
+    const sheet = document.getElementById('more-sheet');
+    const titleEl = document.getElementById('screen-title');
+    const badgeEl = document.getElementById('screen-badge');
+
+    // A big pastel tile that opens a module (home screen and "More" panel).
+    function tile(key) {
+      return el('a', { className: `tile mod-${key}`, href: `#/${key}` }, [
+        el('span', { className: 'tile__emoji', 'aria-hidden': 'true', text: modules[key].emoji }),
+        el('span', { text: modules[key].label }),
+      ]);
+    }
+
+    // One button on the bottom bar.
+    function navItem({ key, emoji, label, href, onClick }) {
+      const attrs = { className: `nav-item${modules[key] ? ` mod-${key}` : ''}`, 'data-key': key };
+      const inner = [
+        el('span', { className: 'nav-item__emoji', 'aria-hidden': 'true', text: emoji }),
+        el('span', { text: label }),
+      ];
+      return href
+        ? el('a', { ...attrs, href }, inner)
+        : el('button', { ...attrs, type: 'button', 'aria-haspopup': 'dialog', onClick }, inner);
+    }
+
+    const moreButton = navItem({ key: 'more', emoji: '🌈', label: 'More', onClick: () => sheet.showModal() });
+    nav.append(el('div', { className: 'bottom-nav__inner' }, [
+      navItem({ key: 'home', emoji: '🏠', label: 'Home', href: '#/' }),
+      ...barModules.map((key) => navItem({ key, emoji: modules[key].emoji, label: modules[key].label, href: `#/${key}` })),
+      moreButton,
+    ]));
+
+    // "More" panel: tap a tile, tap the ✕, tap outside, or press Back/Escape to close.
+    sheet.append(
+      el('div', { className: 'sheet__head' }, [
+        el('h2', { id: 'more-title', className: 'sheet__title', text: 'More' }),
+        button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => sheet.close() }),
+      ]),
+      el('div', { className: 'tile-grid' }, moreModules.map(tile)),
+    );
+    sheet.addEventListener('click', (e) => {
+      if (e.target === sheet || e.target.closest('.tile')) sheet.close();
+    });
+
+    // Offline helper (CORE-5): saves the app on the phone so it works with no internet.
+    // When a new version has been downloaded, a message offers to switch to it.
+    if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      let updateBanner = null;
+
+      function showUpdateBanner(worker) {
+        if (updateBanner || !navigator.serviceWorker.controller) return; // first install: nothing to update
+        updateBanner = el('div', { className: 'update-banner', role: 'status' }, [
+          button({
+            label: '✨ New version available — tap to refresh',
+            variant: 'primary',
+            block: true,
+            onClick: () => {
+              refreshing = true;
+              worker.postMessage('SKIP_WAITING');
+            },
+          }),
+        ]);
+        document.body.append(updateBanner);
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) location.reload();
+      });
+
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        if (reg.waiting) showUpdateBanner(reg.waiting);
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          worker?.addEventListener('statechange', () => {
+            if (worker.state === 'installed') showUpdateBanner(worker);
+          });
+        });
+        // Look for a new version whenever the app comes back to the screen.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+      }).catch((err) => console.error(err));
+    }
+
+    // "Install app" button (CORE-5): shown on Home only when the phone offers to install.
+    let installPrompt = null;
+    const installSlot = el('div', { className: 'install-slot' });
+    function updateInstallSlot() {
+      const installed = window.matchMedia('(display-mode: standalone)').matches;
+      installSlot.replaceChildren();
+      if (!installPrompt || installed) return;
+      installSlot.append(button({
+        label: '📲 Install app',
+        variant: 'secondary',
+        block: true,
+        onClick: async () => {
+          const prompt = installPrompt;
+          installPrompt = null;
+          updateInstallSlot();
+          prompt.prompt();
+          await prompt.userChoice.catch(() => null);
+        },
+      }));
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installPrompt = e;
+      updateInstallSlot();
+    });
+    window.addEventListener('appinstalled', () => {
+      installPrompt = null;
+      updateInstallSlot();
+    });
+
+    async function homeScreen(root) {
+      // Your name comes from the "profile" settings, if one has been saved.
+      let name = '';
+      try {
+        name = ((await getSettings('profile', { name: '' })).name || '').trim();
+      } catch (err) {
+        console.error(err);
+      }
+      const hour = currentHour();
+      const [greeting, emoji] = hour >= 5 && hour < 12 ? ['Good morning', '☀️']
+        : hour >= 12 && hour < 17 ? ['Good afternoon', '🌤️']
+        : ['Good evening', '🌙'];
+
+      root.append(
+        el('div', { className: 'home-greeting' }, [
+          el('h2', { className: 'home-greeting__title', text: `${greeting}${name ? `, ${name}` : ''} ${emoji}` }),
+          el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
+        ]),
+        card({ className: 'home-summary', children: [
+          el('p', { className: 'muted', text: 'Your daily summary will appear here ✨' }),
+        ] }),
+        installSlot,
+        el('div', { className: 'tile-grid' }, Object.keys(modules).map(tile)),
+      );
+      updateInstallSlot();
+    }
+
+    // Before each screen: update the title bar and highlight the right menu button.
+    let firstScreen = true;
+    function onChange(name) {
+      if (sheet.open) sheet.close();
+      const mod = modules[name];
+      titleEl.textContent = mod ? mod.label : 'Lifetracker';
+      badgeEl.replaceChildren(mod ? badge(name) : '');
+      document.title = mod ? `${mod.label} · Lifetracker` : 'Lifetracker';
+
+      const activeKey = moreModules.includes(name) ? 'more' : name;
+      for (const item of nav.querySelectorAll('.nav-item')) {
+        const active = item.dataset.key === activeKey;
+        item.classList.toggle('is-active', active);
+        if (item.tagName === 'A') {
+          if (active) item.setAttribute('aria-current', 'page');
+          else item.removeAttribute('aria-current');
+        }
+      }
+      // The "More" button takes the colour of the module it's showing.
+      moreButton.className = `nav-item${activeKey === 'more' ? ` is-active mod-${name}` : ''}`;
+
+      if (!firstScreen) titleEl.focus({ preventScroll: true });
+      firstScreen = false;
+    }
+
+    startRouter({ outlet: app, home: homeScreen, onChange });
+  </script>
+</body>
+</html>
