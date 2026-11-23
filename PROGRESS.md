@@ -284,3 +284,24 @@
   Decided (24 Nov 2026): keep them, and don't add them to the allowed list yet. At the final
   "release", Claude reminds me briefly what they are and I approve or decline then.
 - The phone gets this at the final "release".
+
+## WTR-3: Water history and streak (24 Nov 2026)
+**Built**
+- 💧 Water screen: new "History" card (baby blue) under the Today list.
+- "Days to show" pill buttons: 7, 14, 21 and 30 (changed from the spec's 7/30, as asked). The chosen one
+  lights up; it opens on 7. The buttons show just the number, because "7 days" doesn't fit four across
+  on a 360px phone.
+- Bar chart of each day's total water, with a dashed "Goal" line at the daily goal. Days with nothing
+  logged show as empty (a gap, not zero).
+- Streak line under the chart: "🔥 5-day streak of goal days", counting days in a row that reached the
+  goal. An unfinished today doesn't break the streak; it is added once today's goal is reached. With no
+  streak: "Reach your goal today to start a streak 💪".
+- Chart and streak update straight away after adding, deleting or Undo. Everything is worked out on
+  screen; saved data is unchanged.
+- Checked at 360px, light and dark, with pretend entries over 30 days (removed afterwards): all 4
+  views, streak 4 → 5 on reaching today's goal, delete back to 4, Undo back to 5, empty chart and
+  no-streak message, no sideways scrolling, no new errors.
+
+**Known issues**
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- The 30-day view shows a date label about every 8 days to fit the phone; tap a bar to see its full date.
