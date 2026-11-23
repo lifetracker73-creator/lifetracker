@@ -344,3 +344,26 @@
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - The 365-day view always shows a full year, so with only a few months of weights most of it is empty.
 - With a long list of weights, you have to scroll past the Entries list to reach the chart.
+
+## WGT-3: BMI and goal progress (24 Nov 2026)
+**Built**
+- ⚖️ Weight screen: new "My height & goal" card at the bottom. Height can be typed in **cm** or
+  **feet + inches** (pill buttons to switch; switching converts what's typed). Goal weight in kg.
+  Both are optional; leaving a box empty clears it. Accepts heights of 100–250 cm (3 ft 4 in to 8 ft 2 in).
+- New "BMI & goal" card under "Log weight":
+  - BMI from the latest weight, e.g. "BMI 23.4 · Healthy" (bands: Underweight under 18.5, Healthy
+    18.5–24.9, Overweight 25–29.9, Obese 30+), with the height shown both ways ("170 cm (5 ft 7 in)").
+    No height: "Add your height below to see your BMI ✨".
+  - Goal progress: a mint bar from the first-ever weight to the goal, "4.0 kg to go · 50%", or
+    "Goal reached! 🎉". Works for losing or gaining. No goal: "Set a goal weight below…".
+- Updates straight away after saving, editing, deleting or Undo, and after saving height/goal.
+- Saved data: weight settings now hold `heightCm` (always in cm), `goalKg` and a new `heightUnit`
+  ('cm' or 'ftin', only remembers how you like to type height). Weights themselves are unchanged.
+- Checked at 360px, light and dark, with pretend weights (removed afterwards; Google Sync isn't set up
+  in the test browser, so nothing was sent): feet + inches and cm, unit switch, error messages,
+  goal reached, clearing, delete and Undo, no sideways scrolling, buttons ≥ 44px, no new errors.
+
+**Known issues**
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- Feet + inches are shown rounded to the nearest inch. Height and goal move to the full Settings
+  screen with CORE-8 (they stay in the same saved place, so nothing is lost).
