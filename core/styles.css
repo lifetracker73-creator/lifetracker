@@ -646,6 +646,18 @@ textarea.input {
   padding: 0 var(--space-2);
 }
 
+/* A grid of emoji buttons to pick an icon from (e.g. money categories). */
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tap-min), 1fr));
+  gap: var(--space-2);
+}
+
+.emoji-grid .btn {
+  padding: 0;
+  font-size: var(--font-size-lg);
+}
+
 /* A date box and a time box side by side; the date gets more room so it isn't cut off. */
 .field-row {
   display: grid;

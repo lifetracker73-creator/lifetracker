@@ -471,3 +471,29 @@
 - The list shows every expense ever; with many months it gets long (MON-3 adds a monthly view).
 - If a category is deleted later (MON-2), its expenses show "❓ Unknown category" until changed.
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+## MON-2: Categories (24 Nov 2026)
+**Built**
+- 💸 Money screen: new "Categories" card (butter yellow) under the Expenses list.
+  - **Add a category**: a name box, an icon picker with 24 ready-made emoji to tap, and "Or type your own
+    emoji" for any other. Friendly messages for an empty name, a name over 30 letters, a name you already
+    have (any capital letters), or more than one emoji / not an emoji.
+  - **List** of all categories (oldest first) with how many expenses use each ("2 expenses"). Tap a row or
+    the pencil to edit name and icon in the row (Cancel / Save); the bin deletes with
+    "Deleted 🐾 Pet care (used by 2 expenses) · Undo".
+- Renaming or changing an icon shows straight away on old expenses (they're linked by ID). Deleted
+  categories leave their expenses as "❓ Unknown category" until Undo or a new category is picked.
+- The Add expense category choices update straight away after any change. If every category is deleted,
+  saving an expense asks you to add a category first.
+- New shared `.emoji-grid` style in `core/styles.css` (5 emoji buttons per row at 360px, each ≥ 44px).
+- Saved data unchanged: categories are `name`, `icon`, `monthlyBudgetPaise` as before.
+- Checked at 360px, light and dark, with pretend categories and expenses (removed afterwards, with their
+  waiting Google Sync changes): all error messages, add, edit (incl. clash with another name), rename shows
+  on expenses, delete and Undo, counts update after adding/deleting expenses, no sideways scrolling,
+  all buttons and boxes ≥ 44px, no new errors.
+
+**Known issues**
+- Inside an edit row, boxes and unselected emoji have the same pale background as the row, so they're
+  harder to see (the same is true for every edit row in the app so far: weight, sleep, expenses).
+- With many expenses, you have to scroll past the Expenses list to reach Categories.
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".

@@ -1,5 +1,6 @@
 // 💸 money module screens.
 // MON-1: add an expense (amount first), list grouped by day with each day's total, edit/delete with Undo.
+// MON-2: Categories card: add, edit (name + emoji icon), delete with Undo.
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
@@ -27,7 +28,87 @@ const METHODS = [
 ];
 const MAX_PAISE = 1_00_00_000 * 100; // ₹1,00,00,000 — anything bigger is almost surely a typo
 
+// Ready-made emoji to tap when choosing a category's icon (MON-2). Any other emoji can be typed.
+const EMOJI_CHOICES = [
+  '🍔', '🛒', '🚌', '🧾', '🛍️', '💊', '🎬', '📦', '🏠', '⛽', '🚕', '✈️',
+  '📱', '💡', '🎁', '👕', '📚', '🎓', '🐶', '💇', '☕', '🍕', '🏋️', '💰',
+];
+const MAX_NAME = 30;
+
 const methodLabel = (value) => METHODS.find((m) => m.value === value)?.label || value || '';
+
+// True if the text is exactly one emoji (e.g. "🐶", "🏋️", "🇮🇳").
+function isOneEmoji(text) {
+  if (!/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(text)) return false;
+  if (typeof Intl.Segmenter !== 'function') return text.length <= 8;
+  return [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(text)].length === 1;
+}
+
+// The category choices for an expense's Category box.
+function categoryOptions(categories, current) {
+  const options = categories.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }));
+  // An expense whose category no longer exists keeps it until another is picked.
+  if (current && !categories.some((c) => c.id === current)) {
+    options.push({ value: current, label: '❓ Unknown category' });
+  }
+  return options;
+}
+
+// Name box plus emoji picker for a category. Used to add and to edit.
+function categoryFields(values = {}) {
+  const name = input({
+    label: 'Name', name: 'catName', type: 'text', value: values.name ?? '', placeholder: 'e.g. Pets',
+  });
+  let chosen = values.icon ?? '📦';
+  const own = input({
+    label: 'Or type your own emoji', name: 'catEmoji', type: 'text',
+    value: EMOJI_CHOICES.includes(chosen) ? '' : chosen, placeholder: 'e.g. 🦜',
+  });
+  const grid = el('div', { className: 'emoji-grid', role: 'group', 'aria-label': 'Choose an icon' });
+  const paint = () => grid.querySelectorAll('.btn').forEach((b) => {
+    const on = b.dataset.emoji === chosen && !own.input.value.trim();
+    b.classList.toggle('btn--primary', on);
+    b.classList.toggle('btn--secondary', !on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  for (const emoji of EMOJI_CHOICES) {
+    const b = button({
+      label: emoji,
+      variant: 'secondary',
+      ariaLabel: `Icon ${emoji}`,
+      onClick: () => { chosen = emoji; own.input.value = ''; own.setError(''); paint(); },
+    });
+    b.dataset.emoji = emoji;
+    grid.append(b);
+  }
+  name.input.addEventListener('input', () => name.setError(''));
+  own.input.addEventListener('input', () => { own.setError(''); paint(); });
+  paint();
+
+  return {
+    name,
+    elements: [name, el('div', { className: 'field' }, [
+      el('div', { className: 'field__label', text: 'Icon' }), grid,
+    ]), own],
+    // Gives back { name, icon } to save, or null after showing what's wrong.
+    // `categories` is the current list (to stop two with the same name); `ownId` is the one being edited.
+    read(categories, ownId) {
+      const text = name.input.value.trim().replace(/\s+/g, ' ');
+      let nameError = '';
+      if (!text) nameError = 'Type a name, e.g. Pets';
+      else if (text.length > MAX_NAME) nameError = `Keep the name to ${MAX_NAME} letters or fewer.`;
+      else if (categories.some((c) => c.id !== ownId && c.name.toLowerCase() === text.toLowerCase())) {
+        nameError = 'You already have a category with this name.';
+      }
+      name.setError(nameError);
+      const typed = own.input.value.trim();
+      const emojiError = typed && !isOneEmoji(typed) ? 'Type just one emoji, e.g. 🦜' : '';
+      own.setError(emojiError);
+      if (nameError || emojiError) return null;
+      return { name: text, icon: typed || chosen };
+    },
+  };
+}
 
 // Saves the starter categories once. A flag in settings stops them coming back if all are deleted later.
 async function loadCategories() {
@@ -70,11 +151,7 @@ function expenseFields(categories, values = {}) {
     label: 'Amount (₹)', name: 'amount', type: 'text', inputmode: 'decimal',
     value: values.amount ?? '', placeholder: 'e.g. 250',
   });
-  const catOptions = categories.map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` }));
-  // An expense whose category no longer exists keeps it until another is picked.
-  if (values.category && !categories.some((c) => c.id === values.category)) {
-    catOptions.push({ value: values.category, label: '❓ Unknown category' });
-  }
+  const catOptions = categoryOptions(categories, values.category);
   const category = input({
     label: 'Category', name: 'category', type: 'select',
     options: catOptions, value: values.category ?? catOptions[0]?.value ?? '',
@@ -101,7 +178,9 @@ function expenseFields(categories, values = {}) {
       amount.setError(error || '');
       const dateError = checkDate(date.input.value);
       date.setError(dateError);
-      if (error || dateError) return null;
+      const catError = category.input.value ? '' : 'Add a category first (see Categories below).';
+      category.setError(catError);
+      if (error || dateError || catError) return null;
       return {
         date: date.input.value,
         amountPaise: paise,
@@ -117,8 +196,9 @@ function expenseFields(categories, values = {}) {
 const amountText = (paise) => String(paise / 100);
 
 export async function render(root) {
-  const categories = await loadCategories();
-  const catById = new Map(categories.map((c) => [c.id, c]));
+  // `categories` and `catById` are replaced whenever a category is added, changed or deleted (MON-2).
+  let categories = await loadCategories();
+  let catById = new Map(categories.map((c) => [c.id, c]));
   const catText = (id) => {
     const c = catById.get(id);
     return c ? `${c.icon} ${c.name}` : '❓ Unknown category';
@@ -141,7 +221,7 @@ export async function render(root) {
     fields.amount.input.value = '';
     fields.note.input.value = '';
     toast({ message: `Saved ${formatMoney(expense.amountPaise)} · ${catText(expense.category)} ✨` });
-    await refresh();
+    await refreshAll();
     fields.amount.input.focus();
   });
 
@@ -167,7 +247,7 @@ export async function render(root) {
       if (!changes) return;
       await update('expenses', expense.id, changes);
       editingId = null;
-      await refresh();
+      await refreshAll();
     });
     queueMicrotask(() => f.amount.input.focus());
     return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [editForm])]);
@@ -224,17 +304,128 @@ export async function render(root) {
     }));
   }
 
+  // Both lists: expenses, then categories (their "N expenses" counts change with expenses).
+  async function refreshAll() {
+    await refresh();
+    await refreshCategories();
+  }
+
   async function deleteExpense(expense) {
     const removed = await remove('expenses', expense.id);
     if (editingId === expense.id) editingId = null;
-    await refresh();
+    await refreshAll();
     if (!removed) return;
     toast({
       message: `Deleted ${formatMoney(removed.amountPaise)}`,
       actionLabel: 'Undo',
       onAction: async () => {
         await restore('expenses', removed);
-        if (listBox.isConnected) await refresh();
+        if (listBox.isConnected) await refreshAll();
+      },
+    });
+  }
+
+  // ---- Categories (MON-2) ----
+  const catListBox = el('div', { className: 'stack' });
+  let editingCatId = null;
+
+  // After any category change: reload them, update the Add expense choices, both lists.
+  async function categoriesChanged() {
+    categories = await loadCategories();
+    catById = new Map(categories.map((c) => [c.id, c]));
+    const select = fields.category.input;
+    const current = select.value;
+    const options = categoryOptions(categories, null);
+    select.replaceChildren(...options.map((o) => el('option', { value: o.value, text: o.label })));
+    select.value = catById.has(current) ? current : (options[0]?.value ?? '');
+    fields.category.setError('');
+    if (!catListBox.isConnected) return;
+    await refreshAll();
+  }
+
+  // Add-category form at the top of the Categories card.
+  const catFields = categoryFields();
+  const catForm = el('form', { className: 'stack', novalidate: true }, [
+    ...catFields.elements,
+    button({ label: 'Add category', icon: 'plus', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  catForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const cat = catFields.read(categories);
+    if (!cat) return;
+    await add('categories', { ...cat, monthlyBudgetPaise: null });
+    catFields.name.input.value = '';
+    toast({ message: `Added ${cat.icon} ${cat.name} ✨` });
+    await categoriesChanged();
+  });
+
+  function catEditRow(cat) {
+    const f = categoryFields({ name: cat.name, icon: cat.icon });
+    const editForm = el('form', { className: 'stack', novalidate: true }, [
+      ...f.elements,
+      el('div', { className: 'btn-row' }, [
+        button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingCatId = null; refreshCategories(); } }),
+        button({ label: 'Save', variant: 'primary', type: 'submit' }),
+      ]),
+    ]);
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const changes = f.read(categories, cat.id);
+      if (!changes) return;
+      await update('categories', cat.id, changes);
+      editingCatId = null;
+      await categoriesChanged();
+    });
+    queueMicrotask(() => f.name.input.focus());
+    return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [editForm])]);
+  }
+
+  function catRow(cat, count) {
+    if (cat.id === editingCatId) return catEditRow(cat);
+    const label = `${cat.icon} ${cat.name}`;
+    return listItem({
+      title: label,
+      subtitle: count === 1 ? '1 expense' : `${count} expenses`,
+      onClick: () => { editingCatId = cat.id; refreshCategories(); },
+      actions: [
+        button({
+          icon: 'edit', variant: 'ghost', ariaLabel: `Edit ${cat.name}`,
+          onClick: () => { editingCatId = cat.id; refreshCategories(); },
+        }),
+        button({
+          icon: 'trash', variant: 'ghost', ariaLabel: `Delete ${cat.name}`,
+          onClick: () => deleteCategory(cat, count),
+        }),
+      ],
+    });
+  }
+
+  async function refreshCategories() {
+    if (!categories.length) {
+      catListBox.replaceChildren(emptyState({
+        emoji: '🏷️',
+        title: 'No categories yet',
+        text: 'Add one above to start sorting your spending.',
+      }));
+      return;
+    }
+    const counts = new Map();
+    for (const x of await listAll('expenses')) counts.set(x.category, (counts.get(x.category) || 0) + 1);
+    catListBox.replaceChildren(list(categories.map((c) => catRow(c, counts.get(c.id) || 0))));
+  }
+
+  async function deleteCategory(cat, count) {
+    const removed = await remove('categories', cat.id);
+    if (editingCatId === cat.id) editingCatId = null;
+    await categoriesChanged();
+    if (!removed) return;
+    const used = count ? ` (used by ${count === 1 ? '1 expense' : `${count} expenses`})` : '';
+    toast({
+      message: `Deleted ${removed.icon} ${removed.name}${used}`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await restore('categories', removed);
+        await categoriesChanged();
       },
     });
   }
@@ -242,7 +433,8 @@ export async function render(root) {
   root.append(el('div', { className: 'mod-money stack' }, [
     card({ title: 'Add expense', module: 'money', children: [form] }),
     card({ title: 'Expenses', children: [listBox] }),
+    card({ title: 'Categories', module: 'money', children: [catForm, catListBox] }),
   ]));
 
-  await refresh();
+  await refreshAll();
 }
