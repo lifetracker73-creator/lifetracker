@@ -5,7 +5,7 @@
 // MON-4: Charts card: spend by category for the month shown above, and spend over time
 //        (each day of that month, or the 12 months up to it).
 // MON-5: Budgets card: a monthly budget per category (same every month) with "spent / left" bars.
-// MON-6: Export card: the month chosen above as an Excel file (a colourful Summary tab + all Expenses).
+// MON-6: Export card: the month chosen above, or any dates picked, as an Excel file (a colourful Summary tab + all Expenses).
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
@@ -13,7 +13,7 @@ import {
   add, update, remove, restore, list as listAll, getSettings, saveSettings,
 } from '../core/storage.js';
 import {
-  today, formatDate, formatMonth, addDays, monthStart, monthEnd, dateRange,
+  today, formatDate, formatMonth, addDays, monthStart, monthEnd, dateRange, daysBetween,
 } from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
 import { barChart } from '../core/charts.js';
@@ -229,9 +229,13 @@ const textBar = (part, whole) => {
   return '█'.repeat(Math.max(1, Math.round(Math.min(part / whole, 1) * BAR_WIDTH)));
 };
 
-function monthWorkbook({ ym, items, lastItems, categories, catText }) {
-  const month = formatMonth(ym);
-  const lastMonth = formatMonth(prevMonth(ym));
+// Works for a whole month or any custom dates. `title` e.g. "Nov 2026" or "1 Nov 2026 – 15 Nov 2026";
+// `prevItems` / `prevLabel` = the period just before, of the same length, to compare with.
+// Budgets are monthly, so they're only shown for a whole month (`budgets: true`).
+// Ranges longer than one month also get a "Month by month" table.
+function expensesWorkbook({ title, from, to, items, prevItems, prevLabel, categories, catText, budgets }) {
+  const lastItems = prevItems;
+  const lastMonth = prevLabel;
   const rupees = (paise) => paise / 100;
   const sum = (list) => list.reduce((s, x) => s + x.amountPaise, 0);
   const total = sum(items);
@@ -281,7 +285,7 @@ function monthWorkbook({ ym, items, lastItems, categories, catText }) {
     heights[rows.length - 1] = 24;
   };
 
-  rows.push([c(`💸 Spending · ${month}`, S.title), c('', S.title), c('', S.title), c('', S.title), c('', S.title)]);
+  rows.push([c(`💸 Spending · ${title}`, S.title), c('', S.title), c('', S.title), c('', S.title), c('', S.title)]);
   merges.push('A1:E1');
   heights[0] = 34;
   rows.push([c(`From Lifetracker · made ${formatDate(today())}`, S.sub)]);
@@ -293,12 +297,12 @@ function monthWorkbook({ ym, items, lastItems, categories, catText }) {
   heights[rows.length - 1] = 26;
   wide('Expenses', c(countText(items.length), S.text));
   const diff = total - lastTotal;
-  wide(`Compared with ${lastMonth}`, !lastItems.length
+  wide(lastMonth.length > 14 ? 'Compared with before' : `Compared with ${lastMonth}`, !lastItems.length
     ? c(`No expenses in ${lastMonth} to compare`, S.muted)
     : diff === 0 ? c('➖ The same', S.text)
       : diff < 0 ? c(`📉 ${formatMoney(-diff)} less (${lastMonth}: ${formatMoney(lastTotal)})`, S.good)
         : c(`📈 ${formatMoney(diff)} more (${lastMonth}: ${formatMoney(lastTotal)})`, S.bad));
-  const days = ym === today().slice(0, 7) ? Number(today().slice(8)) : Number(monthEnd(`${ym}-01`).slice(8));
+  const days = daysBetween(from, to < today() ? to : today()) + 1;
   wide('Daily average', c(rupees(Math.round(total / days)), { ...S.money, align: 'left' }));
   const biggest = [...items].sort((a, b) => b.amountPaise - a.amountPaise)[0];
   wide('Biggest expense', c([formatMoney(biggest.amountPaise), catText(biggest.category),
@@ -317,7 +321,7 @@ function monthWorkbook({ ym, items, lastItems, categories, catText }) {
   wide('Top category', c(`${catText(topId)} · ${Math.round((top.paise / total) * 100)}% of spending`, S.text));
 
   const spentBy = new Map(catRows.map(([id, g]) => [id, g.paise]));
-  const budgeted = categories.filter((cat) => cat.monthlyBudgetPaise);
+  const budgeted = budgets ? categories.filter((cat) => cat.monthlyBudgetPaise) : [];
   if (budgeted.length) {
     const budget = budgeted.reduce((s, cat) => s + cat.monthlyBudgetPaise, 0);
     const spent = budgeted.reduce((s, cat) => s + (spentBy.get(cat.id) || 0), 0);
@@ -334,6 +338,23 @@ function monthWorkbook({ ym, items, lastItems, categories, catText }) {
   }
   rows.push([c('Total', S.totalLabel), c(rupees(total), S.totalMoney), c(1, S.totalPct),
     c(items.length, S.totalInt), c('', S.totalBlank)]);
+
+  // Month by month (only when the dates cover more than one month)
+  const months = [];
+  for (let ym = from.slice(0, 7); ym <= to.slice(0, 7); ym = nextMonth(ym)) months.push(ym);
+  if (months.length > 1) {
+    section('📅 Month by month');
+    rows.push([c('Month', S.head), c('Amount', S.headRight), c('Share', S.headRight), c('Count', S.headCenter), c('', S.head)]);
+    const perMonth = months.map((ym) => {
+      const list = items.filter((x) => x.date.slice(0, 7) === ym);
+      return { ym, paise: sum(list), count: list.length };
+    });
+    const most = Math.max(...perMonth.map((m) => m.paise));
+    for (const m of perMonth) {
+      rows.push([c(formatMonth(m.ym), S.text), c(rupees(m.paise), S.money), c(m.paise / total, S.pct),
+        c(m.count, S.int), c(textBar(m.paise, most), S.bar)]);
+    }
+  }
 
   if (budgeted.length) {
     section('🎯 Budgets');
@@ -666,23 +687,48 @@ export async function render(root) {
     budgetListBox.replaceChildren(list(rows.map((c) => budgetRow(c, spentBy.get(c.id) || 0))));
   }
 
-  // ---- Export (MON-6): the month chosen in "This month" as an Excel file ----
+  // ---- Export (MON-6): the month chosen in "This month", or any dates I pick, as an Excel file ----
   const exportBox = el('div', { className: 'stack' });
+  let exportMode = 'month';
+  const download = (workbook, fileName) => {
+    saveFile(workbook, fileName);
+    toast({ message: `Saved ${fileName} to Downloads ✨` });
+  };
+  const modeButtons = [['month', 'Month'], ['custom', 'Pick dates']].map(([mode, label]) => {
+    const btn = button({
+      label,
+      variant: mode === exportMode ? 'primary' : 'secondary',
+      onClick: () => {
+        exportMode = mode;
+        modeButtons.forEach((b) => {
+          const on = b.dataset.mode === mode;
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        monthExport.hidden = mode !== 'month';
+        customExport.hidden = mode !== 'custom';
+      },
+    });
+    btn.dataset.mode = mode;
+    btn.setAttribute('aria-pressed', String(mode === exportMode));
+    return btn;
+  });
+  const monthExport = el('div');
   function refreshExport(items, lastItems) {
     const ym = shownMonth;
     const month = formatMonth(ym);
-    const fileName = `lifetracker-expenses-${ym}.xlsx`;
     const btn = button({
       label: `⬇️ Download ${month} (Excel)`,
       variant: 'primary',
       block: true,
-      onClick: () => {
-        saveFile(monthWorkbook({ ym, items, lastItems, categories, catText }), fileName);
-        toast({ message: `Saved ${fileName} to Downloads ✨` });
-      },
+      onClick: () => download(expensesWorkbook({
+        title: month, from: `${ym}-01`, to: monthEnd(`${ym}-01`), items, prevItems: lastItems,
+        prevLabel: formatMonth(prevMonth(ym)), categories, catText, budgets: true,
+      }), `lifetracker-expenses-${ym}.xlsx`),
     });
     btn.disabled = !items.length;
-    exportBox.replaceChildren(
+    monthExport.replaceChildren(el('div', { className: 'stack' }, [
       el('p', {
         className: 'progress-note',
         text: items.length
@@ -690,8 +736,49 @@ export async function render(root) {
           : `No expenses in ${month} to export.`,
       }),
       btn,
-    );
+    ]));
   }
+
+  // Custom dates: From and To (this month so far to start with), compared with the same number of days before.
+  const fromBox = input({ label: 'From', name: 'exportFrom', type: 'date', value: monthStart(today()), max: today() });
+  const toBox = input({ label: 'To', name: 'exportTo', type: 'date', value: today(), max: today() });
+  [fromBox, toBox].forEach((b) => b.input.addEventListener('input', () => { fromBox.setError(''); toBox.setError(''); }));
+  const customForm = el('form', { className: 'stack', novalidate: true }, [
+    el('p', { className: 'progress-note', text: 'Pick any dates. Compared with the same number of days just before.' }),
+    fromBox,
+    toBox,
+    button({ label: '⬇️ Download (Excel)', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  const customExport = el('div', { hidden: true }, [customForm]);
+  customForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const from = fromBox.input.value;
+    const to = toBox.input.value;
+    const fromError = checkDate(from);
+    const toError = checkDate(to) || (!fromError && to < from ? 'The "To" date must be on or after "From".' : '');
+    fromBox.setError(fromError);
+    toBox.setError(toError);
+    if (fromError || toError) return;
+    const all = await listAll('expenses');
+    const between = (a, b) => all.filter((x) => x.date >= a && x.date <= b);
+    const items = between(from, to);
+    if (!items.length) {
+      toBox.setError(`No expenses from ${formatDate(from)} to ${formatDate(to)}.`);
+      return;
+    }
+    const prevTo = addDays(from, -1);
+    const prevFrom = addDays(from, -(daysBetween(from, to) + 1));
+    const range = (a, b) => (a === b ? formatDate(a) : `${formatDate(a)} – ${formatDate(b)}`);
+    download(expensesWorkbook({
+      title: range(from, to), from, to, items, prevItems: between(prevFrom, prevTo),
+      prevLabel: range(prevFrom, prevTo), categories, catText, budgets: false,
+    }), `lifetracker-expenses-${from}-to-${to}.xlsx`);
+  });
+  exportBox.append(
+    el('div', { className: 'btn-row', role: 'group', 'aria-label': 'What to export' }, modeButtons),
+    monthExport,
+    customExport,
+  );
 
   // ---- Charts (MON-4): follow the month chosen in "This month" ----
   const catTitle = el('span');

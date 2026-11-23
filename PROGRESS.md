@@ -604,3 +604,19 @@
 - The bars are made of █ blocks (they work everywhere); there are no Excel charts in the file.
 - On iPhone, the file may open in a preview first; use Share → Save to Files.
 - The phone gets this at the final "release".
+
+**Update (24 Nov 2026): export any dates**
+- The Export card now has two pill buttons: "Month" (as before) and "Pick dates" (From and To boxes,
+  starting on this month so far). "⬇️ Download (Excel)" saves e.g.
+  `lifetracker-expenses-2026-09-01-to-2026-11-24.xlsx`, with the same colourful Summary tab and Expenses tab.
+- For picked dates, the comparison is with the same number of days just before (e.g. 1–15 Nov vs
+  17–31 Oct). Daily average counts the days picked (up to today). If the dates cover more than one month,
+  a "📅 Month by month" table with bars is added.
+- Friendly messages for a future date, "To" before "From", and dates with no expenses.
+- Saved data unchanged; no new files.
+- Checked: a Sep–Nov file opened in real Excel with correct totals, daily average, month-by-month table
+  and comparison; Money screen at 360px in light and dark mode, all boxes and buttons ≥ 44px, no sideways
+  scrolling. The 11 pretend expenses were removed and the waiting Google Sync list is back to its 12 entries.
+
+**Known issues**
+- Budgets are monthly, so the Budgets table appears only in "Month" exports, not for picked dates.
