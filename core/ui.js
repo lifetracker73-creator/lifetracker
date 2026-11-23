@@ -266,3 +266,28 @@ export function emptyState({ icon = 'inbox', emoji, title, text, action } = {}) 
     action || null,
   ]);
 }
+
+/**
+ * Progress bar: a soft rounded bar in the module's pastel colour (WTR-2).
+ * progressBar({ value: 1250, max: 2500, label: 'Water today' })
+ * The fill stops at full when value is over max. Returns the element with `.set(value, max)` to update it.
+ */
+export function progressBar({ value = 0, max = 100, label = '' } = {}) {
+  const fill = el('div', { className: 'progress__fill' });
+  const bar = el('div', {
+    className: 'progress',
+    role: 'progressbar',
+    'aria-label': label || undefined,
+    'aria-valuemin': 0,
+  }, [fill]);
+  bar.set = (v, m) => {
+    const safeMax = m > 0 ? m : 1;
+    const percent = Math.min(100, Math.max(0, (v / safeMax) * 100));
+    fill.style.width = `${percent}%`;
+    bar.setAttribute('aria-valuemax', String(safeMax));
+    bar.setAttribute('aria-valuenow', String(Math.min(v, safeMax)));
+    bar.classList.toggle('progress--full', v >= safeMax);
+  };
+  bar.set(value, max);
+  return bar;
+}

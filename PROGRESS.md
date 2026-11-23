@@ -231,3 +231,22 @@
   "release" at the end. Until then, entries made on the phone have no Google backup.
 - After that release: on the phone, open More → ⚙️ Settings → Google Sync, paste the same Apps Script
   link and type the key, tap Connect. Everything logged so far is then uploaded.
+
+## WTR-2: Today's water progress (24 Nov 2026)
+**Built**
+- 💧 Water screen: new "Today's progress" card at the top with a soft baby-blue bar that fills
+  toward the daily goal (2.5 L for now; changeable in Settings with CORE-8).
+- Under the bar: "1.25 L of 2.5 L" and "50%", plus "1.25 L to go" or "Goal reached! 🎉".
+  The bar stops at full above the goal, but the % keeps counting (e.g. 130%).
+- Updates straight away after adding, deleting or Undo. The total is worked out on screen;
+  saved data is unchanged.
+- New shared piece `progressBar()` in `core/ui.js` (with its styles in `core/styles.css`), in the
+  module's colour, so later units (goals, budgets, reading) can reuse it. Screen readers hear it as a progress bar.
+- Checked at 360px, light and dark: 0%, 20%, 50%, 100% and 130% all show correctly, delete and Undo
+  update it, no sideways scrolling, no new errors.
+
+**Known issues**
+- Amounts of 1,000 ml or more show in litres (e.g. "1.25 L"), using the existing shared ml/L format.
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- Python on this laptop is broken (the "py"/"python" commands fail), so the test used a small
+  temporary PowerShell web server instead.
