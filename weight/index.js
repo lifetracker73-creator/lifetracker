@@ -1,12 +1,34 @@
 // ⚖️ weight module screens.
 // WGT-1: log today's weight (one per day; saving again replaces it), list of entries, edit/delete with Undo.
+// WGT-2: history line chart (30/90/365 days) with a 7-day average line and change since start.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import { add, update, remove, restore, list as listAll, listByDate } from '../core/storage.js';
-import { today, formatDate } from '../core/dates.js';
+import { today, formatDate, addDays, dateRange } from '../core/dates.js';
 import { formatKg } from '../core/format.js';
+import { lineChart } from '../core/charts.js';
 
 const MIN_KG = 20;
 const MAX_KG = 300;
+const HISTORY_DAYS = [30, 90, 365];
+
+// Average of the weights logged in the 7 days ending on `date` (null if none).
+function sevenDayAverage(byDate, date) {
+  const values = dateRange(addDays(date, -6), date).map((d) => byDate[d]).filter((v) => v != null);
+  if (!values.length) return null;
+  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+}
+
+// "📉 −2.4 kg since 25 Oct 2026" from the first and latest weights in the view.
+function changeText(dates, byDate) {
+  const logged = dates.filter((d) => byDate[d] != null);
+  if (logged.length < 2) return 'Log a few more days to see your change ✨';
+  const first = logged[0];
+  const diff = Math.round((byDate[logged[logged.length - 1]] - byDate[first]) * 10) / 10;
+  if (diff === 0) return `➖ No change since ${formatDate(first)}`;
+  return diff < 0
+    ? `📉 −${formatKg(-diff)} since ${formatDate(first)}`
+    : `📈 +${formatKg(diff)} since ${formatDate(first)}`;
+}
 
 // Reads a typed weight. Gives back { kg } rounded to 1 decimal, or { error }.
 function parseKg(text) {
@@ -92,10 +114,60 @@ export async function render(root) {
     return row;
   }
 
+  // History (WGT-2): daily weight plus 7-day average, worked out on screen.
+  let historyDays = HISTORY_DAYS[0];
+  let chart = null;
+  const chartBox = el('div', { className: 'chart-box' });
+  const changeNote = el('p', { className: 'progress-note' });
+  const rangeButtons = HISTORY_DAYS.map((days) => {
+    const btn = button({
+      label: String(days),
+      variant: days === historyDays ? 'primary' : 'secondary',
+      ariaLabel: `Show the last ${days} days`,
+      onClick: async () => {
+        historyDays = days;
+        rangeButtons.forEach((b) => {
+          const on = b.dataset.days === String(days);
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        await refreshHistory(await listAll('weight'));
+      },
+    });
+    btn.dataset.days = String(days);
+    btn.setAttribute('aria-pressed', String(days === historyDays));
+    return btn;
+  });
+
+  async function refreshHistory(entries) {
+    const byDate = {};
+    for (const entry of entries) byDate[entry.date] = Number(entry.weightKg);
+    const dates = dateRange(addDays(today(), -(historyDays - 1)), today());
+    const values = dates.map((d) => (byDate[d] != null ? byDate[d] : null)); // no weight = gap
+    const average = dates.map((d) => sevenDayAverage(byDate, d));
+    const config = {
+      labels: dates,
+      series: [
+        { label: 'Weight', values },
+        { label: '7-day average', values: average, style: 'average' },
+      ],
+    };
+    changeNote.textContent = changeText(dates, byDate);
+    if (!chartBox.isConnected) return;
+    if (chart) (await chart).update(config);
+    else {
+      // Keep the promise so quick taps never draw a second chart.
+      chart = lineChart(chartBox, { module: 'weight', ...config, format: (v) => formatKg(v) });
+      await chart;
+    }
+  }
+
   async function refresh() {
     const entries = await listAll('weight');
     entries.sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt));
     showToday(entries.find((entry) => entry.date === today()));
+    await refreshHistory(entries);
     if (!entries.length) {
       listBox.replaceChildren(emptyState({
         emoji: '⚖️',
@@ -148,6 +220,14 @@ export async function render(root) {
   root.append(el('div', { className: 'mod-weight stack' }, [
     card({ title: 'Log weight', module: 'weight', children: [form] }),
     card({ title: 'Entries', children: [listBox] }),
+    card({ title: 'History', module: 'weight', children: [el('div', { className: 'stack' }, [
+      el('div', { className: 'stack' }, [
+        el('p', { className: 'progress-note', text: 'Days to show' }),
+        el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Days to show' }, rangeButtons),
+      ]),
+      chartBox,
+      changeNote,
+    ])] }),
   ]));
 
   await refresh();

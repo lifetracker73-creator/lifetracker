@@ -323,3 +323,24 @@
 **Known issues**
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - Only the weight can be edited, not the date. Past days can't be logged yet (only today).
+
+## WGT-2: Weight chart (24 Nov 2026)
+**Built**
+- ⚖️ Weight screen: new "History" card (mint) under the Entries list.
+- "Days to show" pill buttons: 30, 90 and 365. The chosen one lights up; it opens on 30.
+- Line chart of daily weight with a soft wash under it, plus a softer dashed "7-day average" line
+  (the average of the weights logged in the 7 days up to each day) and a small legend. Days with no
+  weight are skipped (the line joins across them).
+- Under the chart: "📉 −2.4 kg since 25 Oct 2026" (or 📈 +… / ➖ No change), comparing the first and
+  latest weights in the chosen view. With fewer than 2 weights in view: "Log a few more days to see your change ✨".
+- Updates straight away after saving, editing, deleting or Undo. Worked out on screen; saved data unchanged.
+- `core/charts.js`: line charts with more than 60 days now hide the dots (line only), so the 90 and
+  365-day views don't look crowded. Shorter charts are unchanged; bar charts (water) are unaffected.
+- Checked at 360px, light and dark, with 67 pretend weights over 100 days (removed afterwards; Google
+  Sync isn't set up in the test browser, so nothing was sent): all 3 views, change line, delete and Undo,
+  empty state, no sideways scrolling, no new errors.
+
+**Known issues**
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- The 365-day view always shows a full year, so with only a few months of weights most of it is empty.
+- With a long list of weights, you have to scroll past the Entries list to reach the chart.

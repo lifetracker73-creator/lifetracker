@@ -240,7 +240,7 @@ function lineDataset(theme, s, index) {
     borderDash: average ? [6, 5] : [],
     tension: 0.35,
     spanGaps: true,
-    pointRadius: average ? 0 : 3,
+    pointRadius: average || s.values.length > 60 ? 0 : 3, // long views: line only, dots would crowd
     pointHoverRadius: 6,
     pointBackgroundColor: color,
     pointBorderWidth: 0,
