@@ -265,6 +265,11 @@
       outlet: app, home: homeScreen, onChange,
       screens: { settings: () => import('./core/settings.js') },
     });
+
+    // ⏰ Task reminders (TSK-3): checked while the app is open; missed ones show as a banner on opening.
+    import('./tasks/index.js')
+      .then(({ startReminders }) => startReminders())
+      .catch((err) => console.error(err));
   </script>
 </body>
 </html>

@@ -703,3 +703,36 @@
 - Notifications only appear while the app is open or recently used (no internet server), as SPEC.md says.
   TSK-3 adds the actual task reminders and the overdue banner.
 - The phone gets this at the final "release".
+
+## TSK-3: Task reminders (24 Nov 2026)
+**Built**
+- ✅ Tasks screen, add form and edit row: new "🔔 Reminder" pills: None, At due time, 10 min before,
+  1 hour before, Custom. Custom shows "Remind me on" + "At" boxes (starting on the due date, or today).
+  The set choices need a due date and time ("Pick a due date and time too, or choose Custom."). A new or
+  changed reminder can't be in the past ("That reminder time has already passed.").
+- Saving a task with a reminder asks the phone for notification permission, if it hasn't been asked yet.
+- Task rows show the reminder, e.g. "Due today · 10:00 am · 🔔 9:00 am" (with the date if it's another day).
+- While the app is open, reminders are checked every 30 seconds and whenever the app comes back on screen.
+  A reminder that has just come due (within 5 minutes) shows as a phone notification "⏰ Pay rent · Due today
+  · 7:30 pm" that opens Tasks when tapped, or as a banner if notifications are off or blocked.
+- Reminders that passed while the app was closed show on opening as one banner: "⏰ 2 missed reminders"
+  with the task names (up to 3, then "and 2 more") and an "Open" button to Tasks.
+- Each reminder shows only once. Changing a task's reminder makes it count as new. Done tasks never remind.
+- Repeating tasks: the next one keeps the same gap (10 min before 7:30 pm → 10 min before 7:30 pm next time).
+- Saved data: tasks now use `reminderAt` ('YYYY-MM-DD HH:MM' or empty), as in the spec (Google Sheets gets a
+  "Reminder at" column automatically). Tasks settings have a new `remindersShown` (which reminders were
+  already shown; settings are never synced). Older tasks have no reminder; nothing needed converting.
+- `index.html` starts the reminder checker when the app opens (from `tasks/index.js`). No new files.
+- Checked at 360px-wide phone size in light and dark mode, with pretend tasks and a reminder set 2 minutes
+  back: both error messages, Custom boxes, at-due-time/10 min/1 hour saved correctly, reminder banner,
+  "2 missed reminders" banner, no repeat after reopening, weekly repeat carries the reminder (25 Nov 9:15 am →
+  2 Dec 9:15 am), editing picks the right pill, done task is tidied away, no sideways scrolling. The pretend
+  tasks were removed and the waiting Google Sync list is back to its 12 entries.
+
+**Known issues**
+- Reminders only fire while the app is open or recently used (no internet server), as SPEC.md says. A reminder
+  missed while closed shows in the "missed" banner on the next opening. TSK-4 (calendar file) gives guaranteed alerts.
+- The preview browser has notifications blocked, so only the banner was seen; check the real phone
+  notification after the final "release".
+- A reminder that passes while a task is deleted and then brought back with Undo may show again once.
+- The phone gets this at the final "release".

@@ -1,9 +1,11 @@
 // ✅ tasks module screens.
 // TSK-1: add, edit, complete, delete tasks; lists for Today (incl. overdue), Upcoming, No date, Done.
 // TSK-2: due time, priority (low / normal / high) and repeating tasks (daily / weekly / monthly).
+// TSK-3: reminders (`reminderAt`): a notification when due while the app is open, a banner for missed ones.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
-import { add, update, remove, restore, list as listAll } from '../core/storage.js';
-import { today, addDays, formatDate, formatTime, nowDateTime, formatDateTime, monthEnd } from '../core/dates.js';
+import { add, update, remove, restore, list as listAll, getSettings, saveSettings } from '../core/storage.js';
+import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, formatDateTime, monthEnd } from '../core/dates.js';
+import { notify, showBanner, notificationState, askPermission } from '../core/notify.js';
 
 const MAX_TITLE = 200;
 const MAX_NOTES = 2000;
@@ -20,6 +22,44 @@ const REPEATS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 const REPEAT_WORD = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+// Reminder choices: minutes before the due date + time, or a custom date and time.
+const REMINDERS = [
+  { value: 'none', label: 'None' },
+  { value: '0', label: 'At due time' },
+  { value: '10', label: '10 min before' },
+  { value: '60', label: '1 hour before' },
+  { value: 'custom', label: 'Custom' },
+];
+
+// 'YYYY-MM-DD HH:MM' moved by a number of minutes (negative = earlier).
+function shiftMinutes(dt, minutes) {
+  const [ymd, hm] = dt.split(' ');
+  const [h, m] = hm.split(':').map(Number);
+  let total = h * 60 + m + minutes;
+  const days = Math.floor(total / 1440);
+  total -= days * 1440;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${addDays(ymd, days)} ${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+// Minutes from one 'YYYY-MM-DD HH:MM' to another.
+function minutesBetween(from, to) {
+  const mins = (dt) => { const [h, m] = dt.slice(11).split(':').map(Number); return h * 60 + m; };
+  return daysBetween(from.slice(0, 10), to.slice(0, 10)) * 1440 + mins(to) - mins(from);
+}
+
+// The task's due moment ('YYYY-MM-DD HH:MM'); a date with no time counts from the start of that day.
+const dueMoment = (task) => (task.dueDate ? `${task.dueDate} ${task.dueTime || '00:00'}` : null);
+
+// Which reminder pill matches a saved task (custom if it isn't one of the set gaps before a due time).
+function reminderChoiceOf(task) {
+  if (!task.reminderAt) return 'none';
+  if (task.dueDate && task.dueTime) {
+    const gap = String(minutesBetween(task.reminderAt, dueMoment(task)));
+    if (REMINDERS.some((r) => r.value === gap)) return gap;
+  }
+  return 'custom';
+}
 const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
 
 // Tasks saved before TSK-2 have no priority or repeat: they count as Normal, no repeat.
@@ -51,7 +91,7 @@ function nextDueDate(task, now) {
 function pillGroup({ label, options, value, grid = false }) {
   const group = el('div', { className: 'field' });
   const buttons = options.map((opt) => {
-    const btn = button({ label: opt.label, variant: 'secondary', onClick: () => pick(opt.value) });
+    const btn = button({ label: opt.label, variant: 'secondary', onClick: () => group.pick(opt.value) });
     btn.dataset.value = opt.value;
     return btn;
   });
@@ -95,6 +135,9 @@ function readForm(fields) {
   const dueTime = fields.dueTime.input.value || null;
   const priority = fields.priority.value;
   const repeat = fields.repeat.value;
+  const choice = fields.reminder.value;
+  const remindDate = fields.remindDate.input.value;
+  const remindTime = fields.remindTime.input.value;
   const errors = {};
   if (!title) errors.title = 'Give the task a name, e.g. "Pay electricity bill"';
   else if (title.length > MAX_TITLE) errors.title = `Please keep the name under ${MAX_TITLE} letters.`;
@@ -104,9 +147,22 @@ function readForm(fields) {
   else if (dueTime && !dueDate) errors.dueTime = 'Pick a due date too, or clear the time.';
   // A repeating task needs a date to repeat from; with none, it starts today.
   if (repeat !== 'none' && !dueDate && !errors.dueDate) dueDate = today();
+  let reminderAt = null;
+  if (choice === 'custom') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(remindDate)) errors.remindDate = 'Pick the day to be reminded.';
+    if (!/^\d{2}:\d{2}$/.test(remindTime)) errors.remindTime = 'Pick a time.';
+    if (!errors.remindDate && !errors.remindTime) reminderAt = `${remindDate} ${remindTime}`;
+  } else if (choice !== 'none') {
+    if (!dueDate || !dueTime) errors.reminder = 'Pick a due date and time too, or choose Custom.';
+    else if (!errors.dueTime) reminderAt = shiftMinutes(`${dueDate} ${dueTime}`, -Number(choice));
+  }
+  // A new or changed reminder can't be in the past (an unchanged old one is fine).
+  if (reminderAt && reminderAt !== fields.savedReminderAt && reminderAt <= nowDateTime()) {
+    errors[choice === 'custom' ? 'remindTime' : 'reminder'] = 'That reminder time has already passed.';
+  }
   return Object.keys(errors).length
     ? { errors }
-    : { values: { title, notes, dueDate, dueTime, priority, repeat } };
+    : { values: { title, notes, dueDate, dueTime, priority, repeat, reminderAt } };
 }
 
 // Title, notes, due date and time boxes plus priority and repeat pills,
@@ -121,11 +177,38 @@ function taskFields(task = {}) {
   Object.values(fields).forEach((f) => f.input.addEventListener('input', () => f.setError('')));
   fields.priority = pillGroup({ label: 'Priority', options: PRIORITIES, value: priorityOf(task) });
   fields.repeat = pillGroup({ label: 'Repeat', options: REPEATS, value: repeatOf(task), grid: true });
+
+  // Reminder: pills, plus a date and time box shown only for Custom.
+  const choice = reminderChoiceOf(task);
+  fields.savedReminderAt = task.reminderAt || null;
+  fields.remindDate = input({ label: 'Remind me on', name: 'remindDate', type: 'date',
+    value: choice === 'custom' ? task.reminderAt.slice(0, 10) : '' });
+  fields.remindTime = input({ label: 'At', name: 'remindTime', type: 'time',
+    value: choice === 'custom' ? task.reminderAt.slice(11) : '' });
+  [fields.remindDate, fields.remindTime].forEach((f) => f.input.addEventListener('input', () => f.setError('')));
+  fields.customBox = el('div', { className: 'field-row' }, [fields.remindDate, fields.remindTime]);
+  fields.reminder = pillGroup({ label: '🔔 Reminder', options: REMINDERS, value: choice, grid: true });
+  const errorEl = el('p', { className: 'field__error', role: 'alert' });
+  errorEl.hidden = true;
+  fields.reminder.append(errorEl);
+  fields.reminder.input = fields.reminder.querySelector('button');
+  fields.reminder.setError = (msg) => { errorEl.textContent = msg; errorEl.hidden = !msg; };
+  const basePick = fields.reminder.pick;
+  fields.reminder.pick = (v) => {
+    basePick(v);
+    fields.customBox.style.display = v === 'custom' ? '' : 'none';
+    fields.reminder.setError('');
+    // Custom starts on the due date (or today) so there's less to fill in.
+    if (v === 'custom' && !fields.remindDate.input.value) {
+      fields.remindDate.input.value = fields.dueDate.input.value || today();
+    }
+  };
+  fields.reminder.pick(choice);
   return fields;
 }
 
 function showErrors(fields, errors) {
-  for (const [name, f] of Object.entries(fields)) f.setError?.(errors[name] || '');
+  for (const [name, f] of Object.entries(fields)) f?.setError?.(errors[name] || '');
   const first = Object.keys(fields).find((name) => errors[name]);
   if (first) fields[first].input.focus();
 }
@@ -139,6 +222,8 @@ function formParts(fields, { narrow = false } = {}) {
     datePills(fields.dueDate, fields.dueTime),
     fields.priority,
     fields.repeat,
+    fields.reminder,
+    narrow ? (fields.customBox.className = 'stack', fields.customBox) : fields.customBox,
     fields.notes,
   ];
 }
@@ -157,6 +242,74 @@ function datePills(dateField, timeField) {
   ]);
 }
 
+// Saving a reminder is a good moment to ask the phone for notifications (only if not yet asked).
+function askIfReminder(values) {
+  if (values.reminderAt && notificationState() === 'off') askPermission();
+}
+
+// ---- reminders (TSK-3) ----
+// While the app is open, reminders are checked every 30 seconds and when the app comes back on screen.
+// A reminder that has just come due shows as a phone notification (or a banner if notifications are off).
+// Ones that passed while the app was closed show together as one "missed" banner.
+// The tasks settings remember which reminders were already shown (`remindersShown`: task ID → reminder time),
+// so each one shows once; changing a task's reminder makes it count as new.
+const FRESH_MINUTES = 5;
+let checking = null;
+
+export function checkReminders() {
+  if (!checking) checking = runCheck().catch((err) => console.error(err)).finally(() => { checking = null; });
+  return checking;
+}
+
+async function runCheck() {
+  const now = nowDateTime();
+  const [tasks, settings] = await Promise.all([listAll('tasks'), getSettings('tasks', { remindersShown: {} })]);
+  const shownBefore = settings.remindersShown || {};
+  const shown = {};
+  const due = [];
+  for (const task of tasks) {
+    if (task.done || !task.reminderAt) continue;
+    if (shownBefore[task.id] === task.reminderAt) shown[task.id] = task.reminderAt;
+    else if (task.reminderAt <= now) { due.push(task); shown[task.id] = task.reminderAt; }
+  }
+  // Save only when something changed (new ones shown, or old done/deleted ones tidied away).
+  const changed = due.length || Object.keys(shown).length !== Object.keys(shownBefore).length;
+  if (changed) await saveSettings('tasks', { remindersShown: shown });
+  if (!due.length) return;
+
+  due.sort((a, b) => a.reminderAt.localeCompare(b.reminderAt));
+  const fresh = due.filter((t) => minutesBetween(t.reminderAt, now) <= FRESH_MINUTES);
+  const missed = due.filter((t) => !fresh.includes(t));
+  for (const task of fresh) {
+    const when = task.dueDate
+      ? `Due ${task.dueDate === today() ? 'today' : formatDate(task.dueDate)}${task.dueTime ? ` · ${formatTime(task.dueTime)}` : ''}`
+      : 'Reminder';
+    await notify({ title: task.title, body: when, emoji: '⏰', path: 'tasks', tag: `task-${task.id}` });
+  }
+  if (missed.length) {
+    const names = missed.slice(0, 3).map((t) => `“${t.title}”`).join(', ');
+    const more = missed.length > 3 ? ` and ${missed.length - 3} more` : '';
+    showBanner({
+      title: missed.length === 1 ? 'Missed reminder' : `${missed.length} missed reminders`,
+      body: `${names}${more}`,
+      emoji: '⏰',
+      path: 'tasks',
+      tag: 'tasks-missed',
+    });
+  }
+}
+
+let started = false;
+export function startReminders() {
+  if (started) return;
+  started = true;
+  checkReminders();
+  setInterval(checkReminders, 30 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkReminders();
+  });
+}
+
 export async function render(root) {
   let view = 'today';
   let editingId = null;
@@ -172,6 +325,7 @@ export async function render(root) {
     e.preventDefault();
     const { values, errors } = readForm(addFields);
     if (errors) { showErrors(addFields, errors); return; }
+    askIfReminder(values);
     const task = await add('tasks', { ...values, done: false, doneAt: null });
     addFields.title.input.value = '';
     addFields.notes.input.value = '';
@@ -179,6 +333,9 @@ export async function render(root) {
     addFields.dueTime.input.value = '';
     addFields.priority.pick('normal');
     addFields.repeat.pick('none');
+    addFields.remindDate.input.value = '';
+    addFields.remindTime.input.value = '';
+    addFields.reminder.pick('none');
     view = viewOf(task, today()); // jump to the list it went into, so it's seen
     toast({ message: `Added "${task.title}" ✨` });
     await refresh();
@@ -217,6 +374,10 @@ export async function render(root) {
       else parts.push(`Due ${formatDate(task.dueDate)}${at}`);
     }
     if (repeatOf(task) !== 'none') parts.push(`🔁 ${REPEAT_WORD[repeatOf(task)]}`);
+    if (task.reminderAt) {
+      const day = task.reminderAt.slice(0, 10);
+      parts.push(`🔔 ${day === (task.dueDate || now) ? formatTime(task.reminderAt.slice(11)) : formatDateTime(task.reminderAt)}`);
+    }
     if (task.notes) parts.push(parts.length ? '📝' : '📝 Has notes');
     return parts.join(' · ');
   }
@@ -261,6 +422,7 @@ export async function render(root) {
       e.preventDefault();
       const { values, errors } = readForm(fields);
       if (errors) { showErrors(fields, errors); return; }
+      askIfReminder(values);
       const saved = await update('tasks', task.id, values);
       editingId = null;
       await refresh();
@@ -282,11 +444,16 @@ export async function render(root) {
     const already = all.some((t) => !t.done && t.id !== task.id && t.title === task.title
       && repeatOf(t) === repeatOf(task) && t.dueDate === dueDate);
     if (already) return null;
+    // The reminder keeps the same gap before the due moment (e.g. 10 min before 7:30 pm).
+    const reminderAt = task.reminderAt && task.dueDate
+      ? shiftMinutes(`${dueDate} ${task.dueTime || '00:00'}`, -minutesBetween(task.reminderAt, dueMoment(task)))
+      : null;
     return add('tasks', {
       title: task.title,
       notes: task.notes || '',
       dueDate,
       dueTime: task.dueTime || null,
+      reminderAt,
       priority: priorityOf(task),
       repeat: repeatOf(task),
       done: false,
