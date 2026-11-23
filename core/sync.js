@@ -33,7 +33,7 @@ const TABS = {
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
-const LINKS = { foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books', markerId: 'markers' };
+const LINKS = { category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books', markerId: 'markers' };
 
 // Column names that the automatic naming would get wrong.
 const LABELS = {

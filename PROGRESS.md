@@ -443,3 +443,31 @@
 **Known issues**
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - With a long Nights list, you have to scroll past it to reach the History card.
+
+## MON-1: Add expense (24 Nov 2026)
+**Built**
+- 💸 Money screen (butter yellow), two cards:
+  - **Add expense**: Amount (₹) first, then Category and "Paid by" (UPI / Cash / Card / Other) side by
+    side, Date (today to start with) and an optional Note. After saving, the amount and note clear and
+    category, payment and date stay, ready for the next one ("Saved ₹250 · 🍔 Food ✨").
+    Friendly messages for an empty, zero, wrongly typed (e.g. 12.345) or huge (over ₹1 crore) amount
+    and for a future date. Amounts like "1,23,456.50" are accepted.
+  - **Expenses** list grouped by day, newest first; each day heading shows its total
+    ("Today · 24 Nov 2026 … ₹1,23,706.50"). Rows read "🍔 Food · UPI · lunch … ₹250".
+    Tap a row to edit all five boxes (Cancel / Save); the bin button deletes with "Deleted ₹250 · Undo".
+- 8 starter categories (🍔 Food, 🛒 Groceries, 🚌 Transport, 🧾 Bills, 🛍️ Shopping, 💊 Health,
+  🎬 Entertainment, 📦 Other) are saved once, the first time the Money screen opens. A note in money
+  settings (`categoriesSeeded`) stops them coming back if you delete them all later (MON-2).
+- Saved data: expenses are `date`, `amountPaise`, `category`, `paymentMethod`, `note` as in the spec;
+  `category` holds the category's ID so renaming a category later won't break old expenses.
+  Categories are `name`, `icon`, `monthlyBudgetPaise` (empty for now). Nothing existing was changed.
+- Google Sheets shows the category's name (not its ID) in the Expenses tab (`core/sync.js`).
+- `core/styles.css`: new shared `.list-group__title` (a heading with a total over a group of rows).
+- Checked at 360px, light and dark, with pretend expenses (removed afterwards, with their waiting Google
+  Sync changes; Google Sync isn't set up in the test browser): all 4 error messages, save, day totals,
+  edit (moved to another day), delete and Undo, no sideways scrolling, all boxes and buttons ≥ 44px.
+
+**Known issues**
+- The list shows every expense ever; with many months it gets long (MON-3 adds a monthly view).
+- If a category is deleted later (MON-2), its expenses show "❓ Unknown category" until changed.
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".

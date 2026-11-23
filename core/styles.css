@@ -405,6 +405,17 @@ textarea.input {
   gap: var(--space-1);
 }
 
+/* A heading over a group of rows, e.g. a day with its total (MON-1) */
+.list-group__title {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 /* Empty state */
 .empty {
   display: flex;
