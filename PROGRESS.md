@@ -281,4 +281,6 @@
 - No charts in the app yet; the first one comes with WTR-3.
 - The chart file contains two web links in its licence notes (chartjs.org and a GitHub page). The
   release secret scan will find them; they are harmless licence/credit links, not secrets.
+  Decided (24 Nov 2026): keep them, and don't add them to the allowed list yet. At the final
+  "release", Claude reminds me briefly what they are and I approve or decline then.
 - The phone gets this at the final "release".
