@@ -305,3 +305,21 @@
 **Known issues**
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
 - The 30-day view shows a date label about every 8 days to fit the phone; tap a bar to see its full date.
+
+## WGT-1: Log weight (24 Nov 2026)
+**Built**
+- ⚖️ Weight screen (mint): "Today's weight (kg)" box with a Save button. Accepts 20–300 kg (a comma
+  works as the decimal point too) and rounds to 1 decimal (72.46 → 72.5). Anything else gets a friendly message.
+- One weight per day: saving again replaces today's value. When today has a weight, the box shows it,
+  the button says "Update", and a note says "Saved for today: 72.1 kg ✨".
+- "Entries" list of all weights, newest first ("72.1 kg · Today · 24 Nov 2026"), with a friendly empty message.
+- Each row has edit (opens a weight box in the row with Cancel / Save) and delete. Deleting shows
+  "Deleted 72.1 kg · Undo" for 5 seconds. If that day got a new weight before Undo, the new one is kept
+  and a short message says so (still one per day).
+- Checked at 360px, light and dark, with pretend entries (removed afterwards, nothing sent to Google):
+  bad value message, rounding, replace today, edit, delete and Undo all work, no sideways scrolling,
+  buttons ≥ 44px, no new errors.
+
+**Known issues**
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+- Only the weight can be edited, not the date. Past days can't be logged yet (only today).
