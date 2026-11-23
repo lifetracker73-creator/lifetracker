@@ -2,14 +2,19 @@
 // MON-1: add an expense (amount first), list grouped by day with each day's total, edit/delete with Undo.
 // MON-2: Categories card: add, edit (name + emoji icon), delete with Undo.
 // MON-3: This month card: month total, per-category totals, compare to last month (◀ ▶ to look back).
+// MON-4: Charts card: spend by category for the month shown above, and spend over time
+//        (each day of that month, or the 12 months up to it).
 // The 8 starter categories are saved once, the first time this screen opens (MON-2 lets you edit them).
 // Each expense keeps its category's ID in `category`, so renaming a category never breaks old expenses.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import {
   add, update, remove, restore, list as listAll, getSettings, saveSettings,
 } from '../core/storage.js';
-import { today, formatDate, formatMonth, addDays, monthStart, monthEnd } from '../core/dates.js';
+import {
+  today, formatDate, formatMonth, addDays, monthStart, monthEnd, dateRange,
+} from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
+import { barChart } from '../core/charts.js';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Food', icon: '🍔' },
@@ -352,6 +357,7 @@ export async function render(root) {
       ? `${countText(items.length)} in ${formatMonth(shownMonth)}`
       : `No expenses in ${formatMonth(shownMonth)}${atNow ? ' yet' : ''}`;
     monthCompare.textContent = compareText(total, sum(lastItems), lastItems.length, prevMonth(shownMonth));
+    await refreshCharts(all);
     if (!items.length) {
       monthCats.replaceChildren();
       return;
@@ -369,6 +375,93 @@ export async function render(root) {
       subtitle: `${Math.round((c.paise / total) * 100)}% · ${countText(c.count)}`,
       meta: formatMoney(c.paise),
     }))));
+  }
+
+  // ---- Charts (MON-4): follow the month chosen in "This month" ----
+  const catTitle = el('span');
+  const catChartBox = el('div');
+  const catEmpty = el('p', { className: 'progress-note' });
+  let catChart = null;
+  let timeView = 'days';
+  let timeChart = null;
+  const timeChartBox = el('div');
+  const timeNote = el('p', { className: 'progress-note' });
+  const viewButtons = [['days', 'Days'], ['months', 'Months']].map(([view, label]) => {
+    const btn = button({
+      label,
+      variant: view === timeView ? 'primary' : 'secondary',
+      onClick: async () => {
+        timeView = view;
+        viewButtons.forEach((b) => {
+          const on = b.dataset.view === view;
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        await refreshCharts();
+      },
+    });
+    btn.dataset.view = view;
+    btn.setAttribute('aria-pressed', String(view === timeView));
+    return btn;
+  });
+
+  // Draws a chart the first time, then only updates it (the promise is kept so quick taps never draw two).
+  async function drawChart(current, box, config) {
+    if (current) {
+      (await current).update(config);
+      return current;
+    }
+    const made = barChart(box, { module: 'money', format: (v) => formatMoney(v), ...config });
+    await made;
+    return made;
+  }
+
+  async function refreshCharts(all) {
+    if (!catChartBox.isConnected) return;
+    const expenses = all || await listAll('expenses');
+    const sumOf = (from, to) => expenses
+      .filter((x) => x.date >= from && x.date <= to)
+      .reduce((s, x) => s + x.amountPaise, 0);
+    const start = monthStart(`${shownMonth}-01`);
+    const end = monthEnd(`${shownMonth}-01`);
+
+    // By category: one sideways bar each, biggest first.
+    catTitle.textContent = `By category · ${formatMonth(shownMonth)}`;
+    const byCat = new Map();
+    for (const x of expenses) {
+      if (x.date < start || x.date > end) continue;
+      byCat.set(x.category, (byCat.get(x.category) || 0) + x.amountPaise);
+    }
+    const rows = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+    catEmpty.hidden = rows.length > 0;
+    catChartBox.hidden = !rows.length;
+    catEmpty.textContent = `No expenses in ${formatMonth(shownMonth)} to show yet.`;
+    if (rows.length) {
+      catChart = await drawChart(catChart, catChartBox, {
+        horizontal: true,
+        labels: rows.map(([id]) => catText(id)),
+        values: rows.map(([, paise]) => paise),
+        height: 60 + rows.length * 36,
+      });
+    }
+
+    // Over time: each day of the month (up to today), or the 12 months ending with it.
+    let labels;
+    let values;
+    if (timeView === 'days') {
+      labels = dateRange(start, end < today() ? end : today());
+      const perDay = new Map();
+      for (const x of expenses) perDay.set(x.date, (perDay.get(x.date) || 0) + x.amountPaise);
+      values = labels.map((d) => perDay.get(d) || 0);
+      timeNote.textContent = `Each day of ${formatMonth(shownMonth)}. Tap a bar to see its total.`;
+    } else {
+      labels = [shownMonth];
+      while (labels.length < 12) labels.unshift(prevMonth(labels[0]));
+      values = labels.map((ym) => sumOf(monthStart(`${ym}-01`), monthEnd(`${ym}-01`)));
+      timeNote.textContent = `12 months up to ${formatMonth(shownMonth)}. Tap a bar to see its total.`;
+    }
+    timeChart = await drawChart(timeChart, timeChartBox, { labels, values });
   }
 
   // Everything: expenses, the month summary, then categories (their "N expenses" counts change with expenses).
@@ -504,6 +597,15 @@ export async function render(root) {
       el('div', { className: 'month-nav' }, [prevBtn, monthTitle, nextBtn]),
       el('div', {}, [monthTotal, monthCount, monthCompare]),
       monthCats,
+    ])] }),
+    card({ title: 'Charts', module: 'money', children: [el('div', { className: 'stack' }, [
+      el('h3', { className: 'list-group__title' }, [catTitle]),
+      catChartBox,
+      catEmpty,
+      el('h3', { className: 'list-group__title' }, [el('span', { text: 'Over time' })]),
+      el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Show spending by' }, viewButtons),
+      timeChartBox,
+      timeNote,
     ])] }),
     card({ title: 'Expenses', children: [listBox] }),
     card({ title: 'Categories', module: 'money', children: [catForm, catListBox] }),

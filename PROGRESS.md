@@ -525,3 +525,26 @@
 - Percentages are rounded, so they can add up to 99% or 101%.
 - Months show the way the shared date helper writes them, so September is "Sept 2026".
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+## MON-4: Money charts (24 Nov 2026)
+**Built**
+- 💸 Money screen: new "Charts" card (butter yellow) under "This month". It follows the month picked
+  there with ◀ ▶.
+- **By category**: one sideways bar per category for that month, biggest first ("🧾 Bills", "🛒 Groceries"…),
+  with ₹ along the bottom. Tap a bar to see its total ("₹899.50"). A month with no expenses shows
+  "No expenses in Aug 2026 to show yet." instead.
+- **Over time**: "Days" / "Months" pill buttons. Days = a bar for each day of that month (up to today);
+  Months = the 12 months up to that month ("Dec … Nov", full month name when tapped).
+- Updates straight away after adding, editing, deleting, Undo and renaming a category. Worked out on
+  screen; saved data unchanged.
+- `core/charts.js`: bar charts can now lie sideways (`horizontal: true`), labels can be months
+  ('2026-11' → "Nov") or any text (shortened with "…" after 14 letters, full when tapped), and a chart's
+  height can change on update. Water, weight and sleep charts are unchanged (water re-checked).
+- Checked at 360px, light and dark, with 11 pretend expenses over Dec 2025–Nov 2026 (removed afterwards,
+  with their waiting Google Sync changes): totals checked by hand, both views, ◀ ▶ incl. an empty month
+  and back, delete and Undo, no sideways scrolling, no new errors.
+
+**Known issues**
+- Month labels on the axis are just the month ("Dec", "Jan"), so the year shows only when a bar is tapped.
+- Days with no spending show as no bar (₹0).
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".

@@ -20,11 +20,14 @@
 //     ],
 //     goal: 70, format: (v) => formatKg(v),
 //   });
-//   chart.update({ labels, values })  or  chart.update({ labels, series })
+//   chart.update({ labels, values })  or  chart.update({ labels, series })  (also { height })
 //   chart.destroy()
 // `box` is any empty element; the chart fills its width and is 220px tall (pass height to change).
+// Labels can also be months ('2026-11' shows as "Nov", "Nov 2026" when tapped) or any text
+// (long text is shortened on the axis, shown in full when tapped).
+// Bar charts can lie sideways with `horizontal: true` (e.g. one bar per category); no goal line then.
 
-import { formatDate } from './dates.js';
+import { formatDate, formatMonth } from './dates.js';
 
 let loading = null;
 
@@ -44,16 +47,24 @@ function loadChartJs() {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;
+const MAX_LABEL = 14; // longer text labels are shortened on the axis
 
-// '2026-11-23' -> "23 Nov" (short, so 30 days fit on a phone). Other labels unchanged.
+// '2026-11-23' -> "23 Nov" (short, so 30 days fit on a phone); '2026-11' -> "Nov".
+// Long text is shortened with "…". Other labels unchanged.
 function shortLabel(label) {
-  if (typeof label !== 'string' || !DATE_RE.test(label)) return label;
-  return formatDate(label).split(' ').slice(0, 2).join(' ');
+  if (typeof label !== 'string') return label;
+  if (DATE_RE.test(label)) return formatDate(label).split(' ').slice(0, 2).join(' ');
+  if (MONTH_RE.test(label)) return formatMonth(label).split(' ')[0];
+  const chars = [...label];
+  return chars.length > MAX_LABEL ? `${chars.slice(0, MAX_LABEL - 1).join('').trimEnd()}…` : label;
 }
 
 function fullLabel(label) {
-  if (typeof label !== 'string' || !DATE_RE.test(label)) return label;
-  return formatDate(label);
+  if (typeof label !== 'string') return label;
+  if (DATE_RE.test(label)) return formatDate(label);
+  if (MONTH_RE.test(label)) return formatMonth(label);
+  return label;
 }
 
 // ---- Colours from styles.css (so modules never invent colours) ----
@@ -148,15 +159,20 @@ const goalLinePlugin = {
   },
 };
 
-function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero }) {
+function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero, horizontal }) {
   const fmt = (v) => (format ? format(v) : new Intl.NumberFormat('en-IN').format(v));
   const font = { family: theme.font, size: 12 };
+  // Sideways bars: labels go down the left, numbers along the bottom.
+  const labelAxis = horizontal ? 'y' : 'x';
+  const valueAxis = horizontal ? 'x' : 'y';
+  if (horizontal) goal = null;
   return {
+    indexAxis: labelAxis,
     responsive: true,
     maintainAspectRatio: false,
     animation: reducedMotion() ? false : { duration: 500, easing: 'easeOutQuart' },
-    layout: { padding: { top: 8 } },
-    interaction: { mode: 'index', intersect: false },
+    layout: { padding: { top: 8, right: horizontal ? 12 : 0 } },
+    interaction: { mode: 'index', axis: labelAxis, intersect: false },
     plugins: {
       legend: {
         display: showLegend,
@@ -176,7 +192,7 @@ function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero 
         callbacks: {
           title: (items) => (items.length ? String(fullLabel(items[0].chart.data.labels[items[0].dataIndex])) : ''),
           label: (item) => {
-            const v = item.parsed.y;
+            const v = item.parsed[valueAxis];
             const text = v == null ? '—' : fmt(v);
             return showLegend ? ` ${item.dataset.label}: ${text}` : ` ${text}`;
           },
@@ -187,24 +203,27 @@ function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero 
       },
     },
     scales: {
-      x: {
+      [labelAxis]: {
         grid: { display: false },
         border: { display: false },
         ticks: {
           color: theme.muted,
           font,
           maxRotation: 0,
-          autoSkip: true,
+          autoSkip: !horizontal, // sideways: every category keeps its label
           autoSkipPadding: 12,
           callback(value) { return shortLabel(this.getLabelForValue(value)); },
         },
       },
-      y: {
+      [valueAxis]: {
         beginAtZero,
         grace: '8%',
         grid: { color: theme.grid, drawTicks: false },
         border: { display: false },
-        ticks: { color: theme.muted, font, padding: 8, maxTicksLimit: 5, callback: (v) => fmt(v) },
+        ticks: {
+          color: theme.muted, font, padding: 8, maxRotation: 0,
+          maxTicksLimit: horizontal ? 4 : 5, callback: (v) => fmt(v),
+        },
         // Make sure the goal line always fits on the chart.
         suggestedMax: goal == null ? undefined : goal,
         suggestedMin: goal == null || beginAtZero ? undefined : goal,
@@ -264,8 +283,11 @@ async function makeChart(box, type, config) {
   const Chart = await loadChartJs();
   const {
     module, labels = [], values = [], series = [], label, goal = null, goalLabel,
-    format, height = 220, beginAtZero = type === 'bar',
+    format, height = 220, beginAtZero = type === 'bar', horizontal = false,
   } = config;
+  const optionsFor = (t) => buildOptions(t, {
+    format, goal, goalLabel, showLegend, beginAtZero, horizontal: type === 'bar' && horizontal,
+  });
 
   box.replaceChildren();
   box.classList.add('chart-box');
@@ -287,7 +309,7 @@ async function makeChart(box, type, config) {
   const chart = new Chart(canvas, {
     type,
     data: { labels: state.labels, datasets: datasetsFor(theme) },
-    options: buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero }),
+    options: optionsFor(theme),
     plugins: [goalLinePlugin],
   });
   canvas.setAttribute('aria-label', describe(state.labels, valuesList(), format));
@@ -297,7 +319,7 @@ async function makeChart(box, type, config) {
   const retheme = () => {
     theme = readTheme(box);
     chart.data.datasets = datasetsFor(theme);
-    chart.options = buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero });
+    chart.options = optionsFor(theme);
     chart.update('none');
   };
   scheme.addEventListener('change', retheme);
@@ -305,6 +327,7 @@ async function makeChart(box, type, config) {
   return {
     update(next = {}) {
       state = { ...state, ...next };
+      if (next.height) box.style.height = `${next.height}px`;
       chart.data.labels = state.labels;
       chart.data.datasets = datasetsFor(theme);
       chart.update();
