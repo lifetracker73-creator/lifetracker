@@ -493,7 +493,10 @@
   all buttons and boxes ≥ 44px, no new errors.
 
 **Known issues**
-- Inside an edit row, boxes and unselected emoji have the same pale background as the row, so they're
-  harder to see (the same is true for every edit row in the app so far: weight, sleep, expenses).
 - With many expenses, you have to scroll past the Expenses list to reach Categories.
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+**Update (24 Nov 2026): clearer edit rows**
+- `core/styles.css`: boxes and secondary buttons (e.g. Cancel, unselected emoji) inside a list row now use
+  the card colour, so they stand out from the row's pale background. This helps every edit row in the
+  app (weight, sleep, expenses, categories). Checked at 360px in light and dark.

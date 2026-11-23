@@ -646,6 +646,13 @@ textarea.input {
   padding: 0 var(--space-2);
 }
 
+/* Boxes and secondary buttons inside a list row (e.g. a row being edited) use the card colour,
+   so they stand out from the row's pale background. */
+.list-item .input,
+.list-item .btn--secondary {
+  background: var(--color-surface);
+}
+
 /* A grid of emoji buttons to pick an icon from (e.g. money categories). */
 .emoji-grid {
   display: grid;
