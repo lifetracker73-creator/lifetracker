@@ -647,3 +647,29 @@
 - The built-in preview browser on this laptop refuses to start the offline helper for any file (a limit of
   that browser, not the app); everything else worked there. Offline use is unchanged in real browsers.
 - The phone gets this at the final "release".
+
+## TSK-2: Due time, priority and repeating tasks (24 Nov 2026)
+**Built**
+- ✅ Tasks screen, add form and edit row: an optional **Time** box beside the due date (in the edit row
+  they sit on separate lines so nothing is cut off), **Priority** pills (Low / Normal / High, Normal to
+  start) and **Repeat** pills (None / Daily / Weekly / Monthly, 2 × 2). After adding, they go back to Normal / None.
+- A time needs a date: "Pick a due date too, or clear the time." The "No date" pill also clears the time.
+  A repeating task with no date starts today.
+- Rows show e.g. "🔴 High · Due today · 7:30 am · 🔁 Weekly"; low tasks show "Low". High tasks go to the top
+  of Today, Upcoming and No date, then soonest date; on the same day, tasks with a time come first, earliest first.
+- Ticking off a repeating task adds the next one ("Done! 🎉 Next one: 1 Dec 2026"), with the same time,
+  priority, notes and repeat. Undo takes the next one away again. The next date is always after today, so
+  ticking off an old overdue task doesn't make another overdue one. Monthly on the 31st → last day of a
+  shorter month. Ticking, unticking and ticking again doesn't make a second copy.
+- Saved data: tasks now also have `dueTime` ('HH:MM' or empty), `priority` ('low' / 'normal' / 'high') and
+  `repeat` ('none' / 'daily' / 'weekly' / 'monthly'), as in the spec. Older tasks without them count as
+  Normal, no repeat; nothing needed converting. Google Sheets gets "Due time", "Priority" and "Repeat" columns.
+- Checked at 360px in light and dark mode: time-without-date message, add with all options, sorting,
+  repeating weekly / daily / monthly (31 Oct → 30 Nov), Undo removes the next one, no duplicate, edit
+  (priority and time), all buttons and boxes ≥ 44px, no sideways scrolling. The pretend tasks were removed
+  and the waiting Google Sync list is back to its 12 entries.
+
+**Known issues**
+- Monthly repeats can drift after a short month (31 Oct → 30 Nov → 30 Dec), because each one follows the last.
+- Priority and repeat show in Google Sheets as plain words in lowercase ("high", "weekly").
+- No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
