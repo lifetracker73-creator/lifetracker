@@ -673,3 +673,33 @@
 - Monthly repeats can drift after a short month (31 Oct → 30 Nov → 30 Dec), because each one follows the last.
 - Priority and repeat show in Google Sheets as plain words in lowercase ("high", "weekly").
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+## CORE-9: Notifications helper (24 Nov 2026)
+**Built**
+- New `core/notify.js`, a helper any module can use (TSK-3 reminders will be the first):
+  - tells whether notifications are On / Off / Blocked / Not available here
+  - asks the phone for permission, only after a button is tapped (never by itself on opening)
+  - shows a phone notification with a title, short message, emoji and the screen to open when tapped.
+    On phones it goes through the offline helper (`sw.js`), which Android needs.
+- Backup banner: if notifications are off, blocked or not available (e.g. iPhone outside the installed app),
+  the same message shows as a soft rounded banner at the top of the app, with ✕ to close it and an optional
+  "Open" button that goes to the right screen. The same message can't show twice (it replaces itself).
+  Banners stay until closed, even when changing screens.
+- `sw.js`: tapping a phone notification brings the app forward on the right screen (or opens it).
+  Cache version 8 with the new file.
+- ⚙️ Settings: new "🔔 Notifications" card showing the state in plain words, "🔔 Turn on notifications"
+  (only when Off) and "Send a test". Blocked and Not available explain what to do.
+- `core/styles.css`: banner styles (small slide-in, off when the phone asks for reduced motion), and a fix so a
+  hidden button really disappears. This also fixes "Change account" in Google Sync, which stayed visible
+  after being tapped.
+- No saved data changed; nothing new is stored.
+- Checked at 360px in light and dark mode: Blocked state text, Send a test → banner, tapping twice gives one
+  banner, "Open" goes to Tasks, ✕ closes, close button 44px, no sideways scrolling. The "On" path was
+  checked with a pretend notification system (it shows a notification, not a banner).
+
+**Known issues**
+- The preview browser on this laptop has notifications blocked and can't run the offline helper, so a real
+  phone notification and tapping it haven't been seen yet; check on the phone after the final "release".
+- Notifications only appear while the app is open or recently used (no internet server), as SPEC.md says.
+  TSK-3 adds the actual task reminders and the overdue banner.
+- The phone gets this at the final "release".

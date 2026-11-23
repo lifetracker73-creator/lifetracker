@@ -1,7 +1,52 @@
-// ⚙️ Settings screen. For now it has only the Google Sync section (SHEETS-SYNC).
+// ⚙️ Settings screen: Google Sync (SHEETS-SYNC) and Notifications (CORE-9).
 // CORE-8 adds the module goals, "Customise menu" and your name later.
 import { card, button, input, el, toast } from './ui.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
+import { notificationState, askPermission, notify } from './notify.js';
+
+// 🔔 Notifications (CORE-9): shows if they're on, a "Turn on" button and "Send a test".
+function notificationsCard() {
+  const words = {
+    on: ['On ✅', 'Reminders will pop up as phone notifications.'],
+    off: ['Off', 'Turn them on so reminders can pop up. Until then they show as a banner inside the app.'],
+    blocked: ['Blocked 🚫', 'This phone has blocked notifications for Lifetracker. To allow them: open the app\'s settings (or tap the lock icon next to the web address) → Notifications → Allow. Until then reminders show as a banner inside the app.'],
+    unsupported: ['Not available here', 'This browser can\'t show notifications, so reminders show as a banner inside the app. On iPhone, add the app to the Home Screen first (Share → Add to Home Screen).'],
+  };
+  const statusLine = el('p', { className: 'settings-status' });
+  const statusMore = el('p', { className: 'muted' });
+  const turnOn = button({
+    label: '🔔 Turn on notifications',
+    variant: 'primary',
+    block: true,
+    onClick: async () => {
+      const state = await askPermission();
+      show();
+      toast({ message: state === 'on' ? 'Notifications are on 🔔' : 'Notifications are still off' });
+    },
+  });
+  const test = button({
+    label: 'Send a test',
+    variant: 'secondary',
+    block: true,
+    onClick: () => notify({
+      title: 'Hello from Lifetracker',
+      body: 'This is how your reminders will look ✨',
+      emoji: '🔔',
+      tag: 'test',
+    }),
+  });
+  function show() {
+    const state = notificationState();
+    statusLine.textContent = words[state][0];
+    statusMore.textContent = words[state][1];
+    turnOn.hidden = state !== 'off';
+  }
+  show();
+  return card({
+    title: '🔔 Notifications',
+    children: [statusLine, statusMore, el('div', { className: 'stack' }, [turnOn, test])],
+  });
+}
 
 export async function render(root) {
   const cfg = await getConfig();
@@ -106,6 +151,7 @@ export async function render(root) {
         form,
       ],
     }),
+    notificationsCard(),
     card({
       title: '🔒 Keep it private',
       children: [

@@ -4,7 +4,7 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 7;
+const CACHE_VERSION = 8;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
 
 // Laptop testing address (not the live link). Phones and the live link keep using saved copies first.
@@ -26,6 +26,7 @@ const FILES = [
   './core/settings.js',
   './core/charts.js',
   './core/xlsx.js',
+  './core/notify.js',
   './core/vendor/chart.umd.min.js',
   './core/fonts/Nunito-Variable.ttf',
 
@@ -59,6 +60,22 @@ self.addEventListener('install', (event) => {
 // The app sends this when you tap "New version available — tap to refresh".
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// Tapping a notification (CORE-9): bring the app forward and open the right screen.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const path = event.notification.data?.path || '';
+  const url = self.registration.scope + (path ? `#/${path}` : '');
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url.startsWith(self.registration.scope));
+      if (open) {
+        return open.focus().then((c) => (path && c && c.navigate ? c.navigate(url).catch(() => c) : c));
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });
 
 // Activate: delete older saved copies of the app.
