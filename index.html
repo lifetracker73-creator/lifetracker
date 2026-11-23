@@ -213,11 +213,19 @@
         : hour >= 12 && hour < 17 ? ['Good afternoon', '🌤️']
         : ['Good evening', '🌙'];
 
+      // 😴 "Going to bed" (from 10 pm) / "I'm awake" (from 6 am) card, from the sleep module.
+      const sleepSlot = el('div', { className: 'home-sleep' });
+      import('./sleep/index.js')
+        .then(({ homeCard }) => homeCard())
+        .then((c) => sleepSlot.append(c))
+        .catch((err) => console.error(err));
+
       root.append(
         el('div', { className: 'home-greeting' }, [
           el('h2', { className: 'home-greeting__title', text: `${greeting}${name ? `, ${name}` : ''} ${emoji}` }),
           el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
         ]),
+        sleepSlot,
         card({ className: 'home-summary', children: [
           el('p', { className: 'muted', text: 'Your daily summary will appear here ✨' }),
         ] }),

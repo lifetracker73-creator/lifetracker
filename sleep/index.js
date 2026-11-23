@@ -7,7 +7,7 @@ import {
   add, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
 } from '../core/storage.js';
 import {
-  today, yesterday, nowDateTime, addDays, daysBetween, formatDate, formatTime, formatDuration,
+  today, yesterday, currentHour, nowDateTime, addDays, daysBetween, formatDate, formatTime, formatDuration,
 } from '../core/dates.js';
 
 // wakeCutoff: 'HH:MM', or '' when switched off. pendingBedTime: 'YYYY-MM-DD HH:MM' after
@@ -74,6 +74,101 @@ async function saveSleepSettings(values) {
   return { ...DEFAULTS, ...(await saveSettings('sleep', values)) };
 }
 
+// ---------- Going to bed / I'm awake (shared by the Sleep screen and the Home card) ----------
+
+// If a bed time is waiting and the cut-off has passed, finish the night at the cut-off.
+async function finishIfPastCutoff(settings) {
+  const bed = settings.pendingBedTime;
+  if (!bed || !settings.wakeCutoff) return { settings, finished: false };
+  const wake = cutoffAfter(bed, settings.wakeCutoff);
+  if (wake > nowDateTime()) return { settings, finished: false };
+  await saveNight(bed, wake, true);
+  const saved = await saveSleepSettings({ pendingBedTime: null });
+  toast({ message: `Wake time set to ${formatTime(saved.wakeCutoff)} automatically ⏰ Edit it if needed.` });
+  return { settings: saved, finished: true };
+}
+
+// "Going to bed": remembers the time now. Undo forgets it again and calls onUndo(settings).
+async function bedNow(onUndo) {
+  const saved = await saveSleepSettings({ pendingBedTime: nowDateTime() });
+  toast({
+    message: 'Good night 🌙 Sleep well!',
+    actionLabel: 'Undo',
+    onAction: async () => onUndo(await saveSleepSettings({ pendingBedTime: null })),
+  });
+  return saved;
+}
+
+// "I'm awake": logs the night from bed time to now, worked out automatically.
+async function wakeNow(settings, errorHint) {
+  const result = await finishIfPastCutoff(settings);
+  if (result.finished || !result.settings.pendingBedTime) return result;
+  const bed = settings.pendingBedTime;
+  const wake = nowDateTime();
+  const { minutes, error } = checkNight(bed, wake);
+  if (error) {
+    toast({ message: `${error} ${errorHint}` });
+    return { settings, finished: false };
+  }
+  await saveNight(bed, wake, false);
+  toast({ message: `Good morning ☀️ You slept ${formatDuration(minutes)}` });
+  return { settings: await saveSleepSettings({ pendingBedTime: null }), finished: true };
+}
+
+// The Home card shows "Going to bed" from 10 pm to 6 am, and "I'm awake" from 6 am while a night is open.
+const BED_FROM_HOUR = 22;
+const AWAKE_FROM_HOUR = 6;
+
+/** A small Sleep card for the Home screen (it hides itself when there is nothing to tap). */
+export async function homeCard() {
+  let settings = (await finishIfPastCutoff(await getSettings('sleep', DEFAULTS))).settings;
+  const inner = el('div', { className: 'stack' });
+  const box = card({ title: 'Sleep', module: 'sleep', children: [inner] });
+  const show = (on) => { box.style.display = on ? '' : 'none'; };
+
+  function draw() {
+    const hour = currentHour();
+    const bed = settings.pendingBedTime;
+    show(true);
+    if (!bed && (hour >= BED_FROM_HOUR || hour < AWAKE_FROM_HOUR)) {
+      inner.replaceChildren(
+        button({ label: '🌙 Going to bed', variant: 'primary', block: true, onClick: goToBed }),
+        el('p', { className: 'progress-note', text: 'Tap when you go to bed, and "I\'m awake" in the morning. Your sleep is worked out and saved for you.' }),
+      );
+    } else if (bed) {
+      const sleeping = `😴 Sleeping since ${formatTime(bed.slice(11))}`;
+      inner.replaceChildren(
+        el('div', { className: 'progress-stats__amount', text: sleeping }),
+        // From the first 6 am after going to bed (not straight after tapping at 10:30 pm).
+        cutoffAfter(bed, `0${AWAKE_FROM_HOUR}:00`) <= nowDateTime()
+          ? button({ label: "☀️ I'm awake", variant: 'primary', block: true, onClick: wakeUp })
+          : el('p', { className: 'progress-note', text: 'Sleep well 🌙 The "I\'m awake" button shows here from 6 am.' }),
+      );
+    } else {
+      show(false);
+    }
+  }
+
+  async function goToBed() {
+    settings = await bedNow((s) => { settings = s; draw(); });
+    draw();
+  }
+
+  async function wakeUp() {
+    settings = (await wakeNow(settings, 'Open 😴 Sleep to log the night by hand.')).settings;
+    draw();
+  }
+
+  draw();
+  // While Home is open, switch buttons when the clock passes 10 pm / 6 am or the cut-off.
+  const timer = setInterval(async () => {
+    if (!box.isConnected) { clearInterval(timer); return; }
+    settings = (await finishIfPastCutoff(settings)).settings;
+    draw();
+  }, 60 * 1000);
+  return box;
+}
+
 export async function render(root) {
   let settings = await getSettings('sleep', DEFAULTS);
   let editingId = null;
@@ -83,16 +178,10 @@ export async function render(root) {
   // ---------- Bedtime / I'm awake ----------
   const tonightBox = el('div', { className: 'stack' });
 
-  // If a bed time is waiting and the cut-off has passed, finish the night at the cut-off.
   async function autoFinish() {
-    const bed = settings.pendingBedTime;
-    if (!bed || !settings.wakeCutoff) return false;
-    const wake = cutoffAfter(bed, settings.wakeCutoff);
-    if (wake > nowDateTime()) return false;
-    await saveNight(bed, wake, true);
-    settings = await saveSleepSettings({ pendingBedTime: null });
-    toast({ message: `Wake time set to ${formatTime(settings.wakeCutoff)} automatically ⏰ Edit it if needed.` });
-    return true;
+    const result = await finishIfPastCutoff(settings);
+    settings = result.settings;
+    return result.finished;
   }
 
   function showTonight() {
@@ -120,9 +209,11 @@ export async function render(root) {
   }
 
   async function goToBed() {
-    settings = await saveSleepSettings({ pendingBedTime: nowDateTime() });
+    settings = await bedNow(async (s) => {
+      settings = s;
+      if (tonightBox.isConnected) showTonight();
+    });
     showTonight();
-    toast({ message: 'Good night 🌙 Sleep well!' });
   }
 
   async function cancelBed() {
@@ -131,18 +222,7 @@ export async function render(root) {
   }
 
   async function wakeUp() {
-    if (await autoFinish()) { await refresh(); return; }
-    const bed = settings.pendingBedTime;
-    if (!bed) { await refresh(); return; }
-    const wake = nowDateTime();
-    const { minutes, error } = checkNight(bed, wake);
-    if (error) {
-      toast({ message: `${error} Tap Cancel and log the night below.` });
-      return;
-    }
-    await saveNight(bed, wake, false);
-    settings = await saveSleepSettings({ pendingBedTime: null });
-    toast({ message: `Good morning ☀️ You slept ${formatDuration(minutes)}` });
+    settings = (await wakeNow(settings, 'Tap Cancel and log the night below.')).settings;
     await refresh();
   }
 

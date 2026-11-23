@@ -580,6 +580,11 @@ textarea.input {
   display: none;
 }
 
+/* Home sleep card spot: takes no room of its own, so a hidden card leaves no gap. */
+.home-sleep {
+  display: contents;
+}
+
 /* "New version available" message, floating just above the bottom menu bar. */
 .update-banner {
   position: fixed;

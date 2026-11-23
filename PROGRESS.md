@@ -400,3 +400,24 @@
 - Tapping "I'm awake" after the cut-off has passed saves the cut-off time, not the actual time; edit it if needed.
 - The cut-off setting moves to the full Settings screen with CORE-8 (same saved place, nothing lost).
 - No new files, so `sw.js` didn't need changing; the phone gets this at the final "release".
+
+**Update (24 Nov 2026): Sleep buttons on the Home screen**
+- 🏠 Home now has a small 😴 Sleep card at the top, so sleep is logged without opening the Sleep screen:
+  - From 10 pm to 6 am (and no night open): "🌙 Going to bed" (message "Good night 🌙" with Undo).
+  - While a night is open: "😴 Sleeping since 10:30 pm", and from the first 6 am after bed time an
+    "☀️ I'm awake" button. Tapping it works out the sleep (bed → awake) and saves the night
+    ("Good morning ☀️ You slept 8 h 15 m").
+  - At other times (6 am–10 pm with no night open) the card is hidden.
+  - The wake-up cut-off now also works from Home: a forgotten "I'm awake" is filled in when Home opens.
+  - The card updates by itself every minute while Home is open (e.g. at 10 pm and 6 am).
+- The 😴 Sleep screen keeps its Bedtime card (any time of day), the manual "Log a night" form and the list.
+  "Going to bed" there now also offers Undo.
+- `sleep/index.js` gives the Home screen its card (`homeCard`); `index.html` shows it;
+  `core/styles.css` new `.home-sleep` so a hidden card leaves no gap. No saved-data changes, no new files.
+- Checked at 360px, light and dark, with a pretend clock and pretend nights (removed afterwards): 3 pm and
+  9:59 pm hidden, 10:30 pm bed, Undo, 4 am "from 6 am" note, 6:45 am awake → 8 h 15 m saved, forgotten
+  wake → auto 10:00 am from Home, Sleep screen still works, no sideways scrolling, no new errors.
+
+**Known issues**
+- Between 10 pm and 6 am, "I'm awake" isn't on Home (e.g. waking at 5:30 am); use the 😴 Sleep screen then.
+- Going to bed before 10 pm also needs the 😴 Sleep screen.
