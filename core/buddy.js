@@ -135,6 +135,10 @@ const OUTFITS = {
       <rect class="buddy__fill-plaster" x="410" y="790" width="80" height="30" rx="15"/>
       <path class="buddy__line" d="M442 798 L442 812 M458 798 L458 812"/>
     </g>` },
+  gym: { wear: `
+    <rect class="buddy__fill-gym" x="150" y="610" width="300" height="34" rx="17" transform="rotate(-6 300 627)"/>`, hold: `
+    <path class="buddy__line" d="M100 880 C100 840 156 840 156 880"/>
+    <circle class="buddy__fill-gym" cx="128" cy="918" r="46"/>` },
 };
 
 let count = 0;
@@ -210,7 +214,7 @@ export function buddy({ size = 72, mood = 'idle', outfit = '', face = 'calm', cl
 }
 
 /** The module shown on screen now ('food' for "#/food/…"), or '' on Home and Settings. */
-const MODULE_KEYS = ['water', 'sleep', 'weight', 'food', 'money', 'tasks', 'reading', 'medical'];
+const MODULE_KEYS = ['water', 'sleep', 'weight', 'food', 'money', 'tasks', 'reading', 'medical', 'gym'];
 export function screenModule() {
   const key = location.hash.replace(/^#\/?/, '').split('/')[0];
   return MODULE_KEYS.includes(key) ? key : '';
@@ -249,6 +253,7 @@ const SCREEN_START = {
   tasks: ['calm', '{name} is ready to help ✅'],
   reading: ['content', '{name} loves a good book 📚'],
   medical: ['content', '{name} hopes you feel well 🩺'],
+  gym: ['content', '{name} is ready to sweat with you 🏋️'],
 };
 
 let active = null; // { module, friend, say, line }

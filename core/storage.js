@@ -29,6 +29,10 @@ export const STORES = {
   splitGroups: { dateField: null },   // REFINE-5: 🤝 Split bills groups
   splitItems:  { dateField: 'date' }, // REFINE-5: bills and settle-up payments inside a group
   loans:       { dateField: 'date' }, // REFINE-5: 📒 money lent and borrowed
+  gymSessions: { dateField: 'date' }, // GYM-1: 🏋️ workout sessions
+  gymSets:     { dateField: null },   // GYM-2: one exercise done inside a session
+  gymExercises: { dateField: null },  // GYM-2: exercise library
+  gymRoutines: { dateField: null },   // GYM-5: saved routines
 };
 
 const SETTINGS = 'settings'; // one row per module, keyed by module name
@@ -52,7 +56,10 @@ const migrations = [
   // Version 1: create every store as it was then (incl. the old blood test drawers, not visits).
   (db) => {
     const v1 = { ...STORES, markers: { dateField: null }, reports: { dateField: 'date' } };
-    delete v1.visits;
+    // Drawers added by later versions are made by their own step below (on a new phone too).
+    for (const later of ['visits', 'splitGroups', 'splitItems', 'loans', 'gymSessions', 'gymSets', 'gymExercises', 'gymRoutines']) {
+      delete v1[later];
+    }
     for (const [name, { dateField }] of Object.entries(v1)) {
       const store = db.createObjectStore(name, { keyPath: 'id' });
       if (dateField) store.createIndex('date', dateField);
@@ -82,6 +89,14 @@ const migrations = [
     db.createObjectStore('splitGroups', { keyPath: 'id' });
     db.createObjectStore('splitItems', { keyPath: 'id' }).createIndex('date', 'date');
     db.createObjectStore('loans', { keyPath: 'id' }).createIndex('date', 'date');
+  },
+  // Version 6 (GYM-1, 25 Nov 2026): add drawers for the Gym log (sessions, exercises done,
+  // exercise library, routines). Existing data is not touched.
+  (db) => {
+    db.createObjectStore('gymSessions', { keyPath: 'id' }).createIndex('date', 'date');
+    db.createObjectStore('gymSets', { keyPath: 'id' });
+    db.createObjectStore('gymExercises', { keyPath: 'id' });
+    db.createObjectStore('gymRoutines', { keyPath: 'id' });
   },
 ];
 

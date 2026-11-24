@@ -1544,3 +1544,39 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - New units GYM-1…7 and REF-1…7 planned (not built yet). Build order: Gym first, then Refills.
 - TELEGRAM-BOT was not in SPEC.md, so nothing was removed.
 - The Google Sheet has no Summary tab, so no Sheet summaries are planned.
+
+## GYM-1 to GYM-7: 🏋️ Gym log (25 Nov 2026)
+**Built**
+- **GYM-1:** new 🏋️ Gym log section ("#/gym") in its own soft coral colour, in the Customise menu, More panel,
+  Home tiles (live "workouts this week") and Quick add. Workout types (Strength, Cardio, Yoga, Sports, Other,
+  plus your own): add, rename, remove (not while used; Undo). "+ Add workout" (date, type, duration, note) opens
+  the workout page. Workouts list newest first; delete with Undo (its exercises come back too).
+  "Gym log" tab for Google Sync and Excel (Session / Exercise / Exercise library / Routine rows, names instead of IDs).
+- **GYM-2:** workout page ("#/gym/session/<id>"): add exercises with name suggestions from your library,
+  🏋️ Strength (sets, reps, kg; empty kg = bodyweight) or 🏃 Cardio (minutes, km). Tap one to edit or delete (Undo),
+  ↑/↓ to reorder. New names are saved to the 📖 Exercise library (rename, or remove if never used).
+- **GYM-3:** while typing an exercise, a "🕒 Last time, 21 Nov: 3 × 10 @ 40 kg" hint from the most recent earlier workout.
+- **GYM-4:** 🏆 personal record when you beat your heaviest kg (strength) or longest km (cardio): the buddy cheers
+  "New record!" on save, and the 🏆 stays on that exercise and on the workout in the list. The first time doesn't count.
+- **GYM-5:** "📝 Save as routine" on a workout. 📝 Routines tab: tap one to change its name, type, numbers, order or
+  remove exercises; delete with Undo. "▶ Start" (on Routines and on Log) makes today's workout with everything filled in.
+- **GYM-6:** 📊 Insights tab: this week vs weekly goal with a bar, gym streak (weeks in a row at the goal; this week
+  counts once reached), workouts-per-week chart for the last 12 weeks with a goal line, top 5 most-trained exercises.
+  Weekly goal (default 3) is set in Settings → 🎯 Goals → Gym log.
+- **GYM-7:** Home 📅 Today card: "Worked out today 💪 Strength" or "No workout yet today", "2 of 3 this week ·
+  🔥 2-week streak" and a bar. Workouts also count towards the Home 🔥 logging streak.
+- Saved data: four new drawers (`gymSessions`, `gymSets`, `gymExercises`, `gymRoutines`) added by storage
+  migration version 6; gym settings (`types`, `weeklyGoal`) in the "gym" settings row. Existing data untouched.
+- **Fix:** on a brand-new phone the first storage step already made the Split bills drawers, so the REFINE-5 step
+  failed and the app couldn't open. The first step now makes only the original drawers. Phones already set up
+  (like yours) were never affected.
+- New file `gym/index.js` (added to the offline list, cache version 23). Apps Script `Code.gs` has "Gym log" in its
+  tab list: **paste the new Code.gs into Google once** (existing yearly files get the tab by themselves).
+- Checked at 360/375px in light and dark mode on a fresh test copy (deleted afterwards): add workout, strength/cardio/
+  bodyweight exercises, reorder, last-time hint, record cheer and 🏆, save/edit/start routine, insights chart and streak,
+  goal from Settings, Home card, delete + Undo, Sheet/Excel rows. No sideways scrolling, no errors.
+
+**Known issues**
+- A routine can't get new exercises in the routine editor; add them to a workout and save it as a new routine.
+- The Sheet's "Kind" column shows "strength" / "cardio" in small letters.
+- The phone gets this at the final "release".

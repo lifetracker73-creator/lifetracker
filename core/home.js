@@ -2,7 +2,7 @@
 // Everything is worked out from saved data; nothing new is stored.
 import { el, badge, card, button, modules, progressBar } from './ui.js';
 import { list, listByDate, listByDateRange, getSettings } from './storage.js';
-import { today, formatTime, sleepMinutes, formatDuration, addDays, daysBetween, dateRange, monthStart, currentHour } from './dates.js';
+import { today, formatTime, sleepMinutes, formatDuration, addDays, daysBetween, dateRange, monthStart, currentHour, weekStart } from './dates.js';
 import { barChart } from './charts.js';
 import { formatMl, formatMoney, formatNumber, formatG, formatKg } from './format.js';
 
@@ -94,7 +94,30 @@ async function tasks(day) {
   });
 }
 
-const BUILDERS = { water, sleep, food, money, tasks };
+// GYM-7: worked out today or not, workouts this week vs the weekly goal, gym streak.
+// Same streak rule as 🏋️ Gym log: weeks in a row at the goal; this week counts once it's reached.
+async function gym(day) {
+  const [sessions, settings] = await Promise.all([list('gymSessions'), getSettings('gym', { weeklyGoal: 3, types: [] })]);
+  const goal = settings.weeklyGoal > 0 ? settings.weeklyGoal : 3;
+  const perWeek = new Map();
+  for (const s of sessions) perWeek.set(weekStart(s.date), (perWeek.get(weekStart(s.date)) || 0) + 1);
+  const thisWeek = weekStart(day);
+  const done = perWeek.get(thisWeek) || 0;
+  let w = done >= goal ? thisWeek : addDays(thisWeek, -7);
+  let streak = 0;
+  while ((perWeek.get(w) || 0) >= goal) { streak += 1; w = addDays(w, -7); }
+  const todays = sessions.filter((s) => s.date === day);
+  const typeName = (id) => (settings.types || []).find((t) => t.id === id)?.name || 'Workout';
+  const sub = `${done} of ${goal} this week${streak ? ` · 🔥 ${streak}-week streak` : ''}`;
+  const bar = progressBar({ value: done, max: goal, label: 'Workouts this week' });
+  if (!todays.length) return todayCard('gym', { main: 'No workout yet today', sub, bar, empty: true });
+  return todayCard('gym', {
+    main: `Worked out today 💪 ${[...new Set(todays.map((s) => typeName(s.typeId)))].join(', ')}`,
+    sub, bar,
+  });
+}
+
+const BUILDERS = { water, sleep, food, money, tasks, gym };
 
 /**
  * The "📅 Today" section: one card per module (water, sleep, food, money, tasks),
@@ -123,7 +146,7 @@ export function todaySection(order) {
 const SLEEP_DEFAULTS = { targetHours: 8 };
 const DUE_AFTER_DAYS = 3; // reading check-in is due after 3 days (same rule as 📚 Reading)
 // Drawers whose entries count as "logged something that day" for the streak.
-const STREAK_STORES = ['water', 'sleep', 'weight', 'foodLog', 'expenses', 'checkins', 'visits'];
+const STREAK_STORES = ['water', 'sleep', 'weight', 'foodLog', 'expenses', 'checkins', 'visits', 'gymSessions'];
 
 // Days in a row with at least one entry anywhere, ending today (or yesterday, so the streak
 // isn't lost before you've logged anything today). Finished tasks count on the day they were done.
@@ -331,6 +354,10 @@ const TILE_STATS = {
     const n = (await listByDateRange('visits', `${day.slice(0, 4)}-01-01`, day)).length;
     return n ? `${n} visit${n === 1 ? '' : 's'} this year` : '';
   },
+  async gym(day) {
+    const n = (await listByDateRange('gymSessions', weekStart(day), day)).length;
+    return n ? `${n} workout${n === 1 ? '' : 's'} this week` : '';
+  },
 };
 
 /** Adds a live number under each module name on the home tiles. */
@@ -352,7 +379,7 @@ export function fillTileStats(grid) {
 export function quickAdd(order) {
   const ADD_LABEL = {
     water: 'water', sleep: 'sleep', weight: 'weight', food: 'food',
-    money: 'expense', tasks: 'task', reading: 'book', medical: 'visit',
+    money: 'expense', tasks: 'task', reading: 'book', medical: 'visit', gym: 'workout',
   };
   const sheet = el('dialog', { className: 'sheet', 'aria-labelledby': 'quick-add-title' });
   const close = () => sheet.close();

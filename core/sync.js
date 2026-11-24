@@ -34,6 +34,10 @@ const TABS = {
   splitGroups: ['Expenses', 'Split group'],          // REFINE-5
   splitItems: ['Expenses', 'Split bill / payment'],  // REFINE-5
   loans: ['Expenses', 'Lent / borrowed'],            // REFINE-5
+  gymSessions: ['Gym log', 'Session'],               // GYM-1
+  gymSets: ['Gym log', 'Exercise'],                  // GYM-2
+  gymExercises: ['Gym log', 'Exercise library'],     // GYM-2
+  gymRoutines: ['Gym log', 'Routine'],               // GYM-5
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
@@ -42,6 +46,16 @@ const LINKS = {
   personId: 'people', typeId: 'types', // Medical log: these two lists live in its settings (MED-2).
   // Split bills (REFINE-5): the group, and the people inside groups ("me" = You).
   groupId: 'splitGroups', paidBy: 'splitPeople', paidTo: 'splitPeople', member: 'splitPeople',
+  // Gym log (GYM-2): the exercise by name, the session as "date + type".
+  exerciseId: 'gymExercises', sessionId: 'gymSessionNames',
+};
+
+// Gym log fields that need their own column name (and list of names) on its tab, e.g. its
+// typeId is a workout type, not a Medical log visit type. [column, names list (optional)].
+const STORE_FIELDS = {
+  gymSessions: { typeId: ['Type of workout', 'gymTypes'] },
+  gymExercises: { name: ['Exercise'] },
+  gymRoutines: { typeId: ['Type of workout', 'gymTypes'], name: ['Routine name'], items: ['Routine items'] },
 };
 
 // Column names that the automatic naming would get wrong.
@@ -52,6 +66,7 @@ const LABELS = {
   vitCMg: 'Vitamin C (mg)', vitDUg: 'Vitamin D (µg)',
   howIUsedIt: 'How I used it',
   personId: 'Person', typeId: 'Type', place: 'Doctor / clinic / lab', costPaise: 'Cost (₹)',
+  durationMin: 'Duration (min)', distanceKm: 'Distance (km)', exerciseId: 'Exercise', sessionId: 'Session (date + type)',
   lendType: 'Lent / gifted / borrowed', lendPerson: 'Person', lendDate: 'Lent / gifted on', lendBackDate: 'Back on',
 };
 const UNITS = { Paise: '₹', Ml: 'ml', Kg: 'kg', Cm: 'cm', Ug: 'µg', Mg: 'mg', G: 'g' };
@@ -119,8 +134,14 @@ function describe(obj, names) {
 function toRow(storeName, record, names) {
   const [, type] = TABS[storeName] || ['Other', storeName];
   const row = type ? [['Type', type]] : [];
+  const own = STORE_FIELDS[storeName] || {};
   for (const [field, value] of Object.entries(record)) {
     if (['id', 'createdAt', 'updatedAt'].includes(field)) continue;
+    if (own[field]) {
+      const [column, namesList] = own[field];
+      row.push([column, namesList ? (value ? names[namesList]?.get(value) || value : '') : cellValue(field, value, names)]);
+      continue;
+    }
     row.push([label(field), cellValue(field, value, names)]);
   }
   row.push(['ID', record.id], ['Created', cellValue('createdAt', record.createdAt, names)],
@@ -152,6 +173,11 @@ async function loadNames() {
   // Split bills people live inside their group (REFINE-5); "me" is always You.
   names.splitPeople = new Map([['me', 'You']]);
   for (const g of await list('splitGroups')) for (const p of g.people || []) names.splitPeople.set(p.id, p.name);
+  // Gym log workout types live in its settings (GYM-1); a session shows as "23-11-2026 Strength".
+  const { types: gymTypes = [] } = await getSettings('gym');
+  names.gymTypes = new Map(gymTypes.map((x) => [x.id, x.name]));
+  names.gymSessionNames = new Map((await list('gymSessions'))
+    .map((s) => [s.id, `${toIndianDate(s.date)} ${names.gymTypes.get(s.typeId) || ''}`.trim()]));
   return names;
 }
 

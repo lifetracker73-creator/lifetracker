@@ -16,12 +16,14 @@ const WHAT = [
   ['visits', '🩺 Medical visits'],
   ['splitGroups', '🤝 Split bills groups'], ['splitItems', '🤝 Split bills and payments'],
   ['loans', '📒 Lent & borrowed entries'],
+  ['gymSessions', '🏋️ Workouts'], ['gymSets', '🏋️ Exercises done'],
+  ['gymExercises', '🏋️ Exercises in library'], ['gymRoutines', '🏋️ Routines'],
 ];
 
 // Excel tab colour for each Sheet tab (the module's pastel).
 const TAB_FILL = {
   Water: 'water', Sleep: 'sleep', Weight: 'weight', Food: 'food', Expenses: 'money',
-  Tasks: 'tasks', Reading: 'reading', 'Medical log': 'medical',
+  Tasks: 'tasks', Reading: 'reading', 'Medical log': 'medical', 'Gym log': 'gym',
 };
 
 function sizeText(bytes) {

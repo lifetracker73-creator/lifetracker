@@ -29,6 +29,7 @@ export const modules = {
   tasks: { emoji: '✅', label: 'Tasks' },
   reading: { emoji: '📚', label: 'Reading' },
   medical: { emoji: '🩺', label: 'Medical log' },
+  gym: { emoji: '🏋️', label: 'Gym log' },
 };
 
 /**

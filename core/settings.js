@@ -84,6 +84,7 @@ async function goalsCard() {
     getSettings('weight', { heightCm: null, goalKg: null }),
     getSettings('food', { targets: FOOD_DEFAULT_TARGETS }),
   ]);
+  const gym = await getSettings('gym', { weeklyGoal: 3 });
   const foodTargets = food.targets || {};
   const num = (label, value, example) => {
     const f = input({ label, inputmode: 'decimal', value: value == null ? '' : String(value), placeholder: `e.g. ${example}` });
@@ -98,6 +99,7 @@ async function goalsCard() {
   const height = num('Height (cm)', weight.heightCm, 165);
   const goalKg = num('Goal weight (kg)', weight.goalKg, 60);
   const foodFields = FOOD_TARGETS.map((t) => num(t.label, foodTargets[t.key] > 0 ? foodTargets[t.key] : null, t.example));
+  const gymGoal = num('Workouts each week', gym.weeklyGoal > 0 ? gym.weeklyGoal : 3, 3);
 
   const form = el('form', { className: 'stack', novalidate: true }, [
     el('p', { className: 'muted', text: 'These are the same goals you see in each module. Change them here or there.' }),
@@ -113,6 +115,9 @@ async function goalsCard() {
     heading('food', 'Food: daily targets'),
     el('div', { className: 'field-grid' }, foodFields),
     el('p', { className: 'muted', text: 'Leave a box empty for no target. Vitamin and mineral targets are in 🍱 Food.' }),
+    heading('gym', 'Gym log'),
+    gymGoal,
+    el('p', { className: 'muted', text: 'Weeks run Monday to Sunday. Reaching this keeps your gym streak going.' }),
     button({ label: 'Save goals', variant: 'primary', type: 'submit', block: true }),
   ]);
 
@@ -136,11 +141,13 @@ async function goalsCard() {
         ? check(foodFields[i], { min: 500, max: 10000, optional: true, whole: true, example: t.example })
         : check(foodFields[i], { min: 1, max: 1000, optional: true, example: t.example });
     });
+    const weeklyGoal = check(gymGoal, { min: 1, max: 14, whole: true, example: 3 });
     if (!ok) {
       form.querySelector('[aria-invalid="true"]')?.focus();
       return;
     }
     await Promise.all([
+      saveSettings('gym', { weeklyGoal }),
       saveSettings('water', { dailyGoalMl: goal, quickAmounts: amounts }),
       saveSettings('sleep', { targetHours: hours }),
       saveSettings('weight', { heightCm: cm, goalKg: kg }),
@@ -156,6 +163,7 @@ async function goalsCard() {
     ...[
       ['money', '💸 Budgets and categories'],
       ['medical', '🩺 People and visit types'],
+      ['gym', '🏋️ Workout types and exercises'],
       ['sleep', '😴 Automatic wake-up time'],
     ].map(([key, text]) => el('a', { className: `btn btn--secondary btn--block mod-${key}`, href: `#/${key}` }, [el('span', { text })])),
   ]);
