@@ -498,7 +498,10 @@ export async function render(root) {
     fields.cost.input.value = keptCost;
     const form = el('form', { className: 'stack', novalidate: true }, [
       ...fields.elements,
-      button({ label: 'Save visit', icon: 'plus', variant: 'primary', type: 'submit', block: true }),
+      el('div', { className: 'btn-row' }, [
+        button({ label: 'Cancel', variant: 'secondary', onClick: () => showAddForm(false) }),
+        button({ label: 'Save visit', variant: 'primary', type: 'submit' }),
+      ]),
     ]);
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -510,6 +513,7 @@ export async function render(root) {
       fields.note.input.value = '';
       fields.attach.clear();
       toast({ message: `Saved ${typeName(visit.typeId)} · ${personName(visit.personId)} ✨` });
+      showAddForm(false); // MED-4: the form tucks away again after saving
       await visitsChanged();
     });
     formBox.replaceChildren(form);
@@ -559,16 +563,79 @@ export async function render(root) {
     });
   }
 
+  // ---- Log screen (MED-4): add button, filters and search ----
+  const filters = { personId: '', typeId: '', year: '', search: '' };
+  const filterSelects = el('div', { className: 'stack' });
+  const filterNote = el('p', { className: 'progress-note' });
+  const searchField = input({
+    label: 'Search', name: 'visitSearch', type: 'search', placeholder: 'Doctor, clinic or words in a note',
+  });
+  searchField.input.setAttribute('autocomplete', 'off');
+  searchField.input.addEventListener('input', () => {
+    filters.search = searchField.input.value;
+    refreshVisits();
+  });
+
+  // Person, type and year choices. Rebuilt when names change or a new year appears.
+  function buildFilters() {
+    const option = (x) => ({ value: x.id, label: x.name });
+    if (!lists.people.some((x) => x.id === filters.personId)) filters.personId = '';
+    if (!lists.types.some((x) => x.id === filters.typeId)) filters.typeId = '';
+    const years = [...new Set(visits.map((v) => v.date.slice(0, 4)))].sort().reverse();
+    if (!years.includes(filters.year)) filters.year = '';
+    const choice = (label, key, options) => {
+      const f = input({ label, name: `filter-${key}`, type: 'select', options, value: filters[key] });
+      f.input.addEventListener('change', () => { filters[key] = f.input.value; refreshVisits(); });
+      return f;
+    };
+    filterSelects.replaceChildren(
+      el('div', { className: 'btn-row' }, [
+        choice('Person', 'personId', [{ value: '', label: 'Everyone' }, ...lists.people.map(option)]),
+        choice('Type', 'typeId', [{ value: '', label: 'All types' }, ...lists.types.map(option)]),
+      ]),
+      choice('Year', 'year', [{ value: '', label: 'All years' }, ...years.map((y) => ({ value: y, label: y }))]),
+    );
+  }
+
+  function clearFilters() {
+    Object.assign(filters, { personId: '', typeId: '', year: '', search: '' });
+    searchField.input.value = '';
+    buildFilters();
+    refreshVisits();
+  }
+
+  function matches(visit) {
+    if (filters.personId && visit.personId !== filters.personId) return false;
+    if (filters.typeId && visit.typeId !== filters.typeId) return false;
+    if (filters.year && !visit.date.startsWith(filters.year)) return false;
+    const words = tidy(filters.search).toLowerCase();
+    if (!words) return true;
+    const text = `${visit.place || ''} ${visit.note || ''}`.toLowerCase();
+    return words.split(' ').every((w) => text.includes(w));
+  }
+
   function refreshVisits() {
     if (!visits.length) {
+      filterNote.hidden = true;
       visitBox.replaceChildren(emptyState({
-        emoji: '🩺', title: 'No visits yet', text: 'Add your first visit above.',
+        emoji: '🩺', title: 'No visits yet', text: 'Tap "+ Add visit" above to add your first one.',
       }));
       return;
     }
+    const filtering = filters.personId || filters.typeId || filters.year || tidy(filters.search);
     // Newest date first; on the same date, the latest added first.
-    const newest = [...visits].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
-    visitBox.replaceChildren(list(newest.map(visitRow)));
+    const shown = visits.filter(matches)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    filterNote.hidden = !filtering;
+    filterNote.textContent = `Showing ${shown.length} of ${visitsText(visits.length)}`;
+    if (!shown.length) {
+      visitBox.replaceChildren(emptyState({
+        emoji: '🔍', title: 'No visits match', text: 'Try other filters or search words.',
+        action: button({ label: 'Clear filters', variant: 'secondary', onClick: clearFilters }),
+      }));
+      return;
+    }
+    visitBox.replaceChildren(list(shown.map(visitRow)));
   }
 
   // After a visit is added, changed or deleted: reload, update suggestions, list and visit counts.
@@ -577,6 +644,7 @@ export async function render(root) {
     counts = await countVisits();
     if (!formBox.isConnected && fields) return;
     buildForm();
+    buildFilters();
     refreshVisits();
     people.refresh();
     types.refresh();
@@ -600,6 +668,7 @@ export async function render(root) {
   // People or types were added, renamed or removed (MED-1 card).
   function listsChanged() {
     buildForm();
+    buildFilters();
     refreshVisits();
   }
 
@@ -613,11 +682,28 @@ export async function render(root) {
   });
 
   buildForm();
+  buildFilters();
   refreshVisits();
 
+  // The big "+ Add visit" button opens the add form; Cancel or Save tucks it away again.
+  const addCard = card({ title: 'Add a visit', module: 'medical', children: [formBox] });
+  const addButton = button({
+    label: 'Add visit', icon: 'plus', variant: 'primary', block: true, onClick: () => showAddForm(true),
+  });
+  function showAddForm(open) {
+    addCard.hidden = !open;
+    addButton.hidden = open;
+    if (open) {
+      addCard.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      queueMicrotask(() => fields.date.input.focus());
+    }
+  }
+  showAddForm(false);
+
   root.append(el('div', { className: 'mod-medical stack' }, [
-    card({ title: 'Add a visit', module: 'medical', children: [formBox] }),
-    card({ title: 'Visits', children: [visitBox] }),
+    addButton,
+    addCard,
+    card({ title: 'Visits', children: [el('div', { className: 'stack' }, [searchField, filterSelects, filterNote, visitBox])] }),
     card({
       title: 'People & visit types',
       module: 'medical',

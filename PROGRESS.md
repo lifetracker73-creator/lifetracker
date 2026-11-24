@@ -1240,3 +1240,21 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - If you force a mode different from the phone's, the phone's colours may flash for a split second
   when the app opens, before your choice applies.
+
+## MED-4: Medical log screen (24 Nov 2026)
+**Built**
+- 🩺 Medical log now opens on a big **+ Add visit** button. Tapping it opens the add form;
+  **Cancel** or **Save visit** tucks it away again.
+- The **Visits** card has a **Search** box (finds words in the doctor / clinic / lab name and the note,
+  capitals don't matter, every word must match) and three filters: **Person** (Everyone), **Type**
+  (All types) and **Year** (All years; only years that have visits are listed).
+- While filtering, a line says e.g. "Showing 2 of 5 visits". When nothing matches, a friendly
+  "No visits match" message has a **Clear filters** button.
+- Visits stay newest first; tap one to edit, delete (Undo) or open its files, as before.
+  Renaming a person or type updates the filter choices and keeps the chosen filter.
+- Filters reset each time the screen opens (they aren't saved). No change to saved data, no new files.
+- Checked at 375px in light and dark: open/cancel/save the form, each filter, search, no-match and
+  Clear filters, renaming while filtered, no sideways scrolling, no errors.
+
+**Known issues**
+- None found. The Insights tab comes in MED-5.
