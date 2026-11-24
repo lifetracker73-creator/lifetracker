@@ -926,3 +926,35 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
   (and in that day's week).
 - A book read before you started using check-ins counts its first check-in's page as read that day.
 - The phone gets this at the final "release".
+
+## FOOD-1: Food library (24 Nov 2026)
+**Built**
+- 🍱 Food screen (peach), two cards:
+  - **Add a food**: name, optional brand, a "⭐ Favourite" switch, optional serving ("1 katori") with its grams,
+    then the nutrients. Calories, protein, carbs, fat, fibre, sugar and saturated fat are always shown, two boxes per
+    line; the 11 vitamins and minerals are in a fold-out "Vitamins & minerals (optional)" part. Any box can be left
+    empty (empty = unknown, not zero).
+  - **"Per 100 g" / "Per serving" pills**: values can be typed from either column of a packet. Per serving needs the
+    grams; the app saves everything per 100 g. Switching pills converts what's already typed. Editing a food shows
+    the values the way they were typed.
+  - **My foods**: search box (name or brand), "2 foods · 1 ⭐ favourite", favourites first then A–Z. Rows read
+    "Poha · 1 katori · 150 g · 270 kcal" (or "58 kcal per 100 g" with no serving). Tap a food to edit everything in
+    place (Cancel / Save), ☆ / ★ button makes it a favourite, 🗑️ deletes with Undo.
+- Friendly messages: missing name, same food already saved (same name and brand, any capitals), serving without grams,
+  grams not 0.1–5,000, not a number, over 900 kcal per 100 g, a nutrient heavier than the food, sugar more than carbs,
+  saturated fat more than fat. A mistake in a vitamin box opens the fold-out.
+- Saved data: foods use the existing food library drawer with the spec's fields (nutrients per 100 g, empty ones as
+  blank). One new field `enteredPer` ('100g' or 'serving') only remembers how values were typed (SPEC.md updated).
+  Copied to the "Food" tab in Google Sheets as "Food library". Nothing existing changed.
+- `core/ui.js`: new star icons. `core/styles.css`: new shared `.field-grid` (two small boxes per line).
+  No new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with 2 pretend foods (removed afterwards, with their waiting Google Sync
+  changes; the waiting list is back to 0): every error message, per-serving → per 100 g (270 kcal in 150 g → 180),
+  edit shows per-serving values, pill switch converts, duplicate name, search and no-match message, favourite,
+  delete + Undo, all buttons and boxes ≥ 44px, no sideways scrolling, no errors.
+
+**Known issues**
+- Switching the pills rounds to 2 decimals, so a value can shift very slightly (4.667 → 4.67).
+- In Google Sheets the nutrient columns (e.g. "Protein (g)") are per 100 g, but the column names don't say so.
+- Deleting a food will matter once FOOD-2 logs it: past log entries keep their own copy of the nutrients.
+- The phone gets this at the final "release".

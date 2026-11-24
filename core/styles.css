@@ -716,6 +716,18 @@ textarea.input {
   padding-inline: var(--space-3);
 }
 
+/* Small boxes two to a line (e.g. food nutrients, FOOD-1). */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-2);
+  align-items: end;
+}
+
+.field-grid .input {
+  padding-inline: var(--space-3);
+}
+
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -151,6 +151,8 @@ Foods are saved once in a personal library, then logged by picking from it.
     `vitAUg`, `vitB12Ug`, `vitCMg`, `vitDUg`, `folateUg`
 - Any nutrient can be left blank (blank means unknown, not zero).
 - The user can enter values "per serving" instead; the app converts them to per 100 g.
+  `enteredPer` ('100g' / 'serving', added in FOOD-1) only remembers which way they were typed,
+  so editing shows them the same way.
 
 **Recipe (optional, FOOD-5):** `name`, a list of `{ foodId, grams }`, `servings`. Nutrients are calculated.
 
