@@ -24,12 +24,12 @@ Before any work, read SPEC.md (features and unit codes) and PROGRESS.md (what's 
 - Mobile-first: design for a 360px-wide phone first, then let it scale up.
 - Cute, soft and friendly, with one consistent style:
   - Soft pastel colours. Each module has its own pastel accent (water baby blue, sleep lavender,
-    weight mint, food peach, money butter yellow, tasks pink, reading sage, blood tests rose).
+    weight mint, food peach, money butter yellow, tasks pink, reading sage, medical log rose).
     A module screen adds the class `mod-<module>` to its root to use its accent.
   - Extra-rounded cards, pill-shaped buttons, soft gentle shadows instead of hard lines or borders.
   - Friendly rounded font (Nunito, saved locally in `core/fonts/`, with rounded system fallbacks).
   - Module emoji on headings: 💧 water, 😴 sleep, ⚖️ weight, 🍱 food, 💸 money, ✅ tasks,
-    📚 reading, 🩸 blood tests (use `modules`, `badge()` or `card({ module })` from `core/ui.js`).
+    📚 reading, 🩺 medical log (use `modules`, `badge()` or `card({ module })` from `core/ui.js`).
   - Small bounce when a button is tapped (switched off if the phone asks for reduced motion).
   - Always readable: dark text on pastel fills, good contrast in light and dark mode.
 - All colours, spacing, radii and font sizes are CSS variables in `core/styles.css`.
@@ -42,7 +42,7 @@ Before any work, read SPEC.md (features and unit codes) and PROGRESS.md (what's 
 index.html  manifest.webmanifest  sw.js  icons/
 core/     storage.js dates.js format.js ui.js router.js charts.js notify.js sync.js settings.js styles.css vendor/ fonts/
 google-apps-script/   Code.gs appsscript.json   (pasted into Google by hand; never contains secrets)
-water/  sleep/  weight/  food/  money/  tasks/  reading/  bloodtests/
+water/  sleep/  weight/  food/  money/  tasks/  reading/  medical/
 ```
 - Each module folder has `index.js` (its screens). Add `module.css` only if really needed.
 - Modules may import from `core/`, never from each other.

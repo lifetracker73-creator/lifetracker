@@ -28,19 +28,18 @@ const TABS = {
   books: ['Reading', 'Book'],
   checkins: ['Reading', 'Check-in'],
   reflections: ['Reading', 'Weekly reflection'],
-  reports: ['Blood tests', 'Report'],
-  markers: ['Blood tests', 'Marker'],
+  visits: ['Medical log'],
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
-const LINKS = { category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books', markerId: 'markers' };
+const LINKS = { category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books' };
 
 // Column names that the automatic naming would get wrong.
 const LABELS = {
   id: 'ID', createdAt: 'Created', updatedAt: 'Updated', kcal: 'kcal',
-  foodId: 'Food', recipeId: 'Recipe', bookId: 'Book', bookIds: 'Books', markerId: 'Marker',
+  foodId: 'Food', recipeId: 'Recipe', bookId: 'Book', bookIds: 'Books',
   satFatG: 'Saturated fat (g)', vitAUg: 'Vitamin A (µg)', vitB12Ug: 'Vitamin B12 (µg)',
-  vitCMg: 'Vitamin C (mg)', vitDUg: 'Vitamin D (µg)', refLow: 'Range low', refHigh: 'Range high',
+  vitCMg: 'Vitamin C (mg)', vitDUg: 'Vitamin D (µg)',
   howIUsedIt: 'How I used it',
   lendType: 'Lent / gifted / borrowed', lendPerson: 'Person', lendDate: 'Lent / gifted on', lendBackDate: 'Back on',
 };
@@ -89,7 +88,7 @@ function cellValue(field, value, names) {
   return String(value);
 }
 
-// A small object (e.g. one blood test result) -> "Marker: LDL, Value: 120, Range high: 100".
+// A small object (e.g. one recipe ingredient) -> "Food: Rice, Grams: 150".
 function describe(obj, names) {
   return Object.entries(obj)
     .map(([k, v]) => [label(k), cellValue(k, v, names)])
@@ -118,7 +117,7 @@ function toChange(entry, names) {
   return change;
 }
 
-// Names of library items, so links show "LDL" instead of an ID.
+// Names of library items, so links show "Rice" instead of an ID.
 async function loadNames() {
   const names = {};
   for (const store of new Set(Object.values(LINKS))) {

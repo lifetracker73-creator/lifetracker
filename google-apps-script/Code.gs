@@ -9,7 +9,7 @@
  * - It can only see files and folders it created itself (permission "drive.file").
  */
 
-const TABS = ['Water', 'Sleep', 'Weight', 'Food', 'Expenses', 'Tasks', 'Reading', 'Blood tests'];
+const TABS = ['Water', 'Sleep', 'Weight', 'Food', 'Expenses', 'Tasks', 'Reading', 'Medical log'];
 const ALLOWED_TABS = TABS.concat(['Other']);
 const TAIL = ['ID', 'Created', 'Updated']; // always the last columns
 const FOLDER_NAME = 'LifeTracker';
@@ -381,7 +381,7 @@ function finishYearFile_(id, year) {
   if (allDone) PropertiesService.getScriptProperties().setProperty('READY_' + year, 'yes');
 }
 
-/** Blood test photo/PDF (already shrunk by the app): saves it in LifeTracker/Reports, returns its link. */
+/** Medical log attachment: photo/PDF (photos already shrunk by the app): saves it in LifeTracker/Reports, returns its link. */
 function saveReportFile_(req) {
   if (FILE_TYPES.indexOf(req.mimeType) < 0) bad_('file type');
   if (typeof req.name !== 'string' || !req.name.trim() || req.name.length > 100) bad_('file name');

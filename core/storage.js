@@ -25,8 +25,7 @@ export const STORES = {
   books:       { dateField: 'startDate' },
   checkins:    { dateField: 'date' },
   reflections: { dateField: 'weekStart' },
-  markers:     { dateField: null },
-  reports:     { dateField: 'date' },
+  visits:      { dateField: 'date' },
 };
 
 const SETTINGS = 'settings'; // one row per module, keyed by module name
@@ -42,9 +41,11 @@ const OUTBOX = 'outbox';
 // Each step gets the open database and the upgrade transaction, so it can also
 // read and rewrite existing records to keep your data.
 const migrations = [
-  // Version 1: create every store.
+  // Version 1: create every store as it was then (incl. the old blood test drawers, not visits).
   (db) => {
-    for (const [name, { dateField }] of Object.entries(STORES)) {
+    const v1 = { ...STORES, markers: { dateField: null }, reports: { dateField: 'date' } };
+    delete v1.visits;
+    for (const [name, { dateField }] of Object.entries(v1)) {
       const store = db.createObjectStore(name, { keyPath: 'id' });
       if (dateField) store.createIndex('date', dateField);
     }
@@ -53,6 +54,15 @@ const migrations = [
   // Version 2 (SHEETS-SYNC): add the outbox. Existing data is not touched.
   (db) => {
     db.createObjectStore(OUTBOX, { keyPath: 'key' });
+  },
+  // Version 3 (24 Nov 2026): Blood tests became Medical log. Adds the visits drawer and removes the
+  // markers and reports drawers, which were never used (the blood test module was never built).
+  (db) => {
+    const store = db.createObjectStore('visits', { keyPath: 'id' });
+    store.createIndex('date', 'date');
+    for (const old of ['markers', 'reports']) {
+      if (db.objectStoreNames.contains(old)) db.deleteObjectStore(old);
+    }
   },
 ];
 

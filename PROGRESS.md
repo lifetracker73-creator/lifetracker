@@ -1130,3 +1130,24 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
   the calorie average but still counted in the number of days shown.
 - The 30-day view shows a date label about every 8 days to fit the phone; tap a bar to see its full date.
 - The phone gets this at the final "release".
+
+## Plan change (24 Nov 2026): Blood tests → 🩺 Medical log
+**Changed**
+- SPEC.md: the Blood tests section (markers, reference ranges, trend charts) is replaced by **Medical log**:
+  a record of every medical visit for me and my family (date, person, type, doctor / clinic / lab, cost,
+  attachments, note), a Log screen with filters and search, and an Insights tab (spend, visit counts,
+  last visits, rule-based insight cards). New units MED-1…6 take the place of BLD-1…5 in the build order.
+  Google Sheets tab and Excel export now say "Medical log".
+- App: the module is now 🩺 Medical log everywhere (home tile, More panel, title bar), folder `medical/`,
+  screen `#/medical`, same rose colour. It still shows "Coming soon" (the module itself isn't built yet).
+- Saved data: database version 3 (safe upgrade) adds a `visits` drawer and removes the never-used
+  `markers` and `reports` drawers. Nothing else is touched; checked on a fresh start and on an upgrade
+  from version 2 (existing entries kept).
+- Google Apps Script (`Code.gs`): the 8th tab is now "Medical log". Offline cache version 9.
+- CLAUDE.md: module list, colour and folder name updated.
+
+**Known issues**
+- The updated `Code.gs` must be pasted into Google again before Medical log can sync (do it at release).
+  The 2026 Sheet keeps its old, empty "Blood tests" tab; it can be deleted by hand. "Medical log" is
+  created automatically on the first visit saved.
+- The phone gets this at the final "release".

@@ -21,7 +21,7 @@ Build one unit at a time, in the order below unless I say otherwise.
 | CORE-4 | Dates and formatting helpers: Kolkata dates, ₹ formatting, metric unit formatting |
 | CORE-5 | PWA offline: manifest, icons, service worker, "Install app" prompt, works with no internet |
 | CORE-6 | Charts: local Chart.js plus one wrapper for bar/line charts in the house style |
-| CORE-7 | Backup: export all data to one JSON file, import it back (with a preview and confirmation); "Export to Excel" button (one sheet per module) as an extra manual backup. The Google Sync link and key are never included. |
+| CORE-7 | Backup: export all data to one JSON file, import it back (with a preview and confirmation); "Export to Excel" button (one sheet per module, including a "Medical log" sheet with every visit field) as an extra manual backup. The Google Sync link and key are never included. |
 | CORE-8 | Settings screen: per-module goals and preferences in one place, plus "Customise menu" (see below). Keeps the Google Sync section added by SHEETS-SYNC. |
 | CORE-9 | Notifications helper (`core/notify.js`): permission request, show a notification, in-app banner fallback |
 | HOME-1 | Today dashboard: one card per module summarising today (water, sleep, food, spend, tasks due) |
@@ -55,20 +55,21 @@ have to think about backups. Reliability and security come before features. Keep
 **Sheets and Drive**
 - One Google Sheet file per year ("LifeTracker 2026"), created automatically, inside a "LifeTracker"
   folder in my Drive. An entry goes into the year of its date; library items with no date
-  (foods, categories, markers, books) go into the year they were created. If an edit moves an entry
+  (foods, categories, books) go into the year they were created. If an edit moves an entry
   to another year, it is removed from the old year's file.
-- Exactly 8 tabs, one per module: Water, Sleep, Weight, Food, Expenses, Tasks, Reading, Blood tests.
+- Exactly 8 tabs, one per module: Water, Sleep, Weight, Food, Expenses, Tasks, Reading, Medical log.
   Modules that save more than one kind of thing share their tab, with a "Type" column first:
   Food (Food log / Food library / Recipe), Expenses (Expense / Category),
-  Reading (Book / Check-in / Weekly reflection), Blood tests (Report / Marker).
+  Reading (Book / Check-in / Weekly reflection). Medical log holds only visits, one row each.
   Anything a future unit stores that doesn't fit these goes into an "Other" tab.
 - Readable column names (e.g. "Amount (ml)", "Amount (₹)"), dates as DD-MM-YYYY, times as HH:MM,
-  money in rupees, lists (e.g. report results) as readable text, links to other entries shown by
-  name (e.g. the marker or book name, not its ID). ID, Created and Updated columns last.
+  money in rupees, lists (e.g. recipe ingredients) as readable text, links to other entries shown by
+  name (e.g. the book or person name, not its ID). ID, Created and Updated columns last.
   Future modules get sensible column names automatically.
-- Blood test photos/PDFs: photos are shrunk on the phone before upload; PDFs are sent as they are
-  (up to a size limit). Files are saved in "LifeTracker/Reports" in Drive; the Sheet stores only the link.
-  The Apps Script supports this now; the app side is built with the blood test units (BLD-2).
+- Medical log attachments (photos/PDFs of reports, prescriptions, bills): photos are shrunk on the
+  phone before upload; PDFs are sent as they are (up to a size limit). Files are saved in
+  "LifeTracker/Reports" in Drive; the Sheet stores only the links.
+  The Apps Script supports this now; the app side is built with the Medical log units (MED-3).
 
 **Status icon (title bar)**
 - ✅ synced / ⏳ X waiting / ⚠️ problem. Tapping it explains in plain words what's wrong
@@ -244,31 +245,66 @@ The app shows "Check-in due" when 3 or more days have passed since the last chec
 
 ---
 
-## BLOODTESTS: reports and markers
-**Marker (library):** `name`, `unit` (e.g. mg/dL), `category` (e.g. Lipids, Thyroid, Vitamins),
-`defaultLow`, `defaultHigh` (optional, filled from my own lab reports).
-Preloaded names and units only, with ranges left blank: Haemoglobin, Fasting glucose, HbA1c,
-Total cholesterol, LDL, HDL, Triglycerides, TSH, Vitamin D, Vitamin B12, Ferritin, Creatinine,
-ALT (SGPT), AST (SGOT), Uric acid.
+## MEDICAL: Medical log 🩺 (visits for me and my family)
+A simple record of every medical visit for me and my family, plus easy insights on how often
+we visit and how much we spend. (Replaced the planned "Blood tests" module on 24 Nov 2026.)
+Folder `medical/`, screen `#/medical`, rose accent (`mod-medical`).
 
-**Report:** `date`, `labName`, `costPaise`, `fasting` (yes/no), `notes` (optional),
-`results`: a list of `{ markerId, value, refLow, refHigh }`. The range is copied from the marker's
-default but can be changed per report, because labs use different ranges.
-Each result is flagged Low / Normal / High against that report's range.
+**Visit (drawer `visits`):**
+- `date` (required)
+- `personId` (required): who the visit was for. Default "Me".
+- `typeId` (required): the kind of visit.
+- `place` (optional): doctor / clinic / lab name. Names used before are suggested while typing.
+- `costPaise` (optional)
+- `attachments` (optional): one or more PDFs or photos (reports, prescriptions, bills). Photos are
+  shrunk before saving. They sync to the "LifeTracker/Reports" Drive folder; the Sheet stores only the links.
+- `note` (optional, free text): reason for the visit, symptoms, what the doctor said, medicines, anything.
+
+**Settings:**
+- `people`: a list of `{ id, name }`, starting with "Me". I can add family members (e.g. Mom, Son),
+  rename or remove them. Renaming updates every visit (visits keep the id, not the name).
+- `types`: a list of `{ id, name }`, starting with Blood test, Dentist, Paediatrician, General physician,
+  General check-up, Other. I can add my own (e.g. Eye check-up, Physiotherapy), rename or remove them.
+- A person or type that still has visits can't be removed (a friendly message says why).
+
+**Log screen (tab "Log"):**
+- All visits, newest first, each showing date, person, type, place and cost.
+- Tap a visit to view, edit or delete it (Undo) and open its attachments.
+- Filters: person, type, year. A search box searches place names and notes.
+- A big "+ Add visit" button.
+
+**Insights screen (tab "Insights"):** light and simple: numbers, small bars and short sentences, no complex charts.
+- Year selector (defaults to the current year).
+- Total medical spend for the year, with last year's total beside it.
+- Spend by person and spend by type: sorted lists with a small horizontal bar next to each amount.
+- Visit count table: rows = type, columns = person, cells = visits that year
+  (e.g. "General physician — Me: 8, Son: 3").
+- Average cost per visit for each type (only visits with a cost count).
+- Last visit per person per type (e.g. "Dentist — Me — last visit 14 months ago").
+- Insight cards from simple rules (no AI), for example:
+  "You visited a general physician 8 times this year, 3 more than last year.",
+  "Son's paediatrician visits went down from 6 to 2.", "Medical spend is up 40% compared to last year.",
+  "It's been over 12 months since your last dentist visit.", "Most visits happened in July–August."
+  Show only the 3–5 most useful, and only with enough data (at least 2 visits of a type).
+
+**Sync and export:** Google Sheet tab "Medical log", one row per visit, with a column for every field
+(Date, Person, Type, Doctor / clinic / lab, Cost (₹), Attachments as links, Note), names shown instead of IDs.
+The Excel export (CORE-7) includes a "Medical log" sheet.
 
 | Code | Unit |
 |---|---|
-| BLD-1 | Marker library: add, edit, delete markers; preload the common list above |
-| BLD-2 | Add a report: date, lab, cost, then enter values for chosen markers with ranges; optionally attach a photo/PDF of the report (uploaded to Drive by SHEETS-SYNC, only the link saved in the Sheet) |
-| BLD-3 | Report view: all results with Low / Normal / High flags; list of past reports |
-| BLD-4 | Marker trend: line chart of one marker over time with its reference range shaded |
-| BLD-5 | Totals: spend on tests per year and per lab |
+| MED-1 | People and visit types: add, rename, remove (defaults "Me" and the 6 types above) |
+| MED-2 | Add / edit / delete a visit (with Undo): date, person, type, place with suggestions, cost, note |
+| MED-3 | Attachments: add PDFs/photos (photos shrunk), open them, upload to Drive "LifeTracker/Reports" with only the links in the Sheet |
+| MED-4 | Log screen: all visits newest first, filters by person / type / year, search, big "+ Add visit" button |
+| MED-5 | Insights: year selector, total spend vs last year, spend by person and by type with small bars, visit count table, average cost per type, last visit per person per type |
+| MED-6 | Insight cards: 3–5 plain-language rule-based insights, shown only when there's enough data |
 
 ---
 
 ## Suggested build order
 CORE-1 → CORE-2 → CORE-3 → CORE-4 → CORE-5 → WTR-1 → SHEETS-SYNC → WTR-2 → CORE-6 → WTR-3 → WGT-1…3 →
-SLP-1…2 → MON-1…6 → TSK-1…2 → CORE-9 → TSK-3…4 → RDG-1…4 → FOOD-1…6 → BLD-1…5 →
+SLP-1…2 → MON-1…6 → TSK-1…2 → CORE-9 → TSK-3…4 → RDG-1…4 → FOOD-1…6 → MED-1…6 →
 CORE-7 → CORE-8 → HOME-1 → HOME-SUMMARY
 
 ---

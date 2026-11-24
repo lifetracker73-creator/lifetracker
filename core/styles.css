@@ -46,7 +46,7 @@
   --accent-money: #fff0b3;       /* butter yellow */
   --accent-tasks: #ffd1e3;       /* pink */
   --accent-reading: #d7ecc4;     /* sage */
-  --accent-bloodtests: #ffc9c9;  /* rose */
+  --accent-medical: #ffc9c9;  /* rose */
 
   /* Spacing */
   --space-1: 4px;
@@ -114,7 +114,7 @@
     --accent-money: #e6d9a3;
     --accent-tasks: #e6bccd;
     --accent-reading: #c1d6b0;
-    --accent-bloodtests: #e6b5b5;
+    --accent-medical: #e6b5b5;
     --color-primary: #bcaae6;
   }
 }
@@ -127,7 +127,7 @@
 .mod-money { --accent: var(--accent-money); }
 .mod-tasks { --accent: var(--accent-tasks); }
 .mod-reading { --accent: var(--accent-reading); }
-.mod-bloodtests { --accent: var(--accent-bloodtests); }
+.mod-medical { --accent: var(--accent-medical); }
 
 /* Base */
 *,

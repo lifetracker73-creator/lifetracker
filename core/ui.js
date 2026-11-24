@@ -25,7 +25,7 @@ export const modules = {
   money: { emoji: '💸', label: 'Money' },
   tasks: { emoji: '✅', label: 'Tasks' },
   reading: { emoji: '📚', label: 'Reading' },
-  bloodtests: { emoji: '🩸', label: 'Blood tests' },
+  medical: { emoji: '🩺', label: 'Medical log' },
 };
 
 /**
