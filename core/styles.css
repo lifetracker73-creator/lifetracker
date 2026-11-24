@@ -704,6 +704,48 @@ textarea.input {
   text-align: center;
 }
 
+/* HOME-1: "📅 Today" cards, one per module, each opening its screen. */
+.today__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+.today-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+@media (min-width: 560px) {
+  .today-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.today-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-4);
+  color: inherit;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: transform var(--bounce);
+}
+.today-card:active { transform: scale(0.97); transition-duration: 80ms; }
+.today-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+.today-card__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+}
+.today-card__main { font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+.today-card--empty .today-card__main { font-weight: normal; }
+.today-card__sub { overflow-wrap: anywhere; }
+.today-card .progress { height: 10px; margin-top: var(--space-1); }
+
 .install-slot:empty {
   display: none;
 }

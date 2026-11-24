@@ -1351,3 +1351,27 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - In Settings, height is always in cm; the ft/in choice is still in ⚖️ Weight (it is kept as you set it).
 - Reading has no goals to set yet, so it isn't in the Goals card.
+
+## HOME-1: Today dashboard (25 Nov 2026)
+**Built**
+- 🏠 Home has a new "📅 Today" section under the greeting and the 😴 sleep card, with one card per module
+  in its own colour. Tapping a card opens that module.
+  - 💧 Water: "1.25 L of 2.5 L · 50%", "1.25 L to go" (or "Goal reached! 🎉"), with a thin bar.
+  - 😴 Sleep: last night, e.g. "7 h 30 m last night · 11:15 pm → 6:45 am" (with "⏰ auto wake" if it was automatic).
+  - 🍱 Food: "640 of 2,000 kcal", protein vs target, number of items, a bar, and "some kcal unknown"
+    when a food has no calories saved.
+  - 💸 Money: "Spent ₹570.50 today · 2 expenses".
+  - ✅ Tasks: "1 due today · ⚠️ 1 overdue" and the next task (high priority first, then the oldest date and earliest time).
+  - When nothing is logged yet, a card shows a friendly line, e.g. "No water yet · tap to add 💧".
+- The cards follow the order set in Settings → Customise menu.
+- Worked out on screen from saved data; nothing new is stored and no saved data changed.
+- The "Your daily summary will appear here ✨" card stays for HOME-SUMMARY to replace.
+- New file `core/home.js` (added to the offline list, cache version 13); small new styles in `core/styles.css`.
+- Checked at 360px in light and dark mode with test entries (in a test-only browser address, all deleted
+  afterwards): all 5 empty messages, correct totals, card order follows the menu, tapping opens the module,
+  no sideways scrolling, no errors.
+
+**Known issues**
+- Weight, Reading and Medical log have no Today card (not in the spec for HOME-1).
+- The cards refresh when Home is opened again, not while it stays open (e.g. at midnight).
+- The phone gets this at the final "release".

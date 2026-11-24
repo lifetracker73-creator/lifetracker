@@ -42,6 +42,7 @@
     import { startSync, onStatus, syncNow } from './core/sync.js';
     import { startAppearance, setAppearance, isDark } from './core/appearance.js';
     import { getMenu } from './core/menu.js';
+    import { todaySection } from './core/home.js';
 
     // ☀️/🌙 button in the title bar: switches between light and dark.
     // (Settings → Appearance also has "Auto", colour themes and fonts.)
@@ -261,6 +262,7 @@
           el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
         ]),
         sleepSlot,
+        todaySection(menu.order),
         card({ className: 'home-summary', children: [
           el('p', { className: 'muted', text: 'Your daily summary will appear here ✨' }),
         ] }),
