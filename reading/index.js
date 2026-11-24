@@ -246,6 +246,9 @@ function checkinFields(getBook, c = {}) {
     if (minText && (!Number.isInteger(m) || m < 1 || m > MAX_MINUTES)) {
       return { error: [minutes, `Minutes should be a whole number from 1 to ${formatNumber(MAX_MINUTES)}.`] };
     }
+    if (note.input.value.trim().length > MAX_TEXT) {
+      return { error: [note, `Please keep the note under ${formatNumber(MAX_TEXT)} letters.`] };
+    }
     return { data: { date: d, currentPage: n, minutesRead: minText ? m : null, note: note.input.value.trim() } };
   }
 
@@ -267,7 +270,7 @@ function checkinFields(getBook, c = {}) {
 }
 
 // ---------- weekly reflection helpers (RDG-3) ----------
-const MAX_TEXT = 2000;
+const MAX_TEXT = 20000; // the most Google Sync accepts in one box (google-apps-script/Code.gs LIMITS.text)
 const WEEKS_BACK = 12; // weeks offered in the "Week" box (this week and 11 before it)
 const weekEndOf = (ws) => addDays(ws, 6);
 const thisWeekStart = () => weekStart(today());

@@ -8,9 +8,10 @@ import { add, update, remove, restore, list as listAll, getSettings, saveSetting
 import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, formatDateTime, monthEnd } from '../core/dates.js';
 import { notify, showBanner, notificationState, askPermission } from '../core/notify.js';
 import { saveFile } from '../core/xlsx.js';
+import { formatNumber } from '../core/format.js';
 
 const MAX_TITLE = 200;
-const MAX_NOTES = 2000;
+const MAX_NOTES = 20000; // the most Google Sync accepts in one box (google-apps-script/Code.gs LIMITS.text)
 
 const PRIORITIES = [
   { value: 'low', label: 'Low' },
@@ -143,7 +144,7 @@ function readForm(fields) {
   const errors = {};
   if (!title) errors.title = 'Give the task a name, e.g. "Pay electricity bill"';
   else if (title.length > MAX_TITLE) errors.title = `Please keep the name under ${MAX_TITLE} letters.`;
-  if (notes.length > MAX_NOTES) errors.notes = `Please keep notes under ${MAX_NOTES} letters.`;
+  if (notes.length > MAX_NOTES) errors.notes = `Please keep notes under ${formatNumber(MAX_NOTES)} letters.`;
   if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) errors.dueDate = 'Pick a date, or leave it empty.';
   if (dueTime && !/^\d{2}:\d{2}$/.test(dueTime)) errors.dueTime = 'Pick a time, or leave it empty.';
   else if (dueTime && !dueDate) errors.dueTime = 'Pick a due date too, or clear the time.';

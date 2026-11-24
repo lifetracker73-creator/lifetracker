@@ -893,3 +893,12 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Only the last 12 weeks can be picked for a new reflection.
 - If a book is deleted, it disappears from the reflections that mention it (the rest of the reflection stays).
 - The phone gets this at the final "release".
+
+### Update (24 Nov 2026): longer writing boxes
+- The boxes that hold paragraphs now take up to **20,000 letters** each (about 3,000 words), up from 2,000:
+  weekly reflection (Key idea, How I used it, Next week's goal), task Notes, and the reading check-in Note
+  (which had no limit before). 20,000 is the most the Google Sync script accepts in one box; anything longer
+  would be refused by Google and stop syncing, so the app asks you to shorten it instead.
+- Checked: 20,001 letters gives a friendly message in all three places; exactly 20,000 saves. Test data removed.
+- Known issue: going higher (Google Sheets' own limit is 50,000 per cell) would need a change to
+  `google-apps-script/Code.gs` and pasting it into Google again by hand.
