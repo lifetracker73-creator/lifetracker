@@ -4,6 +4,7 @@
 
 # Backups and exports (CORE-7 backup, MON-6 CSV, TSK-4 calendar files)
 *backup*
+!core/backup.js
 *.backup
 backups/
 exports/

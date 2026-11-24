@@ -1298,3 +1298,30 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - None found.
+
+## CORE-7: Backup (24 Nov 2026)
+**Built**
+- Settings has a new **💾 Backup** card with three buttons:
+  - **⬇️ Download backup**: saves everything in one file, `lifetracker-backup-YYYY-MM-DD.json`, to Downloads:
+    every entry of all 8 modules, all module settings (goals, people, types, appearance, name…) and the
+    medical photos and PDFs (as you asked). The Google Sync link and secret key are never in it.
+  - **📊 Export to Excel**: `lifetracker-all-data-YYYY-MM-DD.xlsx` with the same 8 tabs and readable columns
+    as the Google Sheet (Water, Sleep, Weight, Food, Expenses, Tasks, Reading, Medical log), in each
+    module's colour, with names instead of IDs and ₹ amounts. Photos and PDFs show only as Drive links.
+  - **⬆️ Restore from backup**: pick the file, see what's in it first ("Backup from 24 Nov 2026, 7:05 pm",
+    counts per module, number and size of photos/PDFs), then "Yes, restore" or "Cancel". Restoring replaces
+    everything on the phone with the backup, keeps the Google Sync link and key, then reopens the app.
+    A wrong or damaged file gets a friendly message and nothing changes.
+- After a restore, the Google Sheets are brought in line too: restored entries are re-sent (no duplicates)
+  and entries that aren't in the backup are removed from the Sheet.
+- New file `core/backup.js` (added to the offline list, cache version 11; `.gitignore` lets this one code file through while still blocking real backup files). `core/storage.js` got
+  backup/check/restore helpers; `core/sync.js` shares its readable Sheet rows with the Excel export.
+  Saved data structure did not change.
+- Tested: download, Excel (8 tabs), restore (extra entry removed, PDF back exactly, sync key kept),
+  bad files rejected, phone width 375px with no sideways scrolling.
+
+**Known issues**
+- Backups with many PDFs can be large (each PDF up to 15 MB); restoring a very large file may be slow on an old phone.
+- A backup made by a newer app version is refused (update the app first). Older backups restore fine as
+  long as a future unit doesn't change the data structure; if one does, it must also update old backups.
+- The app can't remind you to make backups yet; do it now and then by hand.

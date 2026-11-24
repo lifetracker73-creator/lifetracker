@@ -4,6 +4,7 @@ import { card, button, input, el, toast } from './ui.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
 import { MODES, THEMES, FONTS, getAppearance, setAppearance } from './appearance.js';
+import { backupCard } from './backup.js';
 
 // 🎨 Appearance: light/dark/auto, 3 calm colour themes and 5 fonts. Changes show at once.
 function appearanceCard() {
@@ -203,6 +204,7 @@ export async function render(root) {
       ],
     }),
     notificationsCard(),
+    backupCard(),
     card({
       title: '🔒 Keep it private',
       children: [

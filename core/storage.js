@@ -376,6 +376,104 @@ export async function removeFiles(ids) {
   await txDone(tx);
 }
 
+// ---------- backup (CORE-7) ----------
+// A backup is one plain object: every record of every store, every settings row except "sync"
+// (it holds the Google link and secret key), and the attached files with their data as base64 text.
+
+const BACKUP_KIND = 'lifetracker-backup';
+
+function bufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
+function base64ToBuffer(text) {
+  const bin = atob(text);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+/** Everything saved on this phone, ready to be turned into a backup file. Never includes the sync link or key. */
+export async function exportAll() {
+  const db = await openDb();
+  const names = Object.keys(STORES);
+  const tx = db.transaction([...names, SETTINGS, FILES]);
+  const stores = {};
+  for (const name of names) stores[name] = await done(tx.objectStore(name).getAll());
+  const settings = (await done(tx.objectStore(SETTINGS).getAll())).filter((row) => row.module !== 'sync');
+  const files = (await done(tx.objectStore(FILES).getAll()))
+    .map(({ data, ...rest }) => ({ ...rest, data: data ? bufferToBase64(data) : '' }));
+  return { kind: BACKUP_KIND, dbVersion: DB_VERSION, exportedAt: nowIso(), stores, settings, files };
+}
+
+/**
+ * Check a backup (already read from JSON) and count what's in it, without changing anything.
+ * Returns { counts: { store: n }, settings: n, files: n, fileBytes, exportedAt } or throws a friendly Error.
+ */
+export function checkBackup(backup) {
+  const bad = () => new Error('This file isn\'t a Lifetracker backup, or it is damaged. Nothing was changed.');
+  if (!backup || typeof backup !== 'object' || backup.kind !== BACKUP_KIND) throw bad();
+  if (typeof backup.dbVersion !== 'number' || backup.dbVersion > DB_VERSION) {
+    throw new Error('This backup was made by a newer version of Lifetracker. Update the app first, then try again. Nothing was changed.');
+  }
+  if (!backup.stores || typeof backup.stores !== 'object') throw bad();
+  const isRecord = (r) => r && typeof r === 'object' && typeof r.id === 'string' && r.id;
+  const counts = {};
+  for (const name of Object.keys(STORES)) {
+    const rows = backup.stores[name] ?? [];
+    if (!Array.isArray(rows) || !rows.every(isRecord)) throw bad();
+    counts[name] = rows.length;
+  }
+  const settings = backup.settings ?? [];
+  if (!Array.isArray(settings) || !settings.every((s) => s && typeof s.module === 'string')) throw bad();
+  const files = backup.files ?? [];
+  if (!Array.isArray(files) || !files.every((f) => isRecord(f) && typeof f.data === 'string')) throw bad();
+  const fileBytes = files.reduce((sum, f) => sum + (Number(f.size) || 0), 0);
+  return { counts, settings: settings.length, files: files.length, fileBytes, exportedAt: backup.exportedAt || '' };
+}
+
+/**
+ * Replace everything on this phone with a backup (after checkBackup). The Google Sync link and key
+ * on this phone are kept. Every restored record is queued for Google Sheets, and records that were
+ * on the phone but aren't in the backup are queued for removal, so the Sheets match afterwards.
+ */
+export async function importAll(backup) {
+  checkBackup(backup);
+  // Turn files back into binary data before the transaction starts (it must not wait on other work).
+  const files = (backup.files ?? []).map((f) => ({ ...f, data: f.data ? base64ToBuffer(f.data) : null }));
+  const db = await openDb();
+  const names = Object.keys(STORES);
+  const tx = db.transaction([...names, SETTINGS, FILES, OUTBOX], 'readwrite');
+  const outbox = tx.objectStore(OUTBOX);
+  for (const name of names) {
+    const store = tx.objectStore(name);
+    const incoming = backup.stores[name] ?? [];
+    const keep = new Set(incoming.map((r) => r.id));
+    const old = await done(store.getAll());
+    for (const record of old) {
+      if (!keep.has(record.id)) queueChange(outbox, name, 'delete', record);
+    }
+    store.clear();
+    for (const record of incoming) {
+      store.put(record);
+      queueChange(outbox, name, 'upsert', record);
+    }
+  }
+  const settingsStore = tx.objectStore(SETTINGS);
+  const sync = await done(settingsStore.get('sync'));
+  settingsStore.clear();
+  for (const row of backup.settings ?? []) if (row.module !== 'sync') settingsStore.put(row);
+  if (sync) settingsStore.put(sync);
+  const filesStore = tx.objectStore(FILES);
+  filesStore.clear();
+  for (const f of files) filesStore.put(f);
+  await txDone(tx);
+  outboxChanged();
+}
+
 // ---------- settings ----------
 
 /** A module's settings, with `defaults` filled in for anything not saved yet. */

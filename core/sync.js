@@ -147,6 +147,20 @@ async function loadNames() {
   return names;
 }
 
+/**
+ * CORE-7 "Export to Excel": every record as the same readable rows the Sheet gets, grouped by tab.
+ * Returns [{ tab, rows: [[ [column, value], ... ], ...] }] in the Sheet's tab order. Empty tabs are kept.
+ */
+export async function readableTabs() {
+  const names = await loadNames();
+  const tabs = new Map();
+  for (const [store, [tab]] of Object.entries(TABS)) {
+    if (!tabs.has(tab)) tabs.set(tab, []);
+    for (const record of await list(store)) tabs.get(tab).push(toRow(store, record, names));
+  }
+  return [...tabs].map(([tab, rows]) => ({ tab, rows }));
+}
+
 // ---------- talking to Google ----------
 
 const LINK_PATTERN = /^https:\/\/script\.google\.com\/(?:a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
