@@ -1325,3 +1325,29 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - A backup made by a newer app version is refused (update the app first). Older backups restore fine as
   long as a future unit doesn't change the data structure; if one does, it must also update old backups.
 - The app can't remind you to make backups yet; do it now and then by hand.
+
+## CORE-8: Settings, goals and Customise menu (25 Nov 2026)
+**Built**
+- Settings now starts with three new cards (Appearance, Google Sync, Notifications, Backup and
+  Keep it private are unchanged, below them):
+  - **👋 You**: type your name; the home greeting then says "Good evening, <name> 🌙".
+  - **🎯 Goals**: water daily goal and the 3 quick-add buttons, hours of sleep, height and goal weight,
+    and the food daily targets (kcal, protein, carbs, fat, fibre), with one "Save goals" button and
+    friendly messages for wrong numbers. These are the same saved values the modules use, so a change
+    here shows in the module too (and the other way round). Your vitamin/mineral targets are kept.
+    Shortcut buttons open Money (budgets, categories), Medical log (people, visit types) and
+    Sleep (automatic wake-up time), which are set inside those modules.
+  - **🧭 Customise menu**: one row per module with a "⭐ Bar / 🌈 More" button and ↑/↓ arrows. Tap one
+    module's button, then one from the other group, and they swap; the bar always has exactly 4.
+    The arrows set the order on the bar, in More and of the home screen tiles. Changes show at once
+    and stay after closing the app. "Reset to default" brings back Water, Food, Money, Tasks.
+- Water goal and sleep target can now be changed for the first time (before, they were fixed at
+  2,500 ml and 8 hours).
+- New file `core/menu.js` (added to the offline list, cache version 12). Saved data: two new settings
+  rows, "menu" and "profile" (name). No existing data changed. Both are in backups; neither goes to Google.
+- Tested at 360px: swap, arrows, reset, wrong numbers, name greeting, goals showing in Water, Weight
+  and Food, everything kept after reload, no sideways scrolling.
+
+**Known issues**
+- In Settings, height is always in cm; the ft/in choice is still in ⚖️ Weight (it is kept as you set it).
+- Reading has no goals to set yet, so it isn't in the Goals card.

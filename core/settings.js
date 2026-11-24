@@ -1,10 +1,227 @@
-// ⚙️ Settings screen: Google Sync (SHEETS-SYNC) and Notifications (CORE-9).
-// CORE-8 adds the module goals, "Customise menu" and your name later.
-import { card, button, input, el, toast } from './ui.js';
+// ⚙️ Settings screen: your name, goals and "Customise menu" (CORE-8), Appearance,
+// Google Sync (SHEETS-SYNC), Notifications (CORE-9) and Backup (CORE-7).
+import { card, button, input, el, toast, modules } from './ui.js';
+import { getSettings, saveSettings } from './storage.js';
+import { getMenu, saveMenu, resetMenu, BAR_SIZE } from './menu.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
 import { MODES, THEMES, FONTS, getAppearance, setAppearance } from './appearance.js';
 import { backupCard } from './backup.js';
+
+// 👋 You: your name, used in the home greeting ("Good morning, Asha ☀️").
+async function profileCard() {
+  const profile = await getSettings('profile', { name: '' });
+  const nameField = input({ label: 'Your name', name: 'name', value: profile.name || '', placeholder: 'e.g. Asha' });
+  nameField.input.setAttribute('autocomplete', 'given-name');
+  nameField.input.maxLength = 30;
+  const form = el('form', { className: 'stack', novalidate: true }, [
+    nameField,
+    button({ label: 'Save name', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameField.input.value.trim().replace(/\s+/g, ' ');
+    nameField.input.value = name;
+    await saveSettings('profile', { name });
+    toast({ message: name ? `Hello, ${name} 👋` : 'Name cleared' });
+  });
+  return card({ title: '👋 You', children: [form] });
+}
+
+// 🎯 Goals: the same saved values each module uses, so a change here shows there too.
+// Defaults match the modules' own (water, sleep, food).
+const WATER_DEFAULTS = { dailyGoalMl: 2500, quickAmounts: [250, 500, 750] };
+const SLEEP_DEFAULTS = { targetHours: 8 };
+const FOOD_TARGETS = [
+  { key: 'kcal', label: 'Calories (kcal)', example: 2000 },
+  { key: 'proteinG', label: 'Protein (g)', example: 60 },
+  { key: 'carbsG', label: 'Carbs (g)', example: 250 },
+  { key: 'fatG', label: 'Fat (g)', example: 65 },
+  { key: 'fibreG', label: 'Fibre (g)', example: 30 },
+];
+const FOOD_DEFAULT_TARGETS = { kcal: 2000, proteinG: 60, carbsG: 250, fatG: 65, fibreG: 30 };
+
+// Reads a number box. Returns { value } (null when empty and allowed) or { error }.
+function readNumber(field, { min, max, optional = false, whole = false, example }) {
+  const text = field.input.value.trim().replace(/,/g, '');
+  if (text === '') return optional ? { value: null } : { error: `Please type a number, e.g. ${example}` };
+  const v = Number(text);
+  if (!Number.isFinite(v)) return { error: `Please type a number, e.g. ${example}` };
+  if (v < min) return { error: `Please type at least ${min}${optional ? ', or leave it empty' : ''}` };
+  if (v > max) return { error: `That's a lot! Please type ${max} or less` };
+  return { value: whole ? Math.round(v) : Math.round(v * 10) / 10 };
+}
+
+async function goalsCard() {
+  const [water, sleep, weight, food] = await Promise.all([
+    getSettings('water', WATER_DEFAULTS),
+    getSettings('sleep', SLEEP_DEFAULTS),
+    getSettings('weight', { heightCm: null, goalKg: null }),
+    getSettings('food', { targets: FOOD_DEFAULT_TARGETS }),
+  ]);
+  const foodTargets = food.targets || {};
+  const num = (label, value, example) => {
+    const f = input({ label, inputmode: 'decimal', value: value == null ? '' : String(value), placeholder: `e.g. ${example}` });
+    f.input.addEventListener('input', () => f.setError(''));
+    return f;
+  };
+  const heading = (key, text) => el('h3', { className: `goals-heading mod-${key}`, text: `${modules[key].emoji} ${text}` });
+
+  const waterGoal = num('Daily goal (ml)', water.dailyGoalMl, 2500);
+  const quick = [0, 1, 2].map((i) => num(`Button ${i + 1} (ml)`, (water.quickAmounts || [])[i], WATER_DEFAULTS.quickAmounts[i]));
+  const sleepTarget = num('Hours of sleep each night', sleep.targetHours, 8);
+  const height = num('Height (cm)', weight.heightCm, 165);
+  const goalKg = num('Goal weight (kg)', weight.goalKg, 60);
+  const foodFields = FOOD_TARGETS.map((t) => num(t.label, foodTargets[t.key] > 0 ? foodTargets[t.key] : null, t.example));
+
+  const form = el('form', { className: 'stack', novalidate: true }, [
+    el('p', { className: 'muted', text: 'These are the same goals you see in each module. Change them here or there.' }),
+    heading('water', 'Water'),
+    waterGoal,
+    el('p', { className: 'field__label', text: 'Quick-add buttons' }),
+    el('div', { className: 'field-grid' }, quick),
+    heading('sleep', 'Sleep'),
+    sleepTarget,
+    heading('weight', 'Weight'),
+    el('div', { className: 'field-grid' }, [height, goalKg]),
+    el('p', { className: 'muted', text: 'Both optional. Height is used only for BMI. Leave a box empty to clear it.' }),
+    heading('food', 'Food: daily targets'),
+    el('div', { className: 'field-grid' }, foodFields),
+    el('p', { className: 'muted', text: 'Leave a box empty for no target. Vitamin and mineral targets are in 🍱 Food.' }),
+    button({ label: 'Save goals', variant: 'primary', type: 'submit', block: true }),
+  ]);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    let ok = true;
+    const check = (field, rules) => {
+      const r = readNumber(field, rules);
+      field.setError(r.error || '');
+      if (r.error) ok = false;
+      return r.value;
+    };
+    const goal = check(waterGoal, { min: 250, max: 10000, whole: true, example: 2500 });
+    const amounts = quick.map((f, i) => check(f, { min: 10, max: 5000, whole: true, example: WATER_DEFAULTS.quickAmounts[i] }));
+    const hours = check(sleepTarget, { min: 3, max: 14, example: '7.5' });
+    const cm = check(height, { min: 50, max: 250, optional: true, example: 165 });
+    const kg = check(goalKg, { min: 20, max: 300, optional: true, example: 60 });
+    const targets = {};
+    FOOD_TARGETS.forEach((t, i) => {
+      targets[t.key] = t.key === 'kcal'
+        ? check(foodFields[i], { min: 500, max: 10000, optional: true, whole: true, example: t.example })
+        : check(foodFields[i], { min: 1, max: 1000, optional: true, example: t.example });
+    });
+    if (!ok) {
+      form.querySelector('[aria-invalid="true"]')?.focus();
+      return;
+    }
+    await Promise.all([
+      saveSettings('water', { dailyGoalMl: goal, quickAmounts: amounts }),
+      saveSettings('sleep', { targetHours: hours }),
+      saveSettings('weight', { heightCm: cm, goalKg: kg }),
+      // Keep your vitamin/mineral targets; only the five above change.
+      saveSettings('food', { targets: { ...foodTargets, ...targets } }),
+    ]);
+    Object.assign(foodTargets, targets);
+    toast({ message: 'Goals saved 🎯' });
+  });
+
+  const shortcuts = el('div', { className: 'stack' }, [
+    el('p', { className: 'muted', text: 'Set inside their own modules:' }),
+    ...[
+      ['money', '💸 Budgets and categories'],
+      ['medical', '🩺 People and visit types'],
+      ['sleep', '😴 Automatic wake-up time'],
+    ].map(([key, text]) => el('a', { className: `btn btn--secondary btn--block mod-${key}`, href: `#/${key}` }, [el('span', { text })])),
+  ]);
+  return card({ title: '🎯 Goals', children: [form, shortcuts] });
+}
+
+// 🧭 Customise menu: pick 4 modules for the bottom bar; ↑/↓ also sets the home card order.
+async function menuCard() {
+  let menu = await getMenu();
+  const rows = el('ol', { className: 'menu-list' });
+  const note = el('p', { className: 'muted' });
+
+  async function change(next, message) {
+    menu = await saveMenu(next);
+    draw();
+    if (message) toast({ message });
+  }
+  function move(i, by) {
+    const order = [...menu.order];
+    [order[i], order[i + by]] = [order[i + by], order[i]];
+    // Keep the same button focused after the list redraws.
+    change({ ...menu, order }).then(() => {
+      rows.children[i + by]?.querySelector(by < 0 ? '.menu-up' : '.menu-down')?.focus();
+    });
+  }
+  // Swap: tap one module's place button, then one from the other group; they trade places.
+  // The bar always keeps exactly 4.
+  let swapFrom = null;
+  function pick(key) {
+    const on = menu.bar.includes(key);
+    if (swapFrom === null) {
+      swapFrom = key;
+      draw();
+      return;
+    }
+    if (swapFrom === key) { swapFrom = null; draw(); return; }
+    const fromOn = menu.bar.includes(swapFrom);
+    if (fromOn === on) { swapFrom = key; draw(); return; }
+    const [barKey, moreKey] = fromOn ? [swapFrom, key] : [key, swapFrom];
+    swapFrom = null;
+    change({ ...menu, bar: [...menu.bar.filter((k) => k !== barKey), moreKey] },
+      `${modules[moreKey].emoji} ${modules[moreKey].label} is on the bottom bar`);
+  }
+  function draw() {
+    const picking = swapFrom !== null;
+    const pickingOn = picking && menu.bar.includes(swapFrom);
+    note.textContent = !picking
+      ? 'Tap a module\'s place button to swap it between the bottom bar and More.'
+      : pickingOn
+        ? `Now tap a 🌈 More module to put it on the bar instead of ${modules[swapFrom].label}.`
+        : `Now tap a ⭐ Bar module to swap with ${modules[swapFrom].label}.`;
+    rows.replaceChildren(...menu.order.map((key, i) => {
+      const on = menu.bar.includes(key);
+      const place = el('button', {
+        type: 'button',
+        className: `btn ${swapFrom === key ? 'btn--primary' : 'btn--secondary'} menu-place`,
+        'aria-pressed': String(swapFrom === key),
+        'aria-label': `${modules[key].label}: ${on ? 'on the bottom bar' : 'in More'}. Tap to swap.`,
+        onClick: () => pick(key),
+      }, [el('span', { text: on ? '⭐ Bar' : '🌈 More' })]);
+      const up = button({ label: '↑', variant: 'ghost', ariaLabel: `Move ${modules[key].label} up`, disabled: i === 0, onClick: () => move(i, -1) });
+      const down = button({ label: '↓', variant: 'ghost', ariaLabel: `Move ${modules[key].label} down`, disabled: i === menu.order.length - 1, onClick: () => move(i, 1) });
+      up.classList.add('menu-up', 'menu-arrow');
+      down.classList.add('menu-down', 'menu-arrow');
+      return el('li', { className: `menu-row mod-${key}${on ? ' is-on' : ''}` }, [
+        el('span', { className: 'menu-row__name' }, [
+          el('span', { 'aria-hidden': 'true', text: modules[key].emoji }),
+          el('span', { text: modules[key].label }),
+        ]),
+        place, up, down,
+      ]);
+    }));
+  }
+  draw();
+
+  const reset = button({
+    label: 'Reset to default',
+    variant: 'secondary',
+    block: true,
+    onClick: () => { swapFrom = null; resetMenu().then((m) => { menu = m; draw(); toast({ message: 'Menu is back to Water, Food, Money, Tasks' }); }); },
+  });
+  return card({
+    title: '🧭 Customise menu',
+    children: [
+      el('p', { className: 'muted', text: `🏠 Home is always first and 🌈 More always last. ${BAR_SIZE} modules sit on the bottom bar; the rest are in More. The ↑/↓ arrows set the order on the bar, in More and on the home screen.` }),
+      note,
+      rows,
+      reset,
+    ],
+  });
+}
 
 // 🎨 Appearance: light/dark/auto, 3 calm colour themes and 5 fonts. Changes show at once.
 function appearanceCard() {
@@ -192,7 +409,11 @@ export async function render(root) {
     },
   });
 
+  const [youCard, goals, menuBox] = await Promise.all([profileCard(), goalsCard(), menuCard()]);
   root.append(
+    youCard,
+    goals,
+    menuBox,
     appearanceCard(),
     card({
       title: '☁️ Google Sync',

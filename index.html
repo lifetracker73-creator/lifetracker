@@ -41,6 +41,7 @@
     import { today, currentHour, formatDate } from './core/dates.js';
     import { startSync, onStatus, syncNow } from './core/sync.js';
     import { startAppearance, setAppearance, isDark } from './core/appearance.js';
+    import { getMenu } from './core/menu.js';
 
     // ☀️/🌙 button in the title bar: switches between light and dark.
     // (Settings → Appearance also has "Auto", colour themes and fonts.)
@@ -55,9 +56,10 @@
     paintModeToggle();
     startAppearance();
 
-    // Modules on the bottom bar; the rest sit in the "More" panel.
-    const barModules = ['water', 'food', 'money', 'tasks'];
-    const moreModules = Object.keys(modules).filter((key) => !barModules.includes(key));
+    // Modules on the bottom bar; the rest sit in the "More" panel. Your choice from
+    // Settings → Customise menu (CORE-8); it also sets the order of the home tiles.
+    let menu = await getMenu();
+    let moreModules = menu.order.filter((key) => !menu.bar.includes(key));
 
     const app = document.getElementById('app');
     const nav = document.getElementById('bottom-nav');
@@ -86,11 +88,24 @@
     }
 
     const moreButton = navItem({ key: 'more', emoji: '🌈', label: 'More', onClick: () => sheet.showModal() });
-    nav.append(el('div', { className: 'bottom-nav__inner' }, [
-      navItem({ key: 'home', emoji: '🏠', label: 'Home', href: '#/' }),
-      ...barModules.map((key) => navItem({ key, emoji: modules[key].emoji, label: modules[key].label, href: `#/${key}` })),
-      moreButton,
-    ]));
+    const moreGrid = el('div', { className: 'tile-grid' });
+    // Draws the bottom bar and the More panel's tiles from your menu.
+    function drawMenu() {
+      nav.replaceChildren(el('div', { className: 'bottom-nav__inner' }, [
+        navItem({ key: 'home', emoji: '🏠', label: 'Home', href: '#/' }),
+        ...menu.bar.map((key) => navItem({ key, emoji: modules[key].emoji, label: modules[key].label, href: `#/${key}` })),
+        moreButton,
+      ]));
+      moreGrid.replaceChildren(...moreModules.map(tile));
+    }
+    drawMenu();
+    // Changed in Settings → Customise menu: redraw at once.
+    document.addEventListener('menuchange', (e) => {
+      menu = e.detail;
+      moreModules = menu.order.filter((key) => !menu.bar.includes(key));
+      drawMenu();
+      highlight(currentScreen);
+    });
 
     // "More" panel: tap a tile, tap the ✕, tap outside, or press Back/Escape to close.
     sheet.append(
@@ -98,7 +113,7 @@
         el('h2', { id: 'more-title', className: 'sheet__title', text: 'More' }),
         button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => sheet.close() }),
       ]),
-      el('div', { className: 'tile-grid' }, moreModules.map(tile)),
+      moreGrid,
       el('a', { className: 'btn btn--secondary btn--block more-settings', href: '#/settings' }, [
         el('span', { 'aria-hidden': 'true', text: '⚙️' }),
         el('span', { text: 'Settings' }),
@@ -250,7 +265,7 @@
           el('p', { className: 'muted', text: 'Your daily summary will appear here ✨' }),
         ] }),
         installSlot,
-        el('div', { className: 'tile-grid' }, Object.keys(modules).map(tile)),
+        el('div', { className: 'tile-grid' }, menu.order.map(tile)),
       );
       updateInstallSlot();
     }
@@ -264,7 +279,15 @@
       badgeEl.replaceChildren(modules[name] ? badge(name)
         : mod ? el('span', { className: 'badge', 'aria-hidden': 'true', text: mod.emoji }) : '');
       document.title = mod ? `${mod.label} · Lifetracker` : 'Lifetracker';
+      highlight(name);
+      if (!firstScreen) titleEl.focus({ preventScroll: true });
+      firstScreen = false;
+    }
 
+    // Highlights the right menu button for a screen.
+    let currentScreen = '';
+    function highlight(name) {
+      currentScreen = name;
       const activeKey = moreModules.includes(name) || name === 'settings' ? 'more' : name;
       for (const item of nav.querySelectorAll('.nav-item')) {
         const active = item.dataset.key === activeKey;
@@ -276,9 +299,6 @@
       }
       // The "More" button takes the colour of the module it's showing.
       moreButton.className = `nav-item${activeKey === 'more' ? ` is-active mod-${name}` : ''}`;
-
-      if (!firstScreen) titleEl.focus({ preventScroll: true });
-      firstScreen = false;
     }
 
     startRouter({
