@@ -1,27 +1,77 @@
-# Files that must never be uploaded to GitHub.
-# Your tracker data lives inside the phone/browser (IndexedDB), never in this folder,
-# but exported files might be saved here by accident. These rules keep them off GitHub.
+# ALLOWLIST: git ignores EVERYTHING by default.
+# Only the app code, icons, fonts and docs listed in step 2 can ever be uploaded.
+# Anything else saved in this folder (backups, exports, screenshots, PRIVATE.md...)
+# is ignored automatically. Step 3 blocks risky files again, just to be extra safe.
 
-# Backups and exports (CORE-7 backup, MON-6 CSV, TSK-4 calendar files)
-*backup*
-!core/backup.js
-*.backup
-backups/
-exports/
-*.csv
-*.ics
-*.xlsx
-*-export*.json
-lifetracker*.json
+# 1) Ignore everything
+*
+# Let git look inside folders (files inside stay ignored unless allowed below)
+!*/
 
-# Secrets and personal settings
+# 2) Allowed files
+!/.gitignore
+!/CLAUDE.md
+!/SPEC.md
+!/PROGRESS.md
+!/index.html
+!/manifest.webmanifest
+!/sw.js
+!/core/*.js
+!/core/*.css
+!/core/vendor/*.js
+!/core/fonts/*.ttf
+!/core/fonts/OFL.txt
+!/icons/*.png
+!/google-apps-script/Code.gs
+!/google-apps-script/appsscript.json
+!/water/*.js
+!/water/*.css
+!/sleep/*.js
+!/sleep/*.css
+!/weight/*.js
+!/weight/*.css
+!/food/*.js
+!/food/*.css
+!/money/*.js
+!/money/*.css
+!/tasks/*.js
+!/tasks/*.css
+!/reading/*.js
+!/reading/*.css
+!/medical/*.js
+!/medical/*.css
+!/gym/*.js
+!/gym/*.css
+!/refills/*.js
+!/refills/*.css
+
+# 3) Never upload these, even if they match an allowed rule above
+PRIVATE.md
+PRIVATE*
+*private*
+.claude/
+settings.local.json
 .env
 .env.*
 *.key
 *.pem
-.claude/settings.local.json
-
-# Computer clutter and logs
+*backup*
+!/core/backup.js
+backups/
+exports/
+*export*
+*.json
+!/google-apps-script/appsscript.json
+*.xlsx
+*.xls
+*.csv
+*.ics
+*.pdf
+*creenshot*
+Screen Shot*
+*.jpg
+*.jpeg
+*.heic
 .DS_Store
 Thumbs.db
 desktop.ini

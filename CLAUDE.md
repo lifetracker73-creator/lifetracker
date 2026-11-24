@@ -59,19 +59,37 @@ water/  sleep/  weight/  food/  money/  tasks/  reading/  medical/
 
 ## Uploading (the app is live at https://lifetracker73-creator.github.io/lifetracker/)
 - "commit it" (and the commit at the end of a unit) only saves on my laptop. NEVER push unless I say "release".
-- Never upload personal data, backups or exports. `.gitignore` blocks them; check `git status` before every commit.
+- Never upload personal data, backups or exports. `.gitignore` is an allowlist (everything is ignored
+  except app code, icons, fonts and these docs); check `git status` before every commit.
+- `PRIVATE.md` (on my laptop only, ignored by git) lists words that must never be public. Read it for
+  scans, but never copy anything from it into another file, a commit message or the chat.
+- A local privacy guard (`.git/hooks/privacy-check.sh`, never uploaded) runs before every commit.
+  If it blocks a commit, fix the content. Never skip it (no `--no-verify`), and never weaken it.
+- Sample/test data must always be clearly fake ("Test Person", "Dr Example", round numbers like 70 kg
+  or ₹500), in code, placeholders, docs and commit messages.
 - When I say "release":
-  1. Secret scan: search every file that will be uploaded for links, keys, emails and secrets
-     (Apps Script links `script.google.com/macros/s/…`, secret keys like `ABCD-EFGH-JKLM-…`,
-     email addresses, API keys/tokens, private keys, passwords). Only these are allowed: the app's
-     own GitHub/GitHub Pages links, the link pattern and Google permission addresses in the sync
-     code, licence links in `core/fonts/OFL.txt`, and made-up examples like `name@gmail.com`.
-     If anything else is found, STOP the release and tell me what and where.
-  2. Bump `CACHE_VERSION` in `sw.js` by 1 and check every app file is in its list.
-  3. Commit with the message: `Release v<number>: <short description>`.
-  4. Push to GitHub (`git push origin main`).
-  5. Check the live link shows the new `CACHE_VERSION` (it can take 1–2 minutes).
-  6. Tell me: open the app on my phone with internet and tap "New version available — tap to refresh".
+  1. Full privacy scan (like the first audit). Stop if anything is found and tell me what and where.
+     - Run `sh .git/hooks/privacy-check.sh full`: every file that will be uploaded, every past commit
+       on all branches/tags, commit messages and author names/emails.
+     - It checks: everything in PRIVATE.md (any case, partial words too), my computer username,
+       emails other than noreply ones, phone numbers, PIN codes, Apps Script / Google Sheet / Drive /
+       Docs links, secret keys like `ABCD-EFGH-JKLM-…`, tokens, passwords, API/private keys and paths
+       with a username.
+     - Also check: real-looking personal data in sample data, comments and docs; hidden metadata in
+       new images/PDFs; that no backups, exports, Excel/CSV, PDFs, screenshots, PRIVATE.md or
+       `.claude/` files are tracked; that the git author is the neutral noreply one.
+     - Only these are allowed: the app's own GitHub/GitHub Pages links, the link pattern and Google
+       permission addresses in the sync code, licence links in `core/fonts/OFL.txt`, and made-up
+       examples like `name@gmail.com`.
+  2. Show me the release preview: the exact list of files that will be uploaded (new/changed),
+     a plain-words summary of what changed, the new version number, and "privacy scan ✅ clean".
+  3. WAIT for me to type "yes". Anything else means don't release.
+  4. Bump `CACHE_VERSION` in `sw.js` by 1 and check every app file is in its list.
+  5. Commit with the message: `Release v<number>: <short description>`.
+  6. Push to GitHub (`git push origin main`).
+  7. Check the live link shows the new `CACHE_VERSION` (it can take 1–2 minutes), then scan what is
+     actually live on GitHub and GitHub Pages the same way and confirm ✅.
+  8. Tell me: open the app on my phone with internet and tap "New version available — tap to refresh".
 
 ## At the end of every unit
 1. Give me a 3-step "How to test" checklist I can follow in my phone or browser.
