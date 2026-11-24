@@ -5,6 +5,7 @@ import { list, listByDate, listByDateRange, getSettings } from './storage.js';
 import { today, formatTime, sleepMinutes, formatDuration, addDays, daysBetween, dateRange, monthStart, currentHour, weekStart } from './dates.js';
 import { barChart } from './charts.js';
 import { formatMl, formatMoney, formatNumber, formatG, formatKg } from './format.js';
+import { loadDailyCost, dueText } from './refills.js';
 
 const WATER_DEFAULTS = { dailyGoalMl: 2500 };
 const FOOD_DEFAULT_TARGETS = { kcal: 2000, proteinG: 60 };
@@ -117,7 +118,25 @@ async function gym(day) {
   });
 }
 
-const BUILDERS = { water, sleep, food, money, tasks, gym };
+// REF-6: the next refill due (soonest expected) and the daily cost of living.
+async function refills(day) {
+  const cost = await loadDailyCost(day);
+  if (!cost.items.length) {
+    const any = (await list('refillItems')).length;
+    return todayCard('refills', {
+      main: any ? 'Not enough refills yet' : 'No refill items yet',
+      sub: any ? 'Log 2 refills of an item to see when it’s due' : 'Tap to add gas, rice, water can… 🔄',
+      empty: true,
+    });
+  }
+  const next = [...cost.items].sort((a, b) => a.stats.expected.localeCompare(b.stats.expected))[0];
+  return todayCard('refills', {
+    main: `${next.stats.daysLeft < 0 ? '⏰ ' : ''}${next.item.name} ${dueText(next.stats.daysLeft)}`,
+    sub: `Daily cost ${formatMoney(Math.round(cost.perDayPaise))} · ${formatMoney(Math.round(cost.perMonthPaise / 100) * 100)} a month`,
+  });
+}
+
+const BUILDERS = { water, sleep, food, money, tasks, gym, refills };
 
 /**
  * The "📅 Today" section: one card per module (water, sleep, food, money, tasks),
@@ -358,6 +377,10 @@ const TILE_STATS = {
     const n = (await listByDateRange('gymSessions', weekStart(day), day)).length;
     return n ? `${n} workout${n === 1 ? '' : 's'} this week` : '';
   },
+  async refills(day) {
+    const cost = await loadDailyCost(day);
+    return cost.items.length ? `${formatMoney(Math.round(cost.perDayPaise / 100) * 100)} a day` : '';
+  },
 };
 
 /** Adds a live number under each module name on the home tiles. */
@@ -379,7 +402,7 @@ export function fillTileStats(grid) {
 export function quickAdd(order) {
   const ADD_LABEL = {
     water: 'water', sleep: 'sleep', weight: 'weight', food: 'food',
-    money: 'expense', tasks: 'task', reading: 'book', medical: 'visit', gym: 'workout',
+    money: 'expense', tasks: 'task', reading: 'book', medical: 'visit', gym: 'workout', refills: 'refill',
   };
   const sheet = el('dialog', { className: 'sheet', 'aria-labelledby': 'quick-add-title' });
   const close = () => sheet.close();

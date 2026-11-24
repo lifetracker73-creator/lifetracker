@@ -1580,3 +1580,40 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - A routine can't get new exercises in the routine editor; add them to a workout and save it as a new routine.
 - The Sheet's "Kind" column shows "strength" / "cardio" in small letters.
 - The phone gets this at the final "release".
+
+## REF-1 to REF-7: 🔄 Refills (25 Nov 2026)
+**Built**
+- **REF-1:** new 🔄 Refills section ("#/refills") in a soft teal, in the Customise menu, More panel, Home tiles
+  (live "₹42 a day") and Quick add. Items: name, unit (can / kg / litre / pack / month or your own), Money category;
+  add, edit, delete (its refills, their expenses and open reminder go too; Undo brings all back).
+  "Refills" tab for Google Sync and Excel (Item / Refill rows, item and category by name, Unit and Total (₹) columns).
+- **REF-2:** item page ("#/refills/item/<id>"): "+ Log a refill" with quantity, price per unit, live total, date,
+  vendor (names used before are suggested), Paid by (UPI / Cash / Card / Other), note. Starts filled with the last
+  refill's numbers. Refills list newest first; tap to edit or delete (Undo).
+- **REF-3:** every refill saves one 💸 Money expense (note "🔄 Refill: Gas cylinder (1 can)"); editing or deleting the
+  refill changes or removes it. In Money it shows "· 🔄 Refill" and has no delete button; tapping it says
+  "This comes from Refills" with "🔄 Edit in Refills". Opening Refills runs a quick repair: missing expenses are
+  made again, extra copies removed. Expenses get two new optional fields (`source`, `refillId`); old ones unchanged.
+- **REF-4:** 📊 Numbers per item (needs 2 refills on different days): next refill date ("in 4 days" / "2 days late"),
+  how long a refill lasts (last 6), cost per day and per month, price now vs first and previous (₹ and %),
+  price-per-unit line chart.
+- **REF-5:** ⏰ Reminder per item (Off / On, days before, default 1): a task "🔄 Refill Gas cylinder" in ✅ Tasks, due
+  that many days before the expected date. Logging the next refill ticks it off and makes the next one; switching it
+  off removes it; deleting the newest refill brings the earlier one back.
+- **REF-6:** 🧮 "Daily cost of living" card on Refills (per day, per month × 30, each item's share with a bar) and a
+  Home 📅 Today card ("Gas cylinder in 22 days", "Daily cost ₹42.05 · ₹1,261 a month").
+- **REF-7:** Money → More money tools → "📈 Daily spend" ("#/money/daily"): bars of actual spend per day for the
+  last 30 days, average daily spend, and a dashed "Refills per day" guide line (never added on top).
+- The maths lives in the new shared helper `core/refills.js` (used by Refills, Home and Money).
+- Saved data: two new drawers (`refillItems`, `refills`) added by storage migration version 7. Existing data untouched.
+- New files `refills/index.js`, `core/refills.js`, `money/daily.js` (offline list, cache version 24).
+  Apps Script `Code.gs` has "Refills" in its tab list: **paste the new Code.gs into Google once**.
+- Checked at 360px on a test copy (deleted afterwards): add item, own unit, 4 refills, live total, numbers and chart,
+  reminder task made / ticked / brought back, Money tag and "Edit in Refills" link, repair of a missing and an extra
+  expense, delete + Undo for a refill and a whole item, Daily spend chart, Home card and tile. No sideways scrolling, no errors.
+
+**Known issues**
+- Item categories come from 💸 Money: on a brand-new phone, open Money once first (Refills says so).
+- If you delete a refill reminder task in ✅ Tasks yourself, it stays gone until the next refill.
+- In Money a refill row shows 🔄 twice (the tag and the note).
+- The phone gets this at the final "release".

@@ -30,6 +30,7 @@ export const modules = {
   reading: { emoji: '📚', label: 'Reading' },
   medical: { emoji: '🩺', label: 'Medical log' },
   gym: { emoji: '🏋️', label: 'Gym log' },
+  refills: { emoji: '🔄', label: 'Refills' },
 };
 
 /**

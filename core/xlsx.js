@@ -30,6 +30,7 @@ export const PALETTE = {
   reading: 'FFD7ECC4',
   medical: 'FFFFC9C9',
   gym: 'FFFFB9A3',
+  refills: 'FFB5E6DF',
 };
 
 const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

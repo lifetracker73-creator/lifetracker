@@ -10,6 +10,7 @@ import {
   listFiles, getFile, updateFile,
 } from './storage.js';
 import { isoToKolkata, toIndianDate } from './dates.js';
+import { refillTotal } from './refills.js';
 
 const BATCH = 100;            // changes per request
 const TIMEOUT_MS = 45000;     // give up on one request after this long
@@ -38,6 +39,8 @@ const TABS = {
   gymSets: ['Gym log', 'Exercise'],                  // GYM-2
   gymExercises: ['Gym log', 'Exercise library'],     // GYM-2
   gymRoutines: ['Gym log', 'Routine'],               // GYM-5
+  refillItems: ['Refills', 'Item'],                  // REF-1
+  refills: ['Refills', 'Refill'],                    // REF-2
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
@@ -56,6 +59,12 @@ const STORE_FIELDS = {
   gymSessions: { typeId: ['Type of workout', 'gymTypes'] },
   gymExercises: { name: ['Exercise'] },
   gymRoutines: { typeId: ['Type of workout', 'gymTypes'], name: ['Routine name'], items: ['Routine items'] },
+  // Refills (REF-1/2/3). null = an inside link that is left out of the Sheet.
+  refillItems: {
+    name: ['Item'], categoryId: ['Money category', 'categories'], remind: ['Reminder'], remindDaysBefore: ['Days before'],
+  },
+  refills: { itemId: ['Item', 'refillItems'], expenseId: null, taskId: null },
+  expenses: { refillId: null },
 };
 
 // Column names that the automatic naming would get wrong.
@@ -137,12 +146,19 @@ function toRow(storeName, record, names) {
   const own = STORE_FIELDS[storeName] || {};
   for (const [field, value] of Object.entries(record)) {
     if (['id', 'createdAt', 'updatedAt'].includes(field)) continue;
+    if (own[field] === null) continue;
     if (own[field]) {
       const [column, namesList] = own[field];
       row.push([column, namesList ? (value ? names[namesList]?.get(value) || value : '') : cellValue(field, value, names)]);
       continue;
     }
     row.push([label(field), cellValue(field, value, names)]);
+  }
+  // A refill's unit (from its item) and total (quantity × price per unit), worked out here, not stored.
+  if (storeName === 'refills') {
+    row.push(['Unit', names.refillUnits?.get(record.itemId) || '']);
+    const total = refillTotal(record);
+    row.push(['Total (₹)', total == null ? '' : total / 100]);
   }
   row.push(['ID', record.id], ['Created', cellValue('createdAt', record.createdAt, names)],
     ['Updated', cellValue('updatedAt', record.updatedAt, names)]);
@@ -178,6 +194,10 @@ async function loadNames() {
   names.gymTypes = new Map(gymTypes.map((x) => [x.id, x.name]));
   names.gymSessionNames = new Map((await list('gymSessions'))
     .map((s) => [s.id, `${toIndianDate(s.date)} ${names.gymTypes.get(s.typeId) || ''}`.trim()]));
+  // Refills (REF-2): the item by name, and its unit for the refill rows.
+  const refillItems = await list('refillItems');
+  names.refillItems = new Map(refillItems.map((x) => [x.id, x.name]));
+  names.refillUnits = new Map(refillItems.map((x) => [x.id, x.unit]));
   return names;
 }
 

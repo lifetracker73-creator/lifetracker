@@ -9,7 +9,7 @@
  * - It can only see files and folders it created itself (permission "drive.file").
  */
 
-const TABS = ['Water', 'Sleep', 'Weight', 'Food', 'Expenses', 'Tasks', 'Reading', 'Medical log', 'Gym log'];
+const TABS = ['Water', 'Sleep', 'Weight', 'Food', 'Expenses', 'Tasks', 'Reading', 'Medical log', 'Gym log', 'Refills'];
 const ALLOWED_TABS = TABS.concat(['Other']);
 const TAIL = ['ID', 'Created', 'Updated']; // always the last columns
 const FOLDER_NAME = 'LifeTracker';

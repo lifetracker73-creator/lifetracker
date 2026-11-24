@@ -33,6 +33,8 @@ export const STORES = {
   gymSets:     { dateField: null },   // GYM-2: one exercise done inside a session
   gymExercises: { dateField: null },  // GYM-2: exercise library
   gymRoutines: { dateField: null },   // GYM-5: saved routines
+  refillItems: { dateField: null },   // REF-1: 🔄 things I buy again and again
+  refills:     { dateField: 'date' }, // REF-2: one refill of an item
 };
 
 const SETTINGS = 'settings'; // one row per module, keyed by module name
@@ -57,7 +59,7 @@ const migrations = [
   (db) => {
     const v1 = { ...STORES, markers: { dateField: null }, reports: { dateField: 'date' } };
     // Drawers added by later versions are made by their own step below (on a new phone too).
-    for (const later of ['visits', 'splitGroups', 'splitItems', 'loans', 'gymSessions', 'gymSets', 'gymExercises', 'gymRoutines']) {
+    for (const later of ['visits', 'splitGroups', 'splitItems', 'loans', 'gymSessions', 'gymSets', 'gymExercises', 'gymRoutines', 'refillItems', 'refills']) {
       delete v1[later];
     }
     for (const [name, { dateField }] of Object.entries(v1)) {
@@ -97,6 +99,11 @@ const migrations = [
     db.createObjectStore('gymSets', { keyPath: 'id' });
     db.createObjectStore('gymExercises', { keyPath: 'id' });
     db.createObjectStore('gymRoutines', { keyPath: 'id' });
+  },
+  // Version 7 (REF-1, 25 Nov 2026): add drawers for Refills (items and refills). Existing data is not touched.
+  (db) => {
+    db.createObjectStore('refillItems', { keyPath: 'id' });
+    db.createObjectStore('refills', { keyPath: 'id' }).createIndex('date', 'date');
   },
 ];
 

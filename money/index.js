@@ -411,6 +411,8 @@ export async function render(root, { path = [] } = {}) {
   // REFINE-5: 🤝 Split bills ("#/money/split…") and 📒 Lent & borrowed ("#/money/lent") are their own pages.
   if (path[0] === 'split') return (await import('./split.js')).render(root, path.slice(1));
   if (path[0] === 'lent') return (await import('./lent.js')).render(root);
+  // REF-7: 📈 Daily spend ("#/money/daily").
+  if (path[0] === 'daily') return (await import('./daily.js')).render(root);
 
   // `categories` and `catById` are replaced whenever a category is added, changed or deleted (MON-2).
   let categories = await loadCategories();
@@ -469,7 +471,29 @@ export async function render(root, { path = [] } = {}) {
     return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [editForm])]);
   }
 
+  // REF-3: a refill's expense is changed only in 🔄 Refills, so the two never disagree.
+  function refillRow(expense) {
+    const amount = formatMoney(expense.amountPaise);
+    if (expense.id === editingId) {
+      return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main stack' }, [
+        el('div', { className: 'list-item__title', text: `${catText(expense.category)} · ${amount}` }),
+        el('p', { className: 'muted', text: 'This comes from 🔄 Refills. Change or delete it there, so both always match.' }),
+        el('div', { className: 'btn-row' }, [
+          button({ label: 'Close', variant: 'secondary', onClick: () => { editingId = null; refresh(); } }),
+          el('a', { className: 'btn btn--primary mod-refills', href: `#/refills/refill/${expense.refillId}` }, [el('span', { text: '🔄 Edit in Refills' })]),
+        ]),
+      ])]);
+    }
+    return listItem({
+      title: `${catText(expense.category)} · 🔄 Refill`,
+      subtitle: [methodLabel(expense.paymentMethod), expense.note].filter(Boolean).join(' · '),
+      meta: amount,
+      onClick: () => { editingId = expense.id; refresh(); },
+    });
+  }
+
   function expenseRow(expense) {
+    if (expense.source === 'refill') return refillRow(expense);
     if (expense.id === editingId) return editRow(expense);
     const amount = formatMoney(expense.amountPaise);
     const details = [methodLabel(expense.paymentMethod), expense.note].filter(Boolean).join(' · ');
@@ -1034,6 +1058,7 @@ export async function render(root, { path = [] } = {}) {
     card({ title: 'More money tools', module: 'money', children: [el('div', { className: 'stack money-tools' }, [
       el('a', { className: 'btn btn--secondary btn--block', href: '#/money/split' }, [el('span', { text: '🤝 Split bills' })]),
       el('a', { className: 'btn btn--secondary btn--block', href: '#/money/lent' }, [el('span', { text: '📒 Lent & borrowed' })]),
+      el('a', { className: 'btn btn--secondary btn--block', href: '#/money/daily' }, [el('span', { text: '📈 Daily spend' })]),
     ])] }),
   ]));
 

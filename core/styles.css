@@ -79,6 +79,7 @@
   --accent-reading: #d7ecc4;     /* sage */
   --accent-medical: #ffc9c9;  /* rose */
   --accent-gym: #ffb9a3;      /* soft coral */
+  --accent-refills: #b5e6df;  /* soft teal */
 
   /* 🍄 Buddy (REFINE-2): same soft pastels in light and dark mode */
   --buddy-body: #fff3e2;         /* cream */
@@ -198,6 +199,7 @@
     --accent-reading: #c1d6b0;
     --accent-medical: #e6b5b5;
     --accent-gym: #e6a793;
+    --accent-refills: #a0cfc8;
     --color-primary: #bcaae6;
 }
 :root[data-theme="ocean"][data-mode="dark"] {
@@ -247,6 +249,7 @@
 .mod-reading { --accent: var(--accent-reading); }
 .mod-medical { --accent: var(--accent-medical); }
 .mod-gym { --accent: var(--accent-gym); }
+.mod-refills { --accent: var(--accent-refills); }
 
 /* Base */
 *,
@@ -1394,6 +1397,7 @@ a.btn { text-decoration: none; }
 .buddy__fill-tasks { fill: var(--accent-tasks); }
 .buddy__fill-reading { fill: var(--accent-reading); }
 .buddy__fill-gym { fill: var(--accent-gym); }
+.buddy__fill-refills { fill: var(--accent-refills); }
 .buddy__fill-plaster { fill: var(--buddy-feet); }
 .buddy__fill-white { fill: var(--buddy-white); }
 .buddy__fill-silver { fill: var(--buddy-silver); }

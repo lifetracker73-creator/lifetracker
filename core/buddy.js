@@ -214,7 +214,7 @@ export function buddy({ size = 72, mood = 'idle', outfit = '', face = 'calm', cl
 }
 
 /** The module shown on screen now ('food' for "#/food/…"), or '' on Home and Settings. */
-const MODULE_KEYS = ['water', 'sleep', 'weight', 'food', 'money', 'tasks', 'reading', 'medical', 'gym'];
+const MODULE_KEYS = ['water', 'sleep', 'weight', 'food', 'money', 'tasks', 'reading', 'medical', 'gym', 'refills'];
 export function screenModule() {
   const key = location.hash.replace(/^#\/?/, '').split('/')[0];
   return MODULE_KEYS.includes(key) ? key : '';
@@ -254,6 +254,7 @@ const SCREEN_START = {
   reading: ['content', '{name} loves a good book 📚'],
   medical: ['content', '{name} hopes you feel well 🩺'],
   gym: ['content', '{name} is ready to sweat with you 🏋️'],
+  refills: ['calm', '{name} keeps an eye on your refills 🔄'],
 };
 
 let active = null; // { module, friend, say, line }

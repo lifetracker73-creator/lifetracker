@@ -18,12 +18,13 @@ const WHAT = [
   ['loans', '📒 Lent & borrowed entries'],
   ['gymSessions', '🏋️ Workouts'], ['gymSets', '🏋️ Exercises done'],
   ['gymExercises', '🏋️ Exercises in library'], ['gymRoutines', '🏋️ Routines'],
+  ['refillItems', '🔄 Refill items'], ['refills', '🔄 Refills'],
 ];
 
 // Excel tab colour for each Sheet tab (the module's pastel).
 const TAB_FILL = {
   Water: 'water', Sleep: 'sleep', Weight: 'weight', Food: 'food', Expenses: 'money',
-  Tasks: 'tasks', Reading: 'reading', 'Medical log': 'medical', 'Gym log': 'gym',
+  Tasks: 'tasks', Reading: 'reading', 'Medical log': 'medical', 'Gym log': 'gym', Refills: 'refills',
 };
 
 function sizeText(bytes) {
