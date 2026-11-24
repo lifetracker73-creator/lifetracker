@@ -162,6 +162,9 @@ Foods are saved once in a personal library, then logged by picking from it.
 **Log entry:** `date`, `time`, `meal` (breakfast / lunch / dinner / snack), `foodId` or `recipeId`,
 `quantity`, `quantityUnit` ('g' or 'serving'), plus a saved copy of the calculated nutrients
 so that editing the library later doesn't change past days.
+Added in FOOD-2: the copy is the same nutrient fields as a food (for the amount eaten, blank = unknown)
+plus `extraNutrients`, and the entry also keeps `foodName`, `servingName`, `servingGrams` and `grams`
+(total grams eaten), so it still shows correctly if the food is later changed or deleted.
 
 **Settings:** daily targets for kcal, protein, carbs, fat, fibre and any micros the user chooses.
 

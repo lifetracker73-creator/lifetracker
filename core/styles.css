@@ -838,6 +838,8 @@ a.btn { text-decoration: none; }
 
 /* A button that is switched off with `hidden` really disappears. */
 .btn[hidden] { display: none; }
+/* The same for a group of boxes or a labelled box (e.g. the Log food picker, FOOD-2). */
+.stack[hidden], .field[hidden] { display: none; }
 
 /* In-app notification banners (CORE-9): float at the top, used when phone notifications are off. */
 .notify-stack {

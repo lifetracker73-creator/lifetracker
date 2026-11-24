@@ -984,3 +984,37 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
   "Sync everything now".
 - Food settings now hold an empty `customMicros` list from testing; harmless.
 - These extra nutrients get targets and daily totals with FOOD-4.
+
+## FOOD-2: Log food (24 Nov 2026)
+**Built**
+- 🍱 Food screen: two new cards at the top, above the library ("Add a food" and "My foods" moved below them).
+- **Log food**: meal pills (🌅 Breakfast / 🍛 Lunch / 🌙 Dinner / 🍪 Snack, 2 × 2), picked by time of day to start
+  (5–11 am breakfast, 11 am–4 pm lunch, 7–11 pm dinner, otherwise snack). Then pick a food: a search box (name or
+  brand) and "Recent / Favourites / All" pills. Recent = the last 8 different foods logged. Lists show up to 20
+  foods ("search to find more"). Friendly empty messages for each.
+- After picking: the food with a "Change" button, "Servings / Grams" pills (Servings only if the food has a serving
+  size; switching converts, 1.5 katori → 225 g), the amount, and a live line "1.5 katori · 225 g · 405 kcal".
+  Date and time start at now. Friendly messages for an empty or zero amount, over 50 servings or 5,000 g, and a
+  future day or time. "Logged Poha · 405 kcal 🍱" with Undo.
+- **Food log**: one day at a time with ◀ ▶ (▶ stops at today; it opens on today and jumps to the day just logged),
+  grouped by meal, earliest first: "Poha · 1.5 katori · 225 g · 8:30 am … 405 kcal". Tap a row to edit meal, amount,
+  date and time in place (Cancel / Save); 🗑️ deletes with Undo.
+- Saved data (food log drawer): `date`, `time`, `meal`, `foodId`, `quantity`, `quantityUnit` ('g' or 'serving') as in
+  the spec, plus a copy of every nutrient for the amount eaten (blank stays blank, your own extra nutrients too),
+  `foodName`, `servingName`, `servingGrams` and `grams`. Editing or deleting the food later doesn't change past days;
+  editing an entry's amount scales its own copy. SPEC.md updated. Nothing existing changed. Copied to the "Food" tab
+  in Google Sheets as "Food log" with readable columns.
+- `core/styles.css`: a hidden group of boxes now really disappears (this also fixes the "＋ Add your own" nutrient
+  box from FOOD-1, which could show when it should be hidden). No new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with 2 pretend foods and 3 pretend entries (removed afterwards; the
+  waiting Google Sync list is back to 0): all error messages, servings ↔ grams, nutrient copy checked by hand
+  (225 g Poha = 405 kcal, iron 5.6 mg, selenium 22.5 µg), yesterday via ◀ ▶, edit (meal + amount → kcal doubled),
+  delete + Undo, deleting a library food keeps its past entries, no sideways scrolling, all buttons and boxes ≥ 44px.
+
+**Known issues**
+- The edit row can't change which food was eaten (delete it and log the right one).
+- Totals per meal and per day against targets come with FOOD-3; for now each row shows only its own kcal.
+- "Today · 24 Nov 2026" above the log wraps onto two lines on a 360px phone.
+- The usual test servers on this laptop weren't running, so testing used a temporary one on port 8771 (stopped).
+  Two pretend foods may be left in the old test browser at localhost:8765 (test browser only, not your data).
+- The phone gets this at the final "release".

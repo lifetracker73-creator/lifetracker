@@ -5,11 +5,17 @@
 // FOOD-1 extra: your own extra nutrients (e.g. Selenium in µg). The list is kept in food settings
 //         (`customMicros`: { id, name, unit }); each food keeps its values per 100 g in
 //         `extraNutrients` ({ <nutrient id>: number }).
+// FOOD-2: Log food: pick a food from the library (search, recent, favourites), choose the meal and
+//         how much. Each log entry keeps its own copy of the nutrients for the amount eaten, so
+//         editing or deleting the food later never changes past days. Food log by day, edit/delete.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import {
-  add, get, update, remove, restore, list as listAll, getSettings, saveSettings,
+  add, get, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
 } from '../core/storage.js';
 import { formatNumber, formatKcal } from '../core/format.js';
+import {
+  today, yesterday, addDays, nowTime, currentHour, formatDate, formatTime,
+} from '../core/dates.js';
 
 // Nutrients per 100 g. `grams` = how many grams one unit is (used to catch impossible values).
 const MACROS = [
@@ -75,10 +81,11 @@ function kcalText(food) {
 }
 
 // A row of pill buttons where one is picked. The picked value is at group.value.
-function pillGroup({ label, options, value }) {
+// `grid` puts four pills 2 × 2 on a phone; `onChange` runs when a pill is tapped.
+function pillGroup({ label, options, value, grid = false, onChange }) {
   const group = el('div', { className: 'field' });
   const buttons = options.map(([v, text]) => {
-    const b = button({ label: text, variant: 'secondary', onClick: () => group.pick(v) });
+    const b = button({ label: text, variant: 'secondary', onClick: () => { group.pick(v); onChange?.(v); } });
     b.dataset.value = v;
     return b;
   });
@@ -93,10 +100,99 @@ function pillGroup({ label, options, value }) {
   };
   group.append(
     el('div', { className: 'field__label', text: label }),
-    el('div', { className: 'btn-row', role: 'group', 'aria-label': label }, buttons),
+    el('div', { className: grid ? 'btn-row btn-row--grid' : 'btn-row', role: 'group', 'aria-label': label }, buttons),
   );
   group.pick(value);
   return group;
+}
+
+// ---- FOOD-2 helpers: meals, amounts and the saved copy of nutrients ----
+const MEALS = [['breakfast', '🌅 Breakfast'], ['lunch', '🍛 Lunch'], ['dinner', '🌙 Dinner'], ['snack', '🍪 Snack']];
+const MAX_SERVINGS = 50;
+const MAX_LOG_G = 5000;
+
+// The meal that fits the time of day: 5–11 breakfast, 11–4 lunch, 7–11 pm dinner, otherwise snack.
+function mealForHour(h) {
+  if (h >= 5 && h < 11) return 'breakfast';
+  if (h >= 11 && h < 16) return 'lunch';
+  if (h >= 19 && h < 23) return 'dinner';
+  return 'snack';
+}
+
+// The food's name with its brand: "Poha (Amul)".
+const foodTitle = (food) => (food.brand ? `${food.name} (${food.brand})` : food.name);
+
+// "1.5 katori · 225 g", "2 servings · 60 g" or "150 g".
+function amountText({ quantity, quantityUnit, servingName, grams }) {
+  const g = `${formatNumber(grams, 1)} g`;
+  if (quantityUnit !== 'serving') return g;
+  const q = formatNumber(quantity, 2);
+  let s;
+  if (!servingName) s = `${q} serving${quantity === 1 ? '' : 's'}`;
+  else if (/^1\s+\S/.test(servingName)) s = `${q} ${servingName.replace(/^1\s+/, '')}`;
+  else s = `${q} × ${servingName}`;
+  return `${s} · ${g}`;
+}
+
+// The nutrients in `grams` of a food (from its per-100 g values). Unknown stays unknown (null).
+function nutrientsFor(food, grams) {
+  const out = {};
+  for (const n of NUTRIENTS) out[n.key] = isBlank(food[n.key]) ? null : round((food[n.key] * grams) / 100, 3);
+  out.extraNutrients = {};
+  for (const [id, v] of Object.entries(food.extraNutrients || {})) {
+    if (!isBlank(v)) out.extraNutrients[id] = round((v * grams) / 100, 3);
+  }
+  return out;
+}
+
+// A log entry's saved nutrients, scaled to a new amount (used when editing an entry).
+function scaleNutrients(entry, grams) {
+  const factor = grams / entry.grams;
+  const out = {};
+  for (const n of NUTRIENTS) out[n.key] = isBlank(entry[n.key]) ? null : round(entry[n.key] * factor, 3);
+  out.extraNutrients = {};
+  for (const [id, v] of Object.entries(entry.extraNutrients || {})) {
+    if (!isBlank(v)) out.extraNutrients[id] = round(v * factor, 3);
+  }
+  return out;
+}
+
+// Reads an amount box. Returns { quantity, grams } or null (with a friendly message shown).
+function readAmount(box, unit, servingGrams) {
+  box.setError('');
+  const v = parseNum(box.input.value);
+  let error = '';
+  if (v === '' || Number.isNaN(v) || v <= 0) {
+    error = unit === 'serving' ? 'Type how many, e.g. 1 or 1.5.' : 'Type the grams, e.g. 150.';
+  } else if (unit === 'serving' && v > MAX_SERVINGS) error = `Up to ${MAX_SERVINGS} servings at a time.`;
+  else if (unit === 'g' && v > MAX_LOG_G) error = 'Up to 5,000 g at a time.';
+  if (error) { box.setError(error); box.input.focus(); return null; }
+  const quantity = round(v, unit === 'serving' ? 2 : 1);
+  const grams = unit === 'serving' ? round(quantity * servingGrams, 1) : quantity;
+  if (grams <= 0) { box.setError('That\'s too small to log.'); box.input.focus(); return null; }
+  return { quantity, grams };
+}
+
+// Checks a date + time pair for a log entry. Returns true if fine (messages shown otherwise).
+function checkWhen(dateBox, timeBox) {
+  dateBox.setError('');
+  timeBox.setError('');
+  const date = dateBox.input.value;
+  const time = timeBox.input.value;
+  if (!date) { dateBox.setError('Pick a date.'); dateBox.input.focus(); return false; }
+  if (!time) { timeBox.setError('Pick a time.'); timeBox.input.focus(); return false; }
+  if (date > today()) { dateBox.setError('That day hasn\'t come yet.'); dateBox.input.focus(); return false; }
+  if (date === today() && time > nowTime()) {
+    timeBox.setError('That time hasn\'t come yet.'); timeBox.input.focus(); return false;
+  }
+  return true;
+}
+
+// "Today · 24 Nov 2026", "Yesterday · 23 Nov 2026" or "22 Nov 2026".
+function dayTitle(ymd) {
+  if (ymd === today()) return `Today · ${formatDate(ymd)}`;
+  if (ymd === yesterday()) return `Yesterday · ${formatDate(ymd)}`;
+  return formatDate(ymd);
 }
 
 // Name + unit boxes for one of your own extra nutrients. Returns { elements, name, read(extras, selfId) }.
@@ -475,6 +571,7 @@ export async function render(root) {
     } else {
       listBox.replaceChildren(list(shown.map(foodRow)));
     }
+    if (!picked) refreshPicker(); // the Log food picker shows library changes straight away
   }
 
   async function deleteFood(food) {
@@ -593,8 +690,306 @@ export async function render(root) {
     });
   }
 
+  // ---- Log food (FOOD-2) ----
+  let logEntries = await listAll('foodLog');
+  let picked = null; // the food chosen to log
+
+  const mealPills = pillGroup({ label: 'Meal', options: MEALS, value: mealForHour(currentHour()), grid: true });
+
+  // Picking a food: search, or Recent / Favourites / All.
+  const pickSearch = input({ label: 'Find a food', type: 'search', placeholder: 'Name or brand' });
+  pickSearch.input.addEventListener('input', () => refreshPicker());
+  const viewPills = pillGroup({
+    label: 'Show',
+    options: [['recent', 'Recent'], ['fav', 'Favourites'], ['all', 'All']],
+    value: 'recent',
+    onChange: () => refreshPicker(),
+  });
+  const pickNote = el('p', { className: 'progress-note' });
+  const pickList = el('div');
+  const pickerBox = el('div', { className: 'stack' }, [pickSearch, viewPills, pickList, pickNote]);
+
+  // Once a food is chosen: the food, how much, and a live line with the result.
+  const pickedBox = el('div');
+  const unitBox = el('div');
+  let unitPills = null;
+  const amountBox = input({ label: 'How many servings', inputmode: 'decimal' });
+  const preview = el('p', { className: 'progress-note', 'aria-live': 'polite' });
+  amountBox.input.addEventListener('input', () => updatePreview());
+  const logDate = input({ label: 'Date', type: 'date', value: today(), max: today() });
+  const logTime = input({ label: 'Time', type: 'time', value: nowTime() });
+  const amountPart = el('div', { className: 'stack', hidden: true }, [
+    pickedBox, unitBox, amountBox, preview,
+    el('div', { className: 'field-row' }, [logDate, logTime]),
+    button({ label: 'Log food', icon: 'plus', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  const logForm = el('form', { className: 'stack', novalidate: true }, [mealPills, pickerBox, amountPart]);
+
+  // Foods logged most recently, newest first (foods since deleted are left out).
+  function recentFoods() {
+    const byId = new Map(foods.map((x) => [x.id, x]));
+    const seen = new Set();
+    const out = [];
+    const sorted = [...logEntries].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+    for (const e of sorted) {
+      if (seen.has(e.foodId) || !byId.has(e.foodId)) continue;
+      seen.add(e.foodId);
+      out.push(byId.get(e.foodId));
+      if (out.length === 8) break;
+    }
+    return out;
+  }
+
+  function refreshPicker() {
+    const q = pickSearch.input.value.trim().toLowerCase();
+    let shown;
+    if (q) {
+      shown = sortFoods(foods).filter((x) => x.name.toLowerCase().includes(q) || (x.brand || '').toLowerCase().includes(q));
+    } else if (viewPills.value === 'recent') shown = recentFoods();
+    else if (viewPills.value === 'fav') shown = sortFoods(foods.filter((x) => x.favourite));
+    else shown = sortFoods(foods);
+    viewPills.hidden = !!q;
+    pickNote.textContent = shown.length > 20 ? `Showing 20 of ${formatNumber(shown.length)} · search to find more` : '';
+
+    if (!foods.length) {
+      pickList.replaceChildren(emptyState({
+        emoji: '🍱', title: 'Your library is empty', text: 'Add a food under "Add a food" below, then log it here.',
+      }));
+    } else if (!shown.length) {
+      let empty;
+      if (q) empty = { emoji: '🔍', title: 'No foods match', text: 'Add it under "Add a food" below ✨' };
+      else if (viewPills.value === 'recent') empty = { emoji: '🕘', title: 'Nothing logged yet', text: 'Foods you log show up here. Try Favourites or All.' };
+      else empty = { emoji: '⭐', title: 'No favourites yet', text: 'Tap ☆ on a food in "My foods" to make it a favourite.' };
+      pickList.replaceChildren(emptyState(empty));
+    } else {
+      pickList.replaceChildren(list(shown.slice(0, 20).map((food) => {
+        const row = listItem({
+          title: food.favourite ? `⭐ ${food.name}` : food.name,
+          subtitle: [food.brand, servingText(food), kcalText(food)].filter(Boolean).join(' · '),
+          onClick: () => pick(food),
+        });
+        row.classList.add('list-item--wrap');
+        return row;
+      })));
+    }
+  }
+
+  function pick(food) {
+    picked = food;
+    const row = listItem({
+      title: food.favourite ? `⭐ ${food.name}` : food.name,
+      subtitle: [food.brand, servingText(food), kcalText(food)].filter(Boolean).join(' · '),
+      actions: [button({ label: 'Change', variant: 'secondary', onClick: () => unpick(true) })],
+    });
+    row.classList.add('list-item--wrap');
+    pickedBox.replaceChildren(list([row]));
+    if (food.servingGrams) {
+      unitPills = pillGroup({
+        label: 'Amount in',
+        options: [['serving', 'Servings'], ['g', 'Grams']],
+        value: 'serving',
+        onChange: (unit) => switchUnit(unit),
+      });
+      unitBox.replaceChildren(unitPills);
+      setUnit('serving', '1');
+    } else {
+      unitPills = null;
+      unitBox.replaceChildren();
+      setUnit('g', '100');
+    }
+    pickerBox.hidden = true;
+    amountPart.hidden = false;
+    amountBox.input.focus();
+    amountBox.input.select();
+  }
+
+  function unpick(focus) {
+    picked = null;
+    pickerBox.hidden = false;
+    amountPart.hidden = true;
+    pickSearch.input.value = '';
+    refreshPicker();
+    if (focus) pickSearch.input.focus();
+  }
+
+  const unitNow = () => (unitPills ? unitPills.value : 'g');
+  function setUnit(unit, value) {
+    amountBox.querySelector('.field__label').textContent = unit === 'serving' ? 'How many servings' : 'How many grams';
+    amountBox.input.placeholder = unit === 'serving' ? 'e.g. 1.5' : 'e.g. 150';
+    amountBox.input.value = value;
+    amountBox.setError('');
+    updatePreview();
+  }
+  // Switching converts what's typed: 1.5 servings of 150 g -> 225 g.
+  function switchUnit(unit) {
+    const v = parseNum(amountBox.input.value);
+    const ok = typeof v === 'number' && !Number.isNaN(v) && v > 0;
+    if (unit === 'g') setUnit('g', ok ? String(round(v * picked.servingGrams, 1)) : '');
+    else setUnit('serving', ok ? String(round(v / picked.servingGrams, 2)) : '');
+  }
+
+  function updatePreview() {
+    if (!picked) { preview.textContent = ''; return; }
+    const v = parseNum(amountBox.input.value);
+    if (typeof v !== 'number' || Number.isNaN(v) || v <= 0) { preview.textContent = ''; return; }
+    const unit = unitNow();
+    const grams = unit === 'serving' ? v * picked.servingGrams : v;
+    const kcal = isBlank(picked.kcal) ? 'kcal unknown' : formatKcal((picked.kcal * grams) / 100);
+    preview.textContent = `${amountText({ quantity: v, quantityUnit: unit, servingName: picked.servingName, grams })} · ${kcal}`;
+  }
+
+  logForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!picked) return;
+    const unit = unitNow();
+    const amount = readAmount(amountBox, unit, picked.servingGrams);
+    if (!amount || !checkWhen(logDate, logTime)) return;
+    const entry = {
+      date: logDate.input.value,
+      time: logTime.input.value,
+      meal: mealPills.value,
+      foodId: picked.id,
+      foodName: foodTitle(picked),
+      quantity: amount.quantity,
+      quantityUnit: unit,
+      servingName: unit === 'serving' ? (picked.servingName || '') : '',
+      servingGrams: unit === 'serving' ? picked.servingGrams : null,
+      grams: amount.grams,
+      ...nutrientsFor(picked, amount.grams),
+    };
+    const saved = await add('foodLog', entry);
+    shownDay = entry.date;
+    editingLogId = null;
+    unpick(false);
+    await refreshLog();
+    const kcal = isBlank(entry.kcal) ? '' : ` · ${formatKcal(entry.kcal)}`;
+    toast({
+      message: `Logged ${entry.foodName}${kcal} 🍱`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await remove('foodLog', saved.id);
+        if (logListBox.isConnected) await refreshLog();
+      },
+    });
+  });
+
+  // ---- Food log: one day at a time, grouped by meal ----
+  let shownDay = today();
+  let editingLogId = null;
+  const dayLabel = el('div', { className: 'month-nav__title', 'aria-live': 'polite' });
+  const prevDay = button({
+    label: '◀', variant: 'secondary', ariaLabel: 'Previous day',
+    onClick: () => { shownDay = addDays(shownDay, -1); editingLogId = null; refreshLog(); },
+  });
+  const nextDay = button({
+    label: '▶', variant: 'secondary', ariaLabel: 'Next day',
+    onClick: () => { shownDay = addDays(shownDay, 1); editingLogId = null; refreshLog(); },
+  });
+  const logListBox = el('div', { className: 'stack' });
+
+  function logEditRow(entry) {
+    const meal = pillGroup({ label: 'Meal', options: MEALS, value: entry.meal, grid: true });
+    const isServing = entry.quantityUnit === 'serving' && entry.servingGrams;
+    const unit = isServing ? 'serving' : 'g';
+    const amt = input({
+      label: unit === 'serving' ? 'How many servings' : 'How many grams',
+      value: String(unit === 'serving' ? entry.quantity : entry.grams),
+      inputmode: 'decimal',
+    });
+    const date = input({ label: 'Date', type: 'date', value: entry.date, max: today() });
+    const time = input({ label: 'Time', type: 'time', value: entry.time });
+    const form = el('form', { className: 'stack', novalidate: true }, [
+      el('div', { className: 'list-item__title', text: entry.foodName }),
+      meal, amt, date, time, // own lines: side by side they'd be cut off inside a row
+      el('div', { className: 'btn-row' }, [
+        button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingLogId = null; refreshLog(); } }),
+        button({ label: 'Save', variant: 'primary', type: 'submit' }),
+      ]),
+    ]);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const amount = readAmount(amt, unit, entry.servingGrams);
+      if (!amount || !checkWhen(date, time)) return;
+      const changes = {
+        date: date.input.value,
+        time: time.input.value,
+        meal: meal.value,
+        quantity: amount.quantity,
+        grams: amount.grams,
+        ...scaleNutrients(entry, amount.grams),
+      };
+      await update('foodLog', entry.id, changes);
+      editingLogId = null;
+      const moved = changes.date !== entry.date;
+      shownDay = changes.date;
+      toast({ message: moved ? `Moved ${entry.foodName} to ${formatDate(changes.date)} ✨` : `Saved ${entry.foodName} ✨` });
+      await refreshLog();
+    });
+    queueMicrotask(() => amt.input.focus());
+    return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [form])]);
+  }
+
+  function logRow(entry) {
+    if (entry.id === editingLogId) return logEditRow(entry);
+    const row = listItem({
+      title: entry.foodName,
+      subtitle: `${amountText(entry)} · ${formatTime(entry.time)}`,
+      meta: isBlank(entry.kcal) ? '? kcal' : formatKcal(entry.kcal),
+      onClick: () => { editingLogId = entry.id; refreshLog(); },
+      actions: [
+        button({ icon: 'trash', variant: 'ghost', ariaLabel: `Delete ${entry.foodName} from the food log`, onClick: () => deleteLog(entry) }),
+      ],
+    });
+    row.classList.add('list-item--wrap');
+    return row;
+  }
+
+  async function refreshLog() {
+    logEntries = await listAll('foodLog');
+    dayLabel.textContent = dayTitle(shownDay);
+    nextDay.disabled = shownDay >= today();
+    const day = (await listByDate('foodLog', shownDay)).sort((a, b) => a.time.localeCompare(b.time));
+    if (!day.length) {
+      logListBox.replaceChildren(emptyState({
+        emoji: '🍽️',
+        title: shownDay === today() ? 'Nothing logged today yet' : 'Nothing logged on this day',
+        text: 'Pick a food under "Log food" to add it here.',
+      }));
+    } else {
+      logListBox.replaceChildren(...MEALS.map(([key, text]) => {
+        const rows = day.filter((x) => (x.meal || 'snack') === key);
+        if (!rows.length) return null;
+        return el('div', { className: 'list-group' }, [
+          el('h3', { className: 'list-group__title' }, [el('span', { text })]),
+          list(rows.map(logRow)),
+        ]);
+      }).filter(Boolean));
+    }
+    if (!picked) refreshPicker();
+  }
+
+  async function deleteLog(entry) {
+    const removed = await remove('foodLog', entry.id);
+    if (editingLogId === entry.id) editingLogId = null;
+    await refreshLog();
+    if (!removed) return;
+    toast({
+      message: `Deleted ${removed.foodName}`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await restore('foodLog', removed);
+        if (logListBox.isConnected) await refreshLog();
+      },
+    });
+  }
+
   buildAddForm();
   root.append(el('div', { className: 'mod-food stack' }, [
+    card({ title: 'Log food', module: 'food', children: [logForm] }),
+    card({ title: 'Food log', module: 'food', children: [el('div', { className: 'stack' }, [
+      el('div', { className: 'month-nav' }, [prevDay, dayLabel, nextDay]),
+      logListBox,
+    ])] }),
     card({ title: 'Add a food', module: 'food', children: [addBox] }),
     card({ title: 'My foods', module: 'food', children: [el('div', { className: 'stack' }, [search, countLine, listBox])] }),
     card({ title: 'My extra nutrients', module: 'food', children: [el('div', { className: 'stack' }, [
@@ -604,4 +999,5 @@ export async function render(root) {
     ])] }),
   ]));
   await refresh();
+  await refreshLog();
 }
