@@ -687,6 +687,24 @@ textarea.input {
   font-size: var(--font-size-lg);
 }
 
+/* Pill buttons that wrap onto more lines, each as wide as its text (e.g. picking books, RDG-3).
+   Long names are cut with "…". */
+.pill-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pill-wrap .btn {
+  max-width: 100%;
+}
+
+.pill-wrap .btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A date box and a time box side by side; the date gets more room so it isn't cut off. */
 .field-row {
   display: grid;

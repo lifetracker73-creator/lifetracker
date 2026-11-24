@@ -3,9 +3,13 @@
 // lists of current, wishlist, finished and paused/dropped books, delete with Undo.
 // RDG-2: check-ins. Log the page you're on (one per book per day), progress % on "Reading now" books,
 // "Check-in due" after 3 days, a book's check-ins in its edit box (edit/delete with Undo).
+// RDG-3: weekly reflection (Monday to Sunday, one per week). Moves to the top on a Sunday that has none yet;
+// form with books, key idea, how I used it, ⭐ rating and next week's goal; past reflections (edit/delete with Undo).
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import { add, update, remove, restore, list as listAll } from '../core/storage.js';
-import { today, formatDate, isoToKolkata, daysBetween } from '../core/dates.js';
+import {
+  today, formatDate, isoToKolkata, daysBetween, addDays, weekStart, isSunday,
+} from '../core/dates.js';
 import { formatNumber } from '../core/format.js';
 
 const FORMATS = [
@@ -262,11 +266,65 @@ function checkinFields(getBook, c = {}) {
   };
 }
 
+// ---------- weekly reflection helpers (RDG-3) ----------
+const MAX_TEXT = 2000;
+const WEEKS_BACK = 12; // weeks offered in the "Week" box (this week and 11 before it)
+const weekEndOf = (ws) => addDays(ws, 6);
+const thisWeekStart = () => weekStart(today());
+
+// "17–23 Nov 2026", "24 Nov – 30 Dec 2026" or "29 Dec 2025 – 4 Jan 2026".
+function weekText(ws) {
+  const end = weekEndOf(ws);
+  const a = formatDate(ws);
+  const b = formatDate(end);
+  if (ws.slice(0, 7) === end.slice(0, 7)) return `${Number(ws.slice(8))}–${b}`;
+  if (ws.slice(0, 4) === end.slice(0, 4)) return `${a.replace(/ \d{4}$/, '')} – ${b}`;
+  return `${a} – ${b}`;
+}
+
+function weekChoiceLabel(ws) {
+  const now = thisWeekStart();
+  const prefix = ws === now ? 'This week · ' : ws === addDays(now, -7) ? 'Last week · ' : '';
+  return `${prefix}${weekText(ws)}`;
+}
+
+// 1–5 ⭐ pill buttons; the picked number is at group.value (0 = none yet).
+function starPicker(value = 0) {
+  const label = '⭐ How was your reading week?';
+  const error = el('div', { className: 'field__error', hidden: true });
+  const group = el('div', { className: 'field' });
+  const buttons = [1, 2, 3, 4, 5].map((n) => button({
+    label: `${n}⭐`, variant: 'secondary', ariaLabel: `${n} star${n === 1 ? '' : 's'}`, onClick: () => pick(n),
+  }));
+  function pick(n) {
+    group.value = n;
+    buttons.forEach((b, i) => {
+      const on = i + 1 === n;
+      b.classList.toggle('btn--primary', on);
+      b.classList.toggle('btn--secondary', !on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if (n) group.setError('');
+  }
+  group.append(
+    el('div', { className: 'field__label', text: label }),
+    el('div', { className: 'btn-row', role: 'group', 'aria-label': label }, buttons),
+    error,
+  );
+  group.pick = pick;
+  group.setError = (message) => { error.textContent = message || ''; error.hidden = !message; };
+  group.focus = () => buttons[0].focus();
+  pick(value);
+  return group;
+}
+
 export async function render(root) {
   let books = [];
   let checkins = [];
+  let reflections = [];
   let editingId = null;
   let editingCheckinId = null;
+  let editingReflectionId = null;
   const checkinsOf = (bookId) => checkins.filter((c) => c.bookId === bookId).sort(newestCheckin);
   const bookById = (id) => books.find((b) => b.id === id);
 
@@ -567,12 +625,245 @@ export async function render(root) {
       })]));
   }
 
+  // ---------- Weekly reflection (RDG-3) ----------
+  const reflectionOfWeek = (ws) => reflections.find((r) => r.weekStart === ws);
+
+  // The week the form opens on: this week on Sunday; on other days last week if it has no reflection yet.
+  function defaultWeek() {
+    const now = thisWeekStart();
+    const last = addDays(now, -7);
+    return !isSunday(today()) && !reflectionOfWeek(last) ? last : now;
+  }
+
+  // Books worth offering for a week: checked in that week, being read then, finished that week, or already picked.
+  function booksForWeek(ws, picked) {
+    const end = weekEndOf(ws);
+    const inWeek = (d) => d && d >= ws && d <= end;
+    const checked = new Set(checkins.filter((c) => inWeek(c.date)).map((c) => c.bookId));
+    const offered = books.filter((b) => picked.has(b.id) || checked.has(b.id)
+      || (b.status === 'reading' && b.startDate && b.startDate <= end)
+      || (b.status === 'finished' && inWeek(b.finishDate)));
+    return { offered: offered.sort((a, b) => a.title.localeCompare(b.title)), checked };
+  }
+
+  /**
+   * Reflection boxes. With `r` (editing a saved one) the week can change but can't clash with another.
+   * Without `r` (the add form), picking a week that already has a reflection loads it, so saving updates it.
+   */
+  function reflectionFields(r = null) {
+    const now = thisWeekStart();
+    const weeks = Array.from({ length: WEEKS_BACK }, (_, i) => addDays(now, -7 * i));
+    if (r && !weeks.includes(r.weekStart)) weeks.push(r.weekStart);
+    const week = input({
+      label: '📅 Week', name: 'weekStart', type: 'select',
+      options: weeks.map((w) => ({ value: w, label: weekChoiceLabel(w) })), value: r?.weekStart || defaultWeek(),
+    });
+    const weekNote = el('p', { className: 'field__hint' });
+    const bookBox = el('div', { className: 'pill-wrap', role: 'group', 'aria-label': 'Books I read this week' });
+    const bookHint = el('p', { className: 'field__hint' });
+    const bookField = el('div', { className: 'field' }, [
+      el('div', { className: 'field__label', text: '📚 Books I read this week (tap to pick)' }), bookBox, bookHint,
+    ]);
+    const keyIdea = input({ label: '💡 Key idea', name: 'keyIdea', type: 'textarea', value: r?.keyIdea || '' });
+    const used = input({ label: '🛠️ How I used it (optional)', name: 'howIUsedIt', type: 'textarea', value: r?.howIUsedIt || '' });
+    const stars = starPicker(r?.weekRating || 0);
+    const goal = input({ label: '🎯 Next week\'s goal (optional)', name: 'nextWeekGoal', type: 'textarea', value: r?.nextWeekGoal || '' });
+    const texts = [keyIdea, used, goal];
+    texts.forEach((f) => f.input.addEventListener('input', () => f.setError('')));
+    let picked = new Set(r?.bookIds || []);
+    let loaded = null; // the saved reflection the add form is showing, if any
+
+    function drawBooks() {
+      const { offered } = booksForWeek(week.input.value, picked);
+      bookBox.replaceChildren(...offered.map((b) => {
+        const on = picked.has(b.id);
+        const btn = button({
+          label: `${on ? '✓ ' : ''}${b.title}`, variant: on ? 'primary' : 'secondary',
+          onClick: () => { if (picked.has(b.id)) picked.delete(b.id); else picked.add(b.id); drawBooks(); },
+        });
+        btn.setAttribute('aria-pressed', String(on));
+        return btn;
+      }));
+      bookHint.textContent = offered.length ? '' : 'No books to pick for this week. That\'s fine, you can still reflect.';
+      show(bookHint, !offered.length);
+    }
+
+    // Add form: load the week's saved reflection (or start fresh, ticking books checked in that week).
+    function loadWeek() {
+      const ws = week.input.value;
+      const saved = r ? null : reflectionOfWeek(ws);
+      if (saved) {
+        keyIdea.input.value = saved.keyIdea || '';
+        used.input.value = saved.howIUsedIt || '';
+        goal.input.value = saved.nextWeekGoal || '';
+        stars.pick(saved.weekRating || 0);
+        picked = new Set(saved.bookIds || []);
+      } else if (!r) {
+        if (loaded) { texts.forEach((f) => { f.input.value = ''; }); stars.pick(0); }
+        picked = booksForWeek(ws, new Set()).checked;
+      }
+      loaded = saved || null;
+      weekNote.textContent = saved ? '✅ You already reflected on this week. Saving updates it.' : '';
+      show(weekNote, Boolean(saved));
+      texts.forEach((f) => f.setError(''));
+      stars.setError('');
+      drawBooks();
+    }
+    week.input.addEventListener('change', () => { week.setError(''); if (r) drawBooks(); else loadWeek(); });
+    if (r) { show(weekNote, false); drawBooks(); } else loadWeek();
+
+    function read() {
+      week.setError('');
+      texts.forEach((f) => f.setError(''));
+      stars.setError('');
+      const ws = week.input.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ws)) return { error: [week, 'Please pick the week.'] };
+      const idea = keyIdea.input.value.trim();
+      if (!idea) return { error: [keyIdea, 'Please write the key idea from your reading this week.'] };
+      for (const f of texts) {
+        if (f.input.value.trim().length > MAX_TEXT) return { error: [f, `Please keep this under ${formatNumber(MAX_TEXT)} letters.`] };
+      }
+      if (!stars.value) return { error: [stars, 'Please tap 1 to 5 stars for your week.'] };
+      return {
+        data: {
+          weekStart: ws,
+          bookIds: [...picked].filter((id) => bookById(id)),
+          keyIdea: idea,
+          howIUsedIt: used.input.value.trim(),
+          weekRating: stars.value,
+          nextWeekGoal: goal.input.value.trim(),
+        },
+      };
+    }
+
+    return {
+      nodes: [week, weekNote, bookField, keyIdea, used, stars, goal],
+      week,
+      read,
+      isUpdate: () => Boolean(loaded),
+      showError: ([field, message]) => { field.setError(message); (field.input || field).focus(); },
+      refreshBooks: drawBooks,
+      reset() { loaded = null; texts.forEach((f) => { f.input.value = ''; }); stars.pick(0); week.input.value = defaultWeek(); loadWeek(); },
+    };
+  }
+
+  const reflectPrompt = el('p', { className: 'field__hint' });
+  const reflectFields = reflectionFields();
+  let reflectReady = false;
+  const reflectSave = button({ label: 'Save reflection', icon: 'plus', variant: 'primary', type: 'submit', block: true });
+  const reflectForm = el('form', { className: 'stack', novalidate: true }, [...reflectFields.nodes, reflectSave]);
+  const pastBox = el('div', { className: 'stack' });
+  const reflectCard = card({ title: 'Weekly reflection', module: 'reading', children: [el('div', { className: 'stack' }, [reflectPrompt, reflectForm, pastBox])] });
+  const syncSaveLabel = () => {
+    reflectSave.querySelector('span:last-child').textContent = reflectFields.isUpdate() ? 'Update reflection' : 'Save reflection';
+  };
+  reflectFields.week.input.addEventListener('change', syncSaveLabel);
+
+  reflectForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { data, error } = reflectFields.read();
+    if (error) { reflectFields.showError(error); return; }
+    const same = reflectionOfWeek(data.weekStart);
+    if (same) await update('reflections', same.id, data);
+    else await add('reflections', data);
+    toast({ message: `${same ? 'Updated' : 'Saved'} your reflection for ${weekText(data.weekStart)} 🌿` });
+    await refresh();
+    reflectFields.reset();
+    syncSaveLabel();
+  });
+
+  function reflectionRow(r) {
+    if (r.id === editingReflectionId) {
+      const fields = reflectionFields(r);
+      const form = el('form', { className: 'stack', novalidate: true }, [
+        ...fields.nodes,
+        el('div', { className: 'btn-row' }, [
+          button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingReflectionId = null; refresh(); } }),
+          button({ label: 'Save', variant: 'primary', type: 'submit' }),
+        ]),
+      ]);
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { data, error } = fields.read();
+        if (error) { fields.showError(error); return; }
+        const clash = reflections.find((x) => x.weekStart === data.weekStart && x.id !== r.id);
+        if (clash) {
+          fields.showError([fields.week, 'That week already has a reflection. Edit that one instead.']);
+          return;
+        }
+        await update('reflections', r.id, data);
+        editingReflectionId = null;
+        toast({ message: 'Saved ✨' });
+        await refresh();
+      });
+      return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [form])]);
+    }
+    const titles = (r.bookIds || []).map((id) => bookById(id)?.title).filter(Boolean);
+    const row = listItem({
+      title: weekText(r.weekStart),
+      subtitle: titles.length ? `📚 ${titles.join(', ')}` : null,
+      meta: r.weekRating ? '⭐'.repeat(r.weekRating) : null,
+      onClick: () => { editingReflectionId = r.id; refresh(); },
+      actions: [button({
+        icon: 'trash', variant: 'ghost', ariaLabel: `Delete reflection for ${weekText(r.weekStart)}`, onClick: () => deleteReflection(r),
+      })],
+    });
+    row.querySelector('.list-item__main').append(el('div', { className: 'list-item__subtitle', text: `💡 ${r.keyIdea}` }));
+    return row;
+  }
+
+  async function deleteReflection(r) {
+    const removed = await remove('reflections', r.id);
+    if (editingReflectionId === r.id) editingReflectionId = null;
+    await refresh();
+    if (!removed) return;
+    toast({
+      message: `Deleted reflection · ${weekText(removed.weekStart)}`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await restore('reflections', removed);
+        if (readingBox.isConnected) await refresh();
+      },
+    });
+  }
+
+  // The nudge line, the past list, and the card's place: at the top on a Sunday with no reflection yet.
+  function fillReflectionCard() {
+    const now = thisWeekStart();
+    const sunday = isSunday(today());
+    const doneThisWeek = Boolean(reflectionOfWeek(now));
+    const missedLast = !reflectionOfWeek(addDays(now, -7));
+    reflectPrompt.textContent = doneThisWeek ? '✅ This week\'s reflection is saved. See you next Sunday 🌿'
+      : sunday ? '🌿 It\'s Sunday! Time to look back on your reading week ✨'
+        : missedLast ? '🌿 Missed last Sunday? You can still reflect on last week.'
+          : '🌿 Weeks run Monday to Sunday. You\'ll get a nudge here on Sunday.';
+    const top = sunday && !doneThisWeek;
+    if (top) screen.prepend(reflectCard);
+    else screen.insertBefore(reflectCard, otherCard);
+
+    const past = [...reflections].sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+    pastBox.replaceChildren(
+      el('div', { className: 'list-group__title' }, [
+        el('span', { text: '🗒️ Past reflections' }), el('span', { text: past.length ? String(past.length) : '' }),
+      ]),
+      past.length ? list(past.map(reflectionRow)) : emptyState({
+        emoji: '🌿', title: 'No reflections yet', text: 'Your weekly reflections will show here.',
+      }),
+    );
+    // First fill (saved data now known), or the reflection the form was showing was deleted: start fresh.
+    if (!reflectReady || (reflectFields.isUpdate() && !reflectionOfWeek(reflectFields.week.input.value))) {
+      reflectReady = true;
+      reflectFields.reset();
+    } else reflectFields.refreshBooks();
+    syncSaveLabel();
+  }
+
   function fill(box, items, empty) {
     box.replaceChildren(items.length ? list(items.map(bookRow)) : emptyState(empty));
   }
 
   async function refresh() {
-    [books, checkins] = await Promise.all([listAll('books'), listAll('checkins')]);
+    [books, checkins, reflections] = await Promise.all([listAll('books'), listAll('checkins'), listAll('reflections')]);
     fillCheckinCard();
     const newest = (field) => (a, b) => (b[field] || '').localeCompare(a[field] || '') || b.createdAt.localeCompare(a.createdAt);
     const of = (...statuses) => books.filter((b) => statuses.includes(b.status));
@@ -589,9 +880,10 @@ export async function render(root) {
     show(otherCard, other.length > 0);
     fill(otherBox, other, {});
     fillPeopleCard();
+    fillReflectionCard();
   }
 
-  root.append(el('div', { className: 'mod-reading stack' }, [
+  const screen = el('div', { className: 'mod-reading stack' }, [
     card({ title: 'Check in', module: 'reading', children: [checkForm, checkEmpty] }),
     card({ title: 'Reading now', module: 'reading', children: [readingBox] }),
     card({ title: 'Add a book', module: 'reading', children: [addForm] }),
@@ -599,7 +891,8 @@ export async function render(root) {
     card({ title: 'Finished', children: [finishedBox] }),
     otherCard,
     card({ title: 'Lent, gifted & suggested', children: [peopleBox] }),
-  ]));
+  ]);
+  root.append(screen);
 
   await refresh();
 }

@@ -861,3 +861,35 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - One lend/gift at a time per book: lending a book that was a gift replaces the "Gift from" details.
 - Lent/gifted types show in Google Sheets as lowercase words ("lent", "borrowed").
 - The phone gets this at the final "release".
+
+## RDG-3: Weekly reflection (24 Nov 2026)
+**Built**
+- 📚 Reading screen: new "Weekly reflection" card (sage), below Finished. Weeks run Monday to Sunday.
+- **Sunday nudge:** on a Sunday with no reflection for this week yet, the card moves to the very top with
+  "🌿 It's Sunday! Time to look back on your reading week ✨". Other days show a small line instead:
+  "✅ This week's reflection is saved", "Missed last Sunday? You can still reflect on last week", or when the
+  nudge comes.
+- **Form:** Week (this week and the 11 before it, e.g. "Last week · 16–22 Nov 2026"; it opens on this week on
+  Sunday, otherwise on last week if that one has no reflection yet), "📚 Books I read this week" as tap-to-pick
+  pills (books checked in, being read, or finished that week; those checked in that week are already picked),
+  💡 Key idea, 🛠️ How I used it (optional), 1–5 ⭐ for the week, 🎯 Next week's goal (optional).
+  Friendly messages for a missing key idea or stars, and text over 2,000 letters.
+- One reflection per week: picking a week that already has one fills the form with it, says so, and the button
+  becomes "Update reflection".
+- **Past reflections** list, newest first ("16–22 Nov 2026", books, key idea, ⭐ on the right). Tap one to edit it
+  in place (can't move it onto a week that already has one); 🗑️ deletes with Undo.
+- Saved data: reflections use the existing drawer with `weekStart`, `bookIds`, `keyIdea`, `howIUsedIt`,
+  `weekRating`, `nextWeekGoal`, as in the spec. Nothing existing changed. Google Sheets "Reading" tab gets
+  them as "Weekly reflection" with book names; `core/sync.js` names the column "How I used it".
+- `core/styles.css`: new shared `.pill-wrap` (pill buttons that wrap onto more lines; long names end in "…").
+  No new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with pretend books, check-ins and reflections (a fresh test browser,
+  cleared afterwards, including its Google Sync waiting list): both error messages, save, week already saved →
+  update, edit + week clash message, delete + Undo, Sunday nudge (with a pretend Sunday clock), long book title,
+  no sideways scrolling, all buttons and boxes ≥ 44px, no errors.
+
+**Known issues**
+- The Sunday nudge shows on the 📚 Reading screen only (a home-screen nudge could come with HOME-1/HOME-SUMMARY).
+- Only the last 12 weeks can be picked for a new reflection.
+- If a book is deleted, it disappears from the reflections that mention it (the rest of the reflection stays).
+- The phone gets this at the final "release".
