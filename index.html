@@ -17,6 +17,10 @@
   <script>
     document.documentElement.dataset.mode =
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Hide the title bar and menu until we know whether the first-time welcome shows (REFINE-4).
+    // Shown again after 4 s anyway, just in case something goes wrong.
+    document.documentElement.classList.add('app-starting');
+    setTimeout(() => document.documentElement.classList.remove('app-starting'), 4000);
   </script>
 </head>
 <body>
@@ -351,6 +355,22 @@
       // The "More" button takes the colour of the module it's showing.
       moreButton.className = `nav-item${activeKey === 'more' ? ` is-active mod-${name}` : ''}`;
     }
+
+    // 👋 First time on this phone: only the buddy, asking your name (and its own), then Home (REFINE-4).
+    const root = document.documentElement;
+    try {
+      const { needsWelcome, welcome } = await import('./core/welcome.js');
+      if (await needsWelcome()) {
+        root.classList.add('is-welcome');
+        root.classList.remove('app-starting');
+        await welcome();
+        root.classList.remove('is-welcome');
+      }
+    } catch (err) {
+      console.error(err);
+      root.classList.remove('is-welcome');
+    }
+    root.classList.remove('app-starting');
 
     startRouter({
       outlet: app, home: homeScreen, onChange,

@@ -1456,3 +1456,21 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - The faces follow today's data when a section is opened or changed; they don't change on their own at midnight.
 - The phone gets this at the final "release".
+
+## REFINE-4: First-time welcome from the buddy (25 Nov 2026)
+**Built**
+- The very first time the app opens on a phone (installed or in the browser), only the 🍄 buddy shows:
+  no title bar, menu or cards. It hops, waves 👋 and asks "Hey there! What's your good name?".
+- One name box and a "Let's go ✨" button that only works once a name is typed. The buddy then says
+  "Nice to meet you, Asha! 🌸 And what would you like to call me?" with a buddy-name box, "Save name ✨" and "Skip".
+- After that it says goodbye ("Yay! I'm Mochi now 🍄 Let's go!") and Home fades in with "Good evening, Asha".
+- Your name is saved where Settings → 👋 You keeps it, plus `welcomed: true` in the same `profile` setting,
+  so the welcome shows only once (even if you clear your name later). Anyone who already saved a name never sees it.
+  The buddy's name goes in the `buddy` setting, like in Settings. No other saved data changed.
+- New file `core/welcome.js` (added to the offline list, cache version 18).
+- Checked at 375px in light and dark mode on a fresh test copy: welcome shows alone, button stays off with
+  no name, buddy name saved and Skip both lead to Home, welcome doesn't come back after reload, no errors.
+  The test copy was reset afterwards.
+
+**Known issues**
+- The phone gets this at the final "release".

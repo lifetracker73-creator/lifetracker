@@ -1514,3 +1514,62 @@ a.btn { text-decoration: none; }
   .buddy__zzz span { opacity: 1; }
   .buddy--happy .buddy__sparkle { animation: none; opacity: 1; }
 }
+
+/* 👋 First-time welcome (REFINE-4): only the buddy, a speech bubble and a name box */
+.app-starting .app-header, .app-starting .app-main, .app-starting .bottom-nav,
+.is-welcome .app-header, .is-welcome .app-main, .is-welcome .bottom-nav,
+.is-welcome .update-banner, .is-welcome .toast { display: none; }
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--page-gutter) calc(var(--space-6) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: var(--color-bg);
+  transition: opacity 350ms ease;
+}
+.welcome > * { width: 100%; max-width: 360px; }
+.welcome--out { opacity: 0; }
+.welcome__bubble {
+  position: relative;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+}
+.welcome__bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 20px;
+  height: 20px;
+  background: var(--color-surface);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 0 0 6px 0;
+}
+.welcome__buddy { position: relative; display: flex; justify-content: center; }
+.welcome__wave {
+  position: absolute;
+  top: 18%;
+  left: calc(50% - 115px);
+  font-size: 2rem;
+  line-height: 1;
+  transform-origin: 70% 80%;
+  animation: welcome-wave 1.6s ease-in-out infinite;
+}
+@keyframes welcome-wave { 0%, 60%, 100% { transform: rotate(0deg); } 15%, 45% { transform: rotate(18deg); } 30% { transform: rotate(-10deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .welcome__wave { animation: none; }
+  .welcome { transition: none; }
+}
