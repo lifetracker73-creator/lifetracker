@@ -1151,3 +1151,20 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
   The 2026 Sheet keeps its old, empty "Blood tests" tab; it can be deleted by hand. "Medical log" is
   created automatically on the first visit saved.
 - The phone gets this at the final "release".
+
+## MED-1: People and visit types (24 Nov 2026)
+**Built**
+- 🩺 Medical log screen now has a **People & visit types** card (rose accent) with two lists.
+- People start with "Me"; visit types start with Blood test, Dentist, Paediatrician, General physician,
+  General check-up and Other. The starter lists are saved once, the first time the screen opens,
+  so removed ones never come back by themselves.
+- Add, rename (tap the row or ✏️) and remove (🗑️, with Undo). Each row shows how many visits use it.
+- Checks: no blank names, no duplicates (ignoring capitals), 30 letters at most.
+- A person or type that still has visits can't be removed (a friendly message says why), and the last
+  person / last type can't be removed either (a visit always needs one).
+- Saved data: the lists live in the Medical log settings as `people` and `types` (each `{ id, name }`).
+  Visits will keep only the id, so renaming updates every visit. Nothing else changed; no new files.
+
+**Known issues**
+- Settings aren't copied to Google Sheets; the Sheet will show names when visits are added (MED-2).
+- Removing uses Undo instead of an "Are you sure?" question, the same as the rest of the app.
