@@ -407,7 +407,11 @@ function expensesWorkbook({ title, from, to, items, prevItems, prevLabel, catego
   ]);
 }
 
-export async function render(root) {
+export async function render(root, { path = [] } = {}) {
+  // REFINE-5: 🤝 Split bills ("#/money/split…") and 📒 Lent & borrowed ("#/money/lent") are their own pages.
+  if (path[0] === 'split') return (await import('./split.js')).render(root, path.slice(1));
+  if (path[0] === 'lent') return (await import('./lent.js')).render(root);
+
   // `categories` and `catById` are replaced whenever a category is added, changed or deleted (MON-2).
   let categories = await loadCategories();
   let catById = new Map(categories.map((c) => [c.id, c]));
@@ -1026,6 +1030,11 @@ export async function render(root) {
     card({ title: 'Export', module: 'money', children: [exportBox] }),
     card({ title: 'Expenses', children: [listBox] }),
     card({ title: 'Categories', module: 'money', children: [catForm, catListBox] }),
+    // REFINE-5: just two buttons; everything about them shows only on their own pages.
+    card({ title: 'More money tools', module: 'money', children: [el('div', { className: 'stack money-tools' }, [
+      el('a', { className: 'btn btn--secondary btn--block', href: '#/money/split' }, [el('span', { text: '🤝 Split bills' })]),
+      el('a', { className: 'btn btn--secondary btn--block', href: '#/money/lent' }, [el('span', { text: '📒 Lent & borrowed' })]),
+    ])] }),
   ]));
 
   await refreshAll();

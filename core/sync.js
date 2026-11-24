@@ -31,12 +31,17 @@ const TABS = {
   checkins: ['Reading', 'Check-in'],
   reflections: ['Reading', 'Weekly reflection'],
   visits: ['Medical log'],
+  splitGroups: ['Expenses', 'Split group'],          // REFINE-5
+  splitItems: ['Expenses', 'Split bill / payment'],  // REFINE-5
+  loans: ['Expenses', 'Lent / borrowed'],            // REFINE-5
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
 const LINKS = {
   category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books',
   personId: 'people', typeId: 'types', // Medical log: these two lists live in its settings (MED-2).
+  // Split bills (REFINE-5): the group, and the people inside groups ("me" = You).
+  groupId: 'splitGroups', paidBy: 'splitPeople', paidTo: 'splitPeople', member: 'splitPeople',
 };
 
 // Column names that the automatic naming would get wrong.
@@ -144,6 +149,9 @@ async function loadNames() {
   const { people = [], types = [] } = await getSettings('medical');
   names.people = new Map(people.map((x) => [x.id, x.name]));
   names.types = new Map(types.map((x) => [x.id, x.name]));
+  // Split bills people live inside their group (REFINE-5); "me" is always You.
+  names.splitPeople = new Map([['me', 'You']]);
+  for (const g of await list('splitGroups')) for (const p of g.people || []) names.splitPeople.set(p.id, p.name);
   return names;
 }
 

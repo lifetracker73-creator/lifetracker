@@ -1474,3 +1474,30 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The phone gets this at the final "release".
+
+## REFINE-5: 🤝 Split bills and 📒 Lent & borrowed (25 Nov 2026)
+**Built**
+- A "More money tools" card at the very end of 💸 Money with just two buttons. Each opens its own page;
+  nothing about them shows on the Money screen or Home, and they never touch expenses or budgets.
+- **🤝 Split bills** ("#/money/split"):
+  - Totals across groups (you get back / you owe), groups list with your balance, archived groups tucked away.
+  - New group: name, emoji, people separated by commas (You are always in). One person works for a friend split.
+  - Group page: add a bill (what for, amount, who paid, split Equally / Exact ₹ / Percent % / Shares, between whom,
+    date) with a live "₹300 each" / "₹60 still to share out" / "100% ✅" line. Shares always add up to the exact paisa.
+  - Balances per person, "Who pays whom" with the fewest payments, "Settle up" (amount filled in, can change), Undo.
+  - History (tap a bill to edit, delete with Undo), "Share summary" (phone share menu, or copied).
+  - Group settings: rename, emoji, add/remove people (not if they're in bills), archive, delete with Undo.
+- **📒 Lent & borrowed** ("#/money/lent"): I lent / I borrowed, person (names used before are suggested),
+  amount, date, optional "back by" date and note. Summary: others owe you / you owe others, and net per person.
+  Tap an entry to note money back (full or part), remove a repayment, edit or delete (with Undo).
+  Overdue ones show ⏰ and come first; settled ones go to "Settled".
+- Saved data: three new drawers (`splitGroups`, `splitItems`, `loans`) added by storage migration version 5;
+  existing data untouched. Included in backups, Export to Excel and Google Sync (Expenses tab, new Types).
+- New files `money/split.js`, `money/lent.js` (added to the offline list, cache version 19).
+- Checked at 360/375px in light and dark mode with a test group, bills in all 4 split ways, a settle-up,
+  edit, and lent/borrowed entries with part payment and overdue (all deleted afterwards): sums exact,
+  no sideways scrolling, nothing on Home, no errors.
+
+**Known issues**
+- People in a group are names only (no contacts or phone numbers).
+- The phone gets this at the final "release".

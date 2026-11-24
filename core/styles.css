@@ -1573,3 +1573,19 @@ a.btn { text-decoration: none; }
   .welcome__wave { animation: none; }
   .welcome { transition: none; }
 }
+
+/* 🤝 Split bills and 📒 Lent & borrowed (REFINE-5) */
+.split-back { align-self: flex-start; text-decoration: none; }
+.split-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.split-people { margin: 0; }
+.split-rows { display: flex; flex-direction: column; gap: var(--space-2); }
+.split-row { display: flex; align-items: center; gap: var(--space-2); }
+.split-row > .btn { flex: 1; min-width: 0; justify-content: flex-start; }
+.split-row__name { flex: 1; min-width: 0; font-weight: var(--font-weight-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-row .input { width: 5.5rem; flex: none; text-align: right; }
+.split-row__share { flex: none; min-width: 4.5rem; text-align: right; color: var(--color-text-muted); font-size: var(--font-size-sm); }
+.money-tools .btn { justify-content: flex-start; }
+.list-item.loan--open { flex-wrap: wrap; }
+.list-item.loan--open:active { transform: none; }
+.loan-panel { flex-basis: 100%; padding: var(--space-2) 0; cursor: default; }
+.loan--overdue .list-item__subtitle { color: var(--color-warning); }

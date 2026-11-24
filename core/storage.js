@@ -26,6 +26,9 @@ export const STORES = {
   checkins:    { dateField: 'date' },
   reflections: { dateField: 'weekStart' },
   visits:      { dateField: 'date' },
+  splitGroups: { dateField: null },   // REFINE-5: 🤝 Split bills groups
+  splitItems:  { dateField: 'date' }, // REFINE-5: bills and settle-up payments inside a group
+  loans:       { dateField: 'date' }, // REFINE-5: 📒 money lent and borrowed
 };
 
 const SETTINGS = 'settings'; // one row per module, keyed by module name
@@ -72,6 +75,13 @@ const migrations = [
   // Version 4 (MED-3): add the files drawer for photos/PDFs attached to visits. Existing data is not touched.
   (db) => {
     db.createObjectStore(FILES, { keyPath: 'id' });
+  },
+  // Version 5 (REFINE-5, 25 Nov 2026): add drawers for Split bills (groups, bills/payments) and
+  // Lent & borrowed. Existing data is not touched.
+  (db) => {
+    db.createObjectStore('splitGroups', { keyPath: 'id' });
+    db.createObjectStore('splitItems', { keyPath: 'id' }).createIndex('date', 'date');
+    db.createObjectStore('loans', { keyPath: 'id' }).createIndex('date', 'date');
   },
 ];
 

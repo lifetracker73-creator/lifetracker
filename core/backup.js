@@ -14,6 +14,8 @@ const WHAT = [
   ['expenses', '💸 Expenses'], ['categories', '💸 Categories'], ['tasks', '✅ Tasks'],
   ['books', '📚 Books'], ['checkins', '📚 Reading check-ins'], ['reflections', '📚 Weekly reflections'],
   ['visits', '🩺 Medical visits'],
+  ['splitGroups', '🤝 Split bills groups'], ['splitItems', '🤝 Split bills and payments'],
+  ['loans', '📒 Lent & borrowed entries'],
 ];
 
 // Excel tab colour for each Sheet tab (the module's pastel).
