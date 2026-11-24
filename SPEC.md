@@ -158,6 +158,8 @@ Foods are saved once in a personal library, then logged by picking from it.
   ({ nutrient id: number }); blank ones are left out. Deleting a nutrient removes its values from every food.
 
 **Recipe (optional, FOOD-5):** `name`, a list of `{ foodId, grams }`, `servings`. Nutrients are calculated.
+Built in FOOD-5: the list is saved as `ingredients`. A nutrient is known only if every ingredient has it.
+Logging a recipe saves `recipeId` (instead of `foodId`) and the same copy of nutrients as a food.
 
 **Log entry:** `date`, `time`, `meal` (breakfast / lunch / dinner / snack), `foodId` or `recipeId`,
 `quantity`, `quantityUnit` ('g' or 'serving'), plus a saved copy of the calculated nutrients

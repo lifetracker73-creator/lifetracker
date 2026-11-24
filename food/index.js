@@ -10,6 +10,8 @@
 //         editing or deleting the food later never changes past days. Food log by day, edit/delete.
 // FOOD-3: My daily targets (food settings `targets`), day totals versus targets, totals per meal.
 // FOOD-4: Vitamins & minerals for the day (built-in and your own) versus optional targets, unknowns marked.
+// FOOD-5: Recipes (name, servings, ingredients [{ foodId, grams }]) made from library foods, logged like a
+//         food (the log entry has `recipeId` instead of `foodId`, with its own copy of the nutrients).
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, get, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
@@ -498,6 +500,202 @@ function sortFoods(foods) {
     || (a.brand || '').localeCompare(b.brand || '', 'en-IN', { sensitivity: 'base' }));
 }
 
+// ---- FOOD-5 helpers: recipes ----
+// A recipe is saved as { name, servings, ingredients: [{ foodId, grams }] }. Its nutrients are worked
+// out from the library foods. A nutrient is known only if every ingredient has it (blank = unknown).
+const MAX_RECIPE_SERVINGS = 100;
+const MAX_INGREDIENTS = 50;
+const MAX_INGREDIENT_G = 5000;
+
+const recipeGrams = (recipe) => (recipe.ingredients || []).reduce((s, x) => s + Number(x.grams || 0), 0);
+
+// The recipe as a food-like item (per 100 g, one serving = total ÷ servings), so it can be shown and
+// logged the same way as a food. `missing` = ingredients whose food was deleted.
+function recipeAsFood(recipe, foodsById) {
+  const ings = recipe.ingredients || [];
+  const total = recipeGrams(recipe);
+  const out = {
+    id: recipe.id, isRecipe: true, name: recipe.name, brand: '', favourite: false,
+    servingName: '', servingGrams: total && recipe.servings ? round(total / recipe.servings, 1) : null,
+    totalGrams: total, missing: ings.filter((x) => !foodsById.get(x.foodId)).length,
+  };
+  const per100 = (valueOf) => {
+    let sum = 0;
+    for (const x of ings) {
+      const food = foodsById.get(x.foodId);
+      const v = food ? valueOf(food) : null;
+      if (isBlank(v)) return null;
+      sum += (v * x.grams) / 100;
+    }
+    return ings.length && total ? round((sum * 100) / total, 3) : null;
+  };
+  for (const n of NUTRIENTS) out[n.key] = per100((f) => f[n.key]);
+  out.extraNutrients = {};
+  const ids = new Set(ings.flatMap((x) => Object.keys(foodsById.get(x.foodId)?.extraNutrients || {})));
+  for (const id of ids) {
+    const v = per100((f) => (f.extraNutrients || {})[id]);
+    if (!isBlank(v)) out.extraNutrients[id] = v;
+  }
+  return out;
+}
+
+// "380 kcal · 12.5 g protein" per serving of a recipe (or "kcal unknown").
+function recipeServingText(rf) {
+  if (!rf.servingGrams) return '';
+  const kcal = isBlank(rf.kcal) ? 'kcal unknown' : formatKcal((rf.kcal * rf.servingGrams) / 100);
+  const protein = isBlank(rf.proteinG) ? '' : ` · ${formatG((rf.proteinG * rf.servingGrams) / 100)} protein`;
+  return `${kcal}${protein}`;
+}
+
+// The recipe form (add and edit). Returns { elements, read(recipes, selfId), refreshFoods(), focus() }.
+// `getFoods()` gives the library now, so the food choices stay up to date.
+function recipeFields(values = {}, getFoods) {
+  let ingredients = (values.ingredients || []).map((x) => ({ foodId: x.foodId, grams: x.grams }));
+  const name = input({ label: 'Recipe name', value: values.name || '', placeholder: 'e.g. Dal chawal' });
+  const servings = input({
+    label: 'Makes how many servings', inputmode: 'numeric', placeholder: 'e.g. 4',
+    value: values.servings ? String(values.servings) : '',
+  });
+  servings.input.addEventListener('input', () => { servings.setError(''); showSummary(); });
+  const ingTitle = el('div', { className: 'field__label', text: 'Ingredients' });
+  const ingList = el('div');
+  const ingError = el('div', { className: 'field__error', hidden: true });
+  const pickBox = el('div');
+  let foodSel = null;
+  const grams = input({ label: 'Grams of it', inputmode: 'decimal', placeholder: 'e.g. 150' });
+  grams.input.addEventListener('input', () => grams.setError(''));
+  const servingHint = el('p', { className: 'progress-note' });
+  const addIng = button({ label: 'Add ingredient', icon: 'plus', variant: 'secondary', block: true, onClick: () => addIngredient() });
+  const summary = el('p', { className: 'progress-note', 'aria-live': 'polite' });
+
+  const byId = () => new Map(getFoods().map((f) => [f.id, f]));
+
+  function refreshFoods() {
+    const foods = sortFoods(getFoods());
+    const keep = foodSel ? foodSel.input.value : '';
+    if (!foods.length) {
+      foodSel = null;
+      pickBox.replaceChildren(el('p', { className: 'progress-note', text: 'Add foods to "My foods" first, then use them here.' }));
+    } else {
+      foodSel = input({
+        label: 'Add a food from your library', type: 'select',
+        options: [{ value: '', label: 'Pick a food…' }, ...foods.map((f) => ({ value: f.id, label: foodTitle(f) }))],
+        value: foods.some((f) => f.id === keep) ? keep : '',
+      });
+      foodSel.input.addEventListener('change', () => { foodSel.setError(''); showHint(); });
+      pickBox.replaceChildren(foodSel);
+    }
+    addIng.hidden = !foods.length;
+    grams.hidden = !foods.length;
+    showHint();
+    renderIngredients();
+  }
+
+  function showHint() {
+    const food = foodSel && byId().get(foodSel.input.value);
+    servingHint.textContent = food && food.servingGrams ? `${food.servingName || '1 serving'} = ${formatNumber(food.servingGrams, 1)} g` : '';
+    servingHint.hidden = !servingHint.textContent;
+  }
+
+  function addIngredient() {
+    if (!foodSel) return;
+    foodSel.setError('');
+    grams.setError('');
+    const foodId = foodSel.input.value;
+    if (!foodId) { foodSel.setError('Pick a food.'); foodSel.input.focus(); return; }
+    const v = parseNum(grams.input.value);
+    let error = '';
+    if (v === '' || Number.isNaN(v) || v <= 0) error = 'Type the grams, e.g. 150.';
+    else if (v > MAX_INGREDIENT_G) error = 'Up to 5,000 g per ingredient.';
+    else if (round(v, 1) <= 0) error = 'That\'s too small.';
+    if (error) { grams.setError(error); grams.input.focus(); return; }
+    const g = round(v, 1);
+    const same = ingredients.find((x) => x.foodId === foodId);
+    if (same) same.grams = g; // adding the same food again changes its grams
+    else if (ingredients.length >= MAX_INGREDIENTS) { grams.setError(`Up to ${MAX_INGREDIENTS} ingredients.`); return; }
+    else ingredients.push({ foodId, grams: g });
+    foodSel.input.value = '';
+    grams.input.value = '';
+    showHint();
+    renderIngredients();
+    foodSel.input.focus();
+  }
+
+  function renderIngredients() {
+    ingError.hidden = true;
+    const foods = byId();
+    if (!ingredients.length) {
+      ingList.replaceChildren(el('p', { className: 'progress-note', text: 'No ingredients yet. Pick a food and its grams below.' }));
+    } else {
+      ingList.replaceChildren(list(ingredients.map((x) => {
+        const food = foods.get(x.foodId);
+        const kcal = !food || isBlank(food.kcal) ? 'kcal unknown' : formatKcal((food.kcal * x.grams) / 100);
+        const row = listItem({
+          title: food ? foodTitle(food) : '❓ Missing food (deleted)',
+          subtitle: `${formatNumber(x.grams, 1)} g · ${kcal}`,
+          actions: [button({
+            icon: 'trash', variant: 'ghost', ariaLabel: `Remove ${food ? food.name : 'missing food'} from the recipe`,
+            onClick: () => { ingredients = ingredients.filter((y) => y !== x); renderIngredients(); },
+          })],
+        });
+        row.classList.add('list-item--wrap');
+        return row;
+      })));
+    }
+    showSummary();
+  }
+
+  function showSummary() {
+    if (!ingredients.length) { summary.textContent = ''; return; }
+    const s = parseNum(servings.input.value);
+    const n = typeof s === 'number' && Number.isInteger(s) && s >= 1 && s <= MAX_RECIPE_SERVINGS ? s : null;
+    const rf = recipeAsFood({ name: '', servings: n || 1, ingredients }, byId());
+    const totalKcal = isBlank(rf.kcal) ? 'kcal unknown' : formatKcal((rf.kcal * rf.totalGrams) / 100);
+    let text = `Total ${formatNumber(rf.totalGrams, 1)} g · ${totalKcal}`;
+    if (n) text += ` · 1 serving = ${formatNumber(rf.servingGrams, 1)} g · ${recipeServingText(rf)}`;
+    if (isBlank(rf.kcal)) {
+      const blanks = ingredients.map((x) => byId().get(x.foodId)).filter((f) => !f || isBlank(f.kcal));
+      text += ` (no calories for ${blanks.map((f) => (f ? f.name : 'a missing food')).join(', ')})`;
+    }
+    summary.textContent = text;
+  }
+
+  function read(recipes, selfId) {
+    name.setError('');
+    servings.setError('');
+    ingError.hidden = true;
+    const text = name.input.value.trim();
+    let error = '';
+    if (!text) error = 'Give the recipe a name.';
+    else if (text.length > MAX_NAME) error = `Keep it to ${MAX_NAME} letters or less.`;
+    else if (recipes.some((r) => r.id !== selfId && r.name.toLowerCase() === text.toLowerCase())) {
+      error = 'You already have a recipe with this name.';
+    }
+    if (error) { name.setError(error); name.input.focus(); return null; }
+    const s = parseNum(servings.input.value);
+    if (s === '' || Number.isNaN(s) || !Number.isInteger(s) || s < 1 || s > MAX_RECIPE_SERVINGS) {
+      servings.setError(`Type a whole number from 1 to ${MAX_RECIPE_SERVINGS}, e.g. 4.`);
+      servings.input.focus();
+      return null;
+    }
+    if (!ingredients.length) {
+      ingError.textContent = 'Add at least one ingredient.';
+      ingError.hidden = false;
+      (foodSel ? foodSel.input : name.input).focus();
+      return null;
+    }
+    return { name: text, servings: s, ingredients: ingredients.map((x) => ({ foodId: x.foodId, grams: x.grams })) };
+  }
+
+  refreshFoods();
+  return {
+    elements: [name, servings, el('div', { className: 'field' }, [ingTitle, ingList, ingError]), pickBox, grams, servingHint, addIng, summary],
+    read,
+    refreshFoods,
+    focus: () => name.input.focus(),
+  };
+}
+
 export async function render(root) {
   let foods = await listAll('foods');
   let editingId = null;
@@ -626,7 +824,114 @@ export async function render(root) {
     } else {
       listBox.replaceChildren(list(shown.map(foodRow)));
     }
+    await refreshRecipes(); // FOOD-5: recipe nutrients follow library changes
     if (!picked) refreshPicker(); // the Log food picker shows library changes straight away
+  }
+
+  // ---- My recipes (FOOD-5) ----
+  let recipes = await listAll('recipes');
+  let editingRecipeId = null;
+  let addRecipe = recipeFields({}, () => foods);
+  const recipeAddBox = el('div');
+  const recipeListBox = el('div', { className: 'stack' });
+  const foodsMap = () => new Map(foods.map((x) => [x.id, x]));
+  const sortRecipes = (rs) => [...rs].sort((a, b) => a.name.localeCompare(b.name, 'en-IN', { sensitivity: 'base' }));
+  const recipeFoods = () => sortRecipes(recipes).map((r) => recipeAsFood(r, foodsMap()));
+
+  function buildRecipeForm() {
+    const form = el('form', { className: 'stack', novalidate: true }, [
+      ...addRecipe.elements,
+      button({ label: 'Save recipe', icon: 'plus', variant: 'primary', type: 'submit', block: true }),
+    ]);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const recipe = addRecipe.read(recipes);
+      if (!recipe) return;
+      await add('recipes', recipe);
+      toast({ message: `Saved recipe ${recipe.name} 🍲` });
+      addRecipe = recipeFields({}, () => foods);
+      buildRecipeForm();
+      await refreshRecipes();
+      if (!picked) refreshPicker();
+    });
+    recipeAddBox.replaceChildren(form);
+  }
+
+  function recipeEditRow(recipe) {
+    const rf = recipeFields(recipe, () => foods);
+    const form = el('form', { className: 'stack', novalidate: true }, [
+      ...rf.elements,
+      el('div', { className: 'btn-row' }, [
+        button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingRecipeId = null; refreshRecipes(); } }),
+        button({ label: 'Save', variant: 'primary', type: 'submit' }),
+      ]),
+    ]);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const changes = rf.read(recipes, recipe.id);
+      if (!changes) return;
+      await update('recipes', recipe.id, changes);
+      editingRecipeId = null;
+      toast({ message: `Saved ${changes.name} ✨` });
+      await refreshRecipes();
+      if (!picked) refreshPicker();
+    });
+    queueMicrotask(() => rf.focus());
+    return el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [form])]);
+  }
+
+  function recipeRow(recipe) {
+    if (recipe.id === editingRecipeId) return recipeEditRow(recipe);
+    const rf = recipeAsFood(recipe, foodsMap());
+    const n = (recipe.ingredients || []).length;
+    const parts = [
+      `${recipe.servings} serving${recipe.servings === 1 ? '' : 's'}`,
+      `${formatNumber(rf.totalGrams, 1)} g`,
+      `${recipeServingText(rf)} each`,
+      `${n} ingredient${n === 1 ? '' : 's'}`,
+    ];
+    if (rf.missing) parts.push(`⚠️ ${rf.missing} missing food${rf.missing === 1 ? '' : 's'}`);
+    const startEdit = () => { editingRecipeId = recipe.id; refreshRecipes(); };
+    const row = listItem({
+      title: `🍲 ${recipe.name}`,
+      subtitle: parts.join(' · '),
+      onClick: startEdit,
+      actions: [
+        button({ icon: 'edit', variant: 'ghost', ariaLabel: `Edit ${recipe.name}`, onClick: startEdit }),
+        button({ icon: 'trash', variant: 'ghost', ariaLabel: `Delete ${recipe.name}`, onClick: () => deleteRecipe(recipe) }),
+      ],
+    });
+    row.classList.add('list-item--wrap');
+    return row;
+  }
+
+  async function refreshRecipes() {
+    recipes = await listAll('recipes');
+    addRecipe.refreshFoods();
+    if (!recipes.length) {
+      recipeListBox.replaceChildren(emptyState({
+        emoji: '🍲', title: 'No recipes yet', text: 'Make one above from foods in your library, then log it in a tap.',
+      }));
+      return;
+    }
+    recipeListBox.replaceChildren(list(sortRecipes(recipes).map(recipeRow)));
+  }
+
+  async function deleteRecipe(recipe) {
+    const removed = await remove('recipes', recipe.id);
+    if (editingRecipeId === recipe.id) editingRecipeId = null;
+    if (picked && picked.id === recipe.id) unpick(false);
+    await refreshRecipes();
+    if (!picked) refreshPicker();
+    if (!removed) return;
+    toast({
+      message: `Deleted recipe ${removed.name}`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await restore('recipes', removed);
+        if (recipeListBox.isConnected) { await refreshRecipes(); if (!picked) refreshPicker(); }
+      },
+    });
   }
 
   async function deleteFood(food) {
@@ -756,8 +1061,9 @@ export async function render(root) {
   pickSearch.input.addEventListener('input', () => refreshPicker());
   const viewPills = pillGroup({
     label: 'Show',
-    options: [['recent', 'Recent'], ['fav', 'Favourites'], ['all', 'All']],
+    options: [['recent', 'Recent'], ['fav', 'Favourites'], ['recipes', '🍲 Recipes'], ['all', 'All foods']],
     value: 'recent',
+    grid: true,
     onChange: () => refreshPicker(),
   });
   const pickNote = el('p', { className: 'progress-note' });
@@ -781,15 +1087,17 @@ export async function render(root) {
   const logForm = el('form', { className: 'stack', novalidate: true }, [mealPills, pickerBox, amountPart]);
 
   // Foods logged most recently, newest first (foods since deleted are left out).
+  // FOOD-5: recipes logged recently are included too.
   function recentFoods() {
-    const byId = new Map(foods.map((x) => [x.id, x]));
+    const byId = new Map([...foods, ...recipeFoods()].map((x) => [x.id, x]));
     const seen = new Set();
     const out = [];
     const sorted = [...logEntries].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
     for (const e of sorted) {
-      if (seen.has(e.foodId) || !byId.has(e.foodId)) continue;
-      seen.add(e.foodId);
-      out.push(byId.get(e.foodId));
+      const id = e.recipeId || e.foodId;
+      if (seen.has(id) || !byId.has(id)) continue;
+      seen.add(id);
+      out.push(byId.get(id));
       if (out.length === 8) break;
     }
     return out;
@@ -798,29 +1106,33 @@ export async function render(root) {
   function refreshPicker() {
     const q = pickSearch.input.value.trim().toLowerCase();
     let shown;
+    const rFoods = recipeFoods();
     if (q) {
-      shown = sortFoods(foods).filter((x) => x.name.toLowerCase().includes(q) || (x.brand || '').toLowerCase().includes(q));
+      shown = [...sortFoods(foods), ...rFoods]
+        .filter((x) => x.name.toLowerCase().includes(q) || (x.brand || '').toLowerCase().includes(q));
     } else if (viewPills.value === 'recent') shown = recentFoods();
     else if (viewPills.value === 'fav') shown = sortFoods(foods.filter((x) => x.favourite));
+    else if (viewPills.value === 'recipes') shown = rFoods;
     else shown = sortFoods(foods);
     viewPills.hidden = !!q;
     pickNote.textContent = shown.length > 20 ? `Showing 20 of ${formatNumber(shown.length)} · search to find more` : '';
 
-    if (!foods.length) {
+    if (!foods.length && !rFoods.length) {
       pickList.replaceChildren(emptyState({
         emoji: '🍱', title: 'Your library is empty', text: 'Add a food under "Add a food" below, then log it here.',
       }));
     } else if (!shown.length) {
       let empty;
       if (q) empty = { emoji: '🔍', title: 'No foods match', text: 'Add it under "Add a food" below ✨' };
-      else if (viewPills.value === 'recent') empty = { emoji: '🕘', title: 'Nothing logged yet', text: 'Foods you log show up here. Try Favourites or All.' };
+      else if (viewPills.value === 'recent') empty = { emoji: '🕘', title: 'Nothing logged yet', text: 'Foods you log show up here. Try Favourites or All foods.' };
+      else if (viewPills.value === 'recipes') empty = { emoji: '🍲', title: 'No recipes yet', text: 'Make one under "My recipes" below.' };
       else empty = { emoji: '⭐', title: 'No favourites yet', text: 'Tap ☆ on a food in "My foods" to make it a favourite.' };
       pickList.replaceChildren(emptyState(empty));
     } else {
       pickList.replaceChildren(list(shown.slice(0, 20).map((food) => {
         const row = listItem({
-          title: food.favourite ? `⭐ ${food.name}` : food.name,
-          subtitle: [food.brand, servingText(food), kcalText(food)].filter(Boolean).join(' · '),
+          title: pickTitle(food),
+          subtitle: pickSubtitle(food),
           onClick: () => pick(food),
         });
         row.classList.add('list-item--wrap');
@@ -829,11 +1141,24 @@ export async function render(root) {
     }
   }
 
+  // How a food or recipe shows in the picker.
+  function pickTitle(food) {
+    if (food.isRecipe) return `🍲 ${food.name}`;
+    return food.favourite ? `⭐ ${food.name}` : food.name;
+  }
+  function pickSubtitle(food) {
+    if (food.isRecipe) {
+      return ['Recipe', servingText(food), recipeServingText(food), food.missing ? '⚠️ has a missing food' : '']
+        .filter(Boolean).join(' · ');
+    }
+    return [food.brand, servingText(food), kcalText(food)].filter(Boolean).join(' · ');
+  }
+
   function pick(food) {
     picked = food;
     const row = listItem({
-      title: food.favourite ? `⭐ ${food.name}` : food.name,
-      subtitle: [food.brand, servingText(food), kcalText(food)].filter(Boolean).join(' · '),
+      title: pickTitle(food),
+      subtitle: pickSubtitle(food),
       actions: [button({ label: 'Change', variant: 'secondary', onClick: () => unpick(true) })],
     });
     row.classList.add('list-item--wrap');
@@ -903,7 +1228,7 @@ export async function render(root) {
       date: logDate.input.value,
       time: logTime.input.value,
       meal: mealPills.value,
-      foodId: picked.id,
+      ...(picked.isRecipe ? { recipeId: picked.id } : { foodId: picked.id }), // FOOD-5: or a recipe
       foodName: foodTitle(picked),
       quantity: amount.quantity,
       quantityUnit: unit,
@@ -987,7 +1312,7 @@ export async function render(root) {
   function logRow(entry) {
     if (entry.id === editingLogId) return logEditRow(entry);
     const row = listItem({
-      title: entry.foodName,
+      title: entry.recipeId ? `🍲 ${entry.foodName}` : entry.foodName,
       subtitle: `${amountText(entry)} · ${formatTime(entry.time)}`,
       meta: isBlank(entry.kcal) ? '? kcal' : formatKcal(entry.kcal),
       onClick: () => { editingLogId = entry.id; refreshLog(); },
@@ -1229,6 +1554,7 @@ export async function render(root) {
   }
 
   buildAddForm();
+  buildRecipeForm();
   const macrosCard = card({ title: "Today's macros", module: 'food', children: [macrosBox, macrosNote] });
   macrosTitle = macrosCard.querySelector('.card__title > span:last-child');
   const microsCard = card({ title: "Today's vitamins & minerals", module: 'food', children: [microsBox, microsNote] });
@@ -1244,6 +1570,12 @@ export async function render(root) {
     card({ title: 'My daily targets', module: 'food', children: [targetsForm] }),
     card({ title: 'Add a food', module: 'food', children: [addBox] }),
     card({ title: 'My foods', module: 'food', children: [el('div', { className: 'stack' }, [search, countLine, listBox])] }),
+    card({ title: 'My recipes', module: 'food', children: [el('div', { className: 'stack' }, [
+      el('p', { className: 'progress-note', text: 'Put foods from your library together into one dish, then log it like a food.' }),
+      recipeAddBox,
+      el('h3', { className: 'list-group__title' }, [el('span', { text: 'Saved recipes' })]),
+      recipeListBox,
+    ])] }),
     card({ title: 'My extra nutrients', module: 'food', children: [el('div', { className: 'stack' }, [
       el('p', { className: 'progress-note', text: 'Your own vitamins and minerals. Each one gets a box in every food, under "Vitamins & minerals".' }),
       extraForm,

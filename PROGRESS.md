@@ -1073,3 +1073,37 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Deleting your own nutrient keeps its target in settings (unused), so Undo brings it back with its target.
 - All 5 test-server slots belonged to other chats, so testing used a temporary server on port 8772 (stopped).
 - The phone gets this at the final "release".
+
+## FOOD-5: Recipes (24 Nov 2026)
+**Built**
+- 🍱 Food screen: new **My recipes** card (peach) under "My foods". Make a recipe: name, "Makes how many servings"
+  (whole number 1–100), then add ingredients by picking a food from your library and typing its grams (the food's
+  serving size shows as a hint, e.g. "1 katori = 150 g"). Adding the same food again changes its grams; 🗑️ removes
+  an ingredient. A live line shows "Total 600 g · 738 kcal · 1 serving = 150 g · 185 kcal · 8.8 g protein".
+- Friendly messages: missing name, over 60 letters, a recipe with that name already (any capitals), servings not a
+  whole number 1–100, no ingredients, no food picked, grams empty / 0 / over 5,000, more than 50 ingredients.
+- **Saved recipes** list (A–Z): "🍲 Dal chawal · 5 servings · 610 g · 166 kcal · 7 g protein each · 3 ingredients".
+  Tap a recipe (or ✏️) to edit everything in place (Cancel / Save); 🗑️ deletes with Undo.
+- A recipe's nutrients are worked out from your library foods, so changing a food updates the recipe. If a food in it
+  is deleted, the recipe shows "⚠️ 1 missing food" and that ingredient shows "❓ Missing food (deleted)".
+- **Log food**: the "Show" pills are now Recent / Favourites / 🍲 Recipes / All foods (2 × 2). Searching finds recipes
+  too, and Recent includes recipes you logged. A recipe is logged by servings or grams like a food
+  ("2 servings · 244 g · 331 kcal"), shows as "🍲 Dal chawal" in the food log, and counts in today's macros and
+  vitamins & minerals.
+- Saved data: recipes use the existing recipes drawer with `name`, `servings` and `ingredients` (a list of
+  `{ foodId, grams }`), as in the spec (SPEC.md notes the name `ingredients`). A logged recipe saves `recipeId` instead
+  of `foodId`, plus its own copy of the nutrients, so editing or deleting the recipe later doesn't change past days.
+  Nothing existing changed. Google Sheets "Food" tab gets them as "Recipe" (already set up by SHEETS-SYNC).
+  No new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with 3 pretend foods and 2 pretend recipes (temporary test server on port
+  8773, test database deleted afterwards): every error message, totals checked by hand (738 kcal ÷ 4 = 185),
+  edit servings, recipe follows a food change, log 2 servings (servings ↔ grams converts), Recent and search show it,
+  macros update, recipe delete + Undo (past log entry kept), deleted food → missing warning, no sideways scrolling,
+  all buttons and boxes ≥ 44px, no new errors.
+
+**Known issues**
+- A nutrient counts as unknown for the whole recipe if any ingredient has it blank (e.g. one food without iron makes
+  the recipe's iron "Unknown"), so blanks are never treated as zero.
+- Ingredients are typed in grams only (the serving size is shown as a hint).
+- Changing a recipe while it's picked in "Log food" needs "Change" and picking it again to use the new values.
+- The phone gets this at the final "release".
