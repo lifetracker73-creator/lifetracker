@@ -1413,3 +1413,22 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - None. The phone gets this at the final "release".
+
+## REFINE-2: 🍄 Buddy, your doodle as a cute animated friend (25 Nov 2026)
+**Built**
+- Your doodle redrawn as a sharp picture in soft pastels (cream body, pink spotted cap, cream pom-pom,
+  peach feet, dark plum outline). Same colours in light and dark mode. New file `core/buddy.js`.
+- Moves gently: bobs up and down, blinks, wiggles its pom-pom. Sleepy mood: eyes closed, floating "z z z".
+  Happy hop with a ✨ sparkle. All movement stops if the phone asks for reduced motion.
+- **Home**: sits next to the greeting. Sleepy from 10 pm to 6 am and after "Going to bed" (wakes after "I'm awake").
+  Tap it: it hops and says a cute line ("Zzz… sweet dreams 🌙" when sleepy). On a 2+ day logging streak that
+  includes today, it hops and says "🔥 N days in a row! Yay!" (once a day while the app is open).
+- **Empty screens** in every module show the buddy with the module emoji in a little bubble.
+- **Cheers**: it pops up and hops when a glass of water reaches today's goal, and when a task is ticked off.
+- No saved data changed. Cache version 16.
+- Checked at 360px and 375px in light and dark mode with a test water entry and test task (deleted afterwards):
+  no sideways scrolling, no errors.
+
+**Known issues**
+- The streak cheer can show again if the app is fully closed and reopened the same day.
+- The phone gets this at the final "release".

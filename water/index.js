@@ -7,6 +7,7 @@ import { add, remove, restore, list as listAll, listByDate, getSettings } from '
 import { today, yesterday, addDays, dateRange, nowTime, formatTime } from '../core/dates.js';
 import { formatMl } from '../core/format.js';
 import { barChart } from '../core/charts.js';
+import { celebrate } from '../core/buddy.js';
 
 const DEFAULTS = { dailyGoalMl: 2500, quickAmounts: [250, 500, 750] };
 const MAX_ML = 5000; // one entry above this is almost surely a typo
@@ -45,7 +46,9 @@ export async function render(root) {
   const percentText = el('span', { className: 'progress-stats__percent' });
   const noteText = el('p', { className: 'progress-note' });
 
+  let shownTotal = 0; // today's total on screen, to spot the moment the goal is reached
   function showProgress(totalMl) {
+    shownTotal = totalMl;
     const percent = Math.round((totalMl / goalMl) * 100);
     bar.set(totalMl, goalMl);
     amountText.textContent = `${formatMl(totalMl)} of ${formatMl(goalMl)}`;
@@ -127,8 +130,11 @@ export async function render(root) {
   }
 
   async function logWater(amountMl) {
+    const before = shownTotal;
     await add('water', { date: today(), time: nowTime(), amountMl });
     await refresh();
+    // 🍄 The buddy cheers when this glass reaches today's goal (REFINE-2).
+    if (before < goalMl && shownTotal >= goalMl) celebrate('Water goal reached! 💧 Yay!');
   }
 
   async function deleteEntry(entry) {

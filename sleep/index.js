@@ -167,14 +167,21 @@ export async function homeCard() {
     }
   }
 
+  // Tells the Home 🍄 buddy to fall asleep or wake up (REFINE-2).
+  const tellBuddy = () => document.dispatchEvent(
+    new CustomEvent('sleepchange', { detail: { sleeping: !!settings.pendingBedTime } }),
+  );
+
   async function goToBed() {
-    settings = await bedNow((s) => { settings = s; draw(); });
+    settings = await bedNow((s) => { settings = s; draw(); tellBuddy(); });
     draw();
+    tellBuddy();
   }
 
   async function wakeUp() {
     settings = (await wakeNow(settings, 'Open 😴 Sleep to log the night by hand.')).settings;
     draw();
+    tellBuddy();
   }
 
   draw();

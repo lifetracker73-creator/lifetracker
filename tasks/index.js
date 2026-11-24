@@ -9,6 +9,7 @@ import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, forma
 import { notify, showBanner, notificationState, askPermission } from '../core/notify.js';
 import { saveFile } from '../core/xlsx.js';
 import { formatNumber } from '../core/format.js';
+import { celebrate } from '../core/buddy.js';
 
 const MAX_TITLE = 200;
 const MAX_NOTES = 20000; // the most Google Sync accepts in one box (google-apps-script/Code.gs LIMITS.text)
@@ -598,6 +599,7 @@ export async function render(root) {
     await refresh();
     let message = nowDone ? `Done! 🎉 "${task.title}"` : `"${task.title}" is back on your list`;
     if (next) message = `Done! 🎉 Next one: ${formatDate(next.dueDate)}`;
+    if (nowDone) celebrate('One less thing to do ✨'); // 🍄 buddy cheer (REFINE-2)
     toast({
       message,
       actionLabel: 'Undo',

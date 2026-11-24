@@ -2,6 +2,8 @@
 // Every module builds its screens from these so the app looks the same everywhere.
 // Each function returns a DOM element. Text is always set safely as text, never as HTML.
 
+import { buddy } from './buddy.js';
+
 // Small inline SVG icons (no icon libraries). Our own constant strings only.
 export const icons = {
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
@@ -259,13 +261,14 @@ export function toast({ message, actionLabel, onAction, duration = 5000 } = {}) 
 /**
  * Empty state: shown when a list has nothing in it yet.
  * emptyState({ title: 'No entries yet', text: 'Add your first one.', action: button(...) })
- * Pass `emoji` (e.g. '💧') to show an emoji instead of the icon.
+ * Shows the 🍄 buddy (REFINE-2); pass `emoji` (e.g. '💧') to add it in a little bubble beside the buddy.
  */
-export function emptyState({ icon = 'inbox', emoji, title, text, action } = {}) {
+export function emptyState({ emoji, title, text, action } = {}) {
   return el('div', { className: 'empty' }, [
-    emoji
-      ? el('span', { className: 'empty__icon', 'aria-hidden': 'true', text: emoji })
-      : iconSpan(icon, 'empty__icon'),
+    el('span', { className: 'empty__buddy', 'aria-hidden': 'true' }, [
+      buddy({ size: 80 }),
+      emoji ? el('span', { className: 'empty__buddy-emoji', text: emoji }) : null,
+    ]),
     title ? el('p', { className: 'empty__title', text: title }) : null,
     text ? el('p', { className: 'empty__text', text }) : null,
     action || null,

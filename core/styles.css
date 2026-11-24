@@ -79,6 +79,13 @@
   --accent-reading: #d7ecc4;     /* sage */
   --accent-medical: #ffc9c9;  /* rose */
 
+  /* 🍄 Buddy (REFINE-2): same soft pastels in light and dark mode */
+  --buddy-body: #fff3e2;         /* cream */
+  --buddy-cap: #ffc8d6;          /* pink cap */
+  --buddy-spot: #fff8f0;         /* cream spots and pom-pom */
+  --buddy-feet: #ffd2b5;         /* peach */
+  --buddy-line: #3b3347;         /* dark plum outline and eyes */
+
   /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
@@ -1330,3 +1337,131 @@ a.btn { text-decoration: none; }
   font-size: var(--font-size-md);
 }
 .highlight__text { margin: 0; align-self: center; }
+
+/* 🍄 Buddy (REFINE-2): the doodle friend, its moods, the cheer pop-up and where it sits */
+.buddy {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--buddy-size, 72px);
+  height: var(--buddy-size, 72px);
+  line-height: 0;
+}
+.buddy__art { width: 100%; height: 100%; overflow: visible; }
+.buddy__art * { stroke: var(--buddy-line); stroke-width: 9; stroke-linejoin: round; stroke-linecap: round; }
+.buddy__body { fill: var(--buddy-body); }
+.buddy__cap { fill: var(--buddy-cap); }
+.buddy__spot, .buddy__pompom { fill: var(--buddy-spot); }
+.buddy__foot { fill: var(--buddy-feet); }
+.buddy__line { fill: none; }
+.buddy__pupil, .buddy__mouth { fill: var(--buddy-line); stroke: none; }
+.buddy__shine { fill: #ffffff; stroke: none; }
+.buddy__eyes-closed { display: none; }
+.buddy--sleepy .buddy__eyes-open { display: none; }
+.buddy--sleepy .buddy__eyes-closed { display: inline; }
+
+/* Idle: gentle bob, a blink every few seconds, a little pom-pom wiggle */
+.buddy__body-group { transform-box: fill-box; transform-origin: 50% 100%; animation: buddy-bob 2.6s ease-in-out infinite; }
+.buddy__eye { transform-box: fill-box; transform-origin: center; animation: buddy-blink 4.8s infinite; }
+.buddy__pompom { transform-box: view-box; transform-origin: 520px 720px; animation: buddy-wiggle 3.2s ease-in-out infinite; }
+@keyframes buddy-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
+@keyframes buddy-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes buddy-wiggle { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(6deg); } 75% { transform: rotate(-5deg); } }
+
+/* Sleepy: slower breathing and floating z z z */
+.buddy--sleepy .buddy__body-group { animation-duration: 4s; }
+.buddy--sleepy .buddy__pompom { animation: none; }
+.buddy__zzz { display: none; }
+.buddy--sleepy .buddy__zzz {
+  display: block;
+  position: absolute;
+  top: -10%;
+  right: -6%;
+  line-height: 1;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+  font-size: calc(var(--buddy-size, 72px) * 0.18);
+}
+.buddy__zzz span { display: inline-block; opacity: 0; animation: buddy-z 3s ease-out infinite; }
+.buddy__zzz span:nth-child(2) { animation-delay: 1s; font-size: 1.2em; }
+.buddy__zzz span:nth-child(3) { animation-delay: 2s; font-size: 1.4em; }
+@keyframes buddy-z { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -14px); } }
+
+/* Happy: one hop with a sparkle */
+.buddy__sparkle { position: absolute; top: -8%; left: -6%; opacity: 0; line-height: 1; font-size: calc(var(--buddy-size, 72px) * 0.3); }
+.buddy--happy .buddy__art { animation: buddy-hop 0.9s ease-out; }
+.buddy--happy .buddy__sparkle { animation: buddy-sparkle 0.9s ease-out; }
+@keyframes buddy-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.08, 0.9); }
+  45% { transform: translateY(-22%) scale(0.95, 1.06); }
+  75% { transform: translateY(0) scale(1.05, 0.94); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes buddy-sparkle { 0% { opacity: 0; transform: scale(0.4); } 40% { opacity: 1; transform: scale(1.1) rotate(15deg); } 100% { opacity: 0; transform: scale(0.8) rotate(30deg); } }
+
+/* Cheer pop-up (goal reached, task done) */
+.buddy-pop {
+  position: fixed;
+  left: 50%;
+  top: 32%;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  min-width: 200px;
+  max-width: calc(100vw - 2 * var(--page-gutter));
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: buddy-pop-in var(--bounce);
+}
+.buddy-pop--out { opacity: 0; transition: opacity 300ms ease; }
+.buddy-pop__text { margin: 0; text-align: center; font-weight: var(--font-weight-bold); color: var(--color-text); }
+@keyframes buddy-pop-in { from { opacity: 0; transform: translateX(-50%) scale(0.8); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+
+/* Home greeting: buddy on the right, tap it for a hop and a cute line */
+.home-greeting--buddy { display: flex; align-items: center; gap: var(--space-3); }
+.home-greeting__words { flex: 1; min-width: 0; }
+.home-buddy {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.home-buddy__say { margin: var(--space-1) 0 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: var(--color-text-muted); }
+.home-buddy__say:empty { display: none; }
+
+/* Empty screens: the buddy with the module emoji in a little bubble */
+.empty__buddy { position: relative; display: inline-block; }
+.empty__buddy-emoji {
+  position: absolute;
+  right: -10px;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--accent, var(--color-surface-2));
+  box-shadow: var(--shadow-button);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy__body-group, .buddy__eye, .buddy__pompom, .buddy__zzz span,
+  .buddy--happy .buddy__art, .buddy-pop { animation: none; }
+  .buddy__zzz span { opacity: 1; }
+  .buddy--happy .buddy__sparkle { animation: none; opacity: 1; }
+}

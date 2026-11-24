@@ -125,7 +125,7 @@ const STREAK_STORES = ['water', 'sleep', 'weight', 'foodLog', 'expenses', 'check
 
 // Days in a row with at least one entry anywhere, ending today (or yesterday, so the streak
 // isn't lost before you've logged anything today). Finished tasks count on the day they were done.
-async function loggingStreak(day) {
+export async function loggingStreak(day) {
   const lists = await Promise.all(STREAK_STORES.map((s) => list(s)));
   const days = new Set(lists.flat().map((e) => e.date).filter(Boolean));
   for (const t of await list('tasks')) if (t.done && t.doneAt) days.add(String(t.doneAt).slice(0, 10));

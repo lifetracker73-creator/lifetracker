@@ -39,11 +39,19 @@
     import { el, badge, button, card, modules } from './core/ui.js';
     import { startRouter } from './core/router.js';
     import { getSettings } from './core/storage.js';
-    import { today, currentHour, formatDate } from './core/dates.js';
+    import { today, currentHour, formatDate, addDays } from './core/dates.js';
+    import { buddy } from './core/buddy.js';
     import { startSync, onStatus, syncNow } from './core/sync.js';
     import { startAppearance, setAppearance, isDark } from './core/appearance.js';
     import { getMenu } from './core/menu.js';
-    import { todaySection, summaryCard, readingBanner, fillTileStats, quickAdd } from './core/home.js';
+    import { todaySection, summaryCard, readingBanner, fillTileStats, quickAdd, loggingStreak } from './core/home.js';
+
+    // 🍄 Things the buddy says when you tap it on Home (REFINE-2).
+    const BUDDY_LINES = [
+      'Hi hi! 👋', "You're doing great! 🌸", 'Sip some water? 💧', 'Proud of you ✨',
+      'One small step at a time 🐾', 'Take a deep breath 🍃', "Let's have a lovely day 🌈",
+    ];
+    let cheeredStreakOn = ''; // the day the streak hop was shown (only once a day while the app is open)
 
     // ☀️/🌙 button in the title bar: switches between light and dark.
     // (Settings → Appearance also has "Auto", colour themes and fonts.)
@@ -256,10 +264,45 @@
       // Module tiles, each with a small live number (HOME-SUMMARY).
       const tiles = el('div', { className: 'tile-grid' }, menu.order.map(tile));
 
+      // 🍄 Buddy (REFINE-2): sleepy at night or after "Going to bed"; tap it for a hop and a cute line.
+      const friend = buddy({ size: 72, mood: hour >= 22 || hour < 6 ? 'sleepy' : 'idle' });
+      const say = el('p', { className: 'home-buddy__say', 'aria-live': 'polite' });
+      let lineIndex = Math.floor(Math.random() * BUDDY_LINES.length);
+      const sleepy = () => friend.classList.contains('buddy--sleepy');
+      const buddyButton = el('button', {
+        className: 'home-buddy', type: 'button', 'aria-label': 'Say hi to your buddy',
+        onClick: () => {
+          friend.hop();
+          lineIndex = (lineIndex + 1) % BUDDY_LINES.length;
+          say.textContent = sleepy() ? 'Zzz… sweet dreams 🌙' : BUDDY_LINES[lineIndex];
+        },
+      }, [friend]);
+      getSettings('sleep', { pendingBedTime: null })
+        .then((s) => { if (s.pendingBedTime) friend.setMood('sleepy'); })
+        .catch((err) => console.error(err));
+      const onSleep = (e) => {
+        if (!friend.isConnected) { document.removeEventListener('sleepchange', onSleep); return; }
+        friend.setMood(e.detail.sleeping || hour >= 22 || hour < 6 ? 'sleepy' : 'idle');
+      };
+      document.addEventListener('sleepchange', onSleep);
+      // 🔥 First Home visit of the day with a streak of 2+ days that includes today: a happy hop.
+      loggingStreak(today()).then(async (streak) => {
+        if (streak < 2 || cheeredStreakOn === today() || !friend.isConnected) return;
+        const logged = await loggingStreak(addDays(today(), -1));
+        if (streak <= logged) return; // nothing logged today yet
+        cheeredStreakOn = today();
+        friend.hop();
+        say.textContent = `🔥 ${streak} days in a row! Yay!`;
+      }).catch((err) => console.error(err));
+
       root.append(
-        el('div', { className: 'home-greeting' }, [
-          el('h2', { className: 'home-greeting__title', text: `${greeting}${name ? `, ${name}` : ''} ${emoji}` }),
-          el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
+        el('div', { className: 'home-greeting home-greeting--buddy' }, [
+          el('div', { className: 'home-greeting__words' }, [
+            el('h2', { className: 'home-greeting__title', text: `${greeting}${name ? `, ${name}` : ''} ${emoji}` }),
+            el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
+            say,
+          ]),
+          buddyButton,
         ]),
         sleepSlot,
         summaryCard(),
