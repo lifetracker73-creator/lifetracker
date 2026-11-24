@@ -824,6 +824,8 @@ function insightCards({ visits, lists, year, personName, typeName, onYear }) {
     el('p', { className: 'progress-note', text: inLastYear.length ? compare : `No visits in ${lastYear}.` }),
   ])] })];
 
+  cards.push(highlightsCard({ visits, year, personName, typeName }));
+
   if (!inYear.length) {
     cards.push(card({ children: [emptyState({
       emoji: '🗓️', title: `No visits in ${year}`, text: 'Pick another year above.',
@@ -853,6 +855,135 @@ function insightCards({ visits, lists, year, personName, typeName, onYear }) {
 
   cards.push(card({ title: '⏰ Last visit', children: [lastVisits(visits, lists, personName, typeName)] }));
   return cards;
+}
+
+// ---- Highlights (MED-6): short plain-language insights from simple rules (no AI) ----
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+// "General physician" -> "general physician", but leaves names like "ENT" alone.
+const lower = (name) => (/^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name);
+
+// Whole months from one date to another.
+function monthsBetween(from, to) {
+  const [y1, m1, d1] = from.split('-').map(Number);
+  const [y2, m2, d2] = to.split('-').map(Number);
+  return (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+}
+
+// Each rule gives { emoji, text, score }. Higher score = more useful. Only the top 5 are shown.
+function highlights({ visits, year, personName, typeName }) {
+  const now = today();
+  const lastYear = String(Number(year) - 1);
+  const yearWord = year === now.slice(0, 4) ? 'this year' : `in ${year}`;
+  const isMe = (p) => personName(p).trim().toLowerCase() === 'me';
+  const inYear = visits.filter((v) => v.date.startsWith(year));
+  const inLastYear = visits.filter((v) => v.date.startsWith(lastYear));
+  const out = [];
+
+  // 1. Visits per person and type, compared with last year (needs at least 2 visits of that kind).
+  const keyOf = (v) => `${v.personId}|${v.typeId}`;
+  const countMap = (list) => list.reduce((m, v) => m.set(keyOf(v), (m.get(keyOf(v)) || 0) + 1), new Map());
+  const nowCounts = countMap(inYear);
+  const pastCounts = countMap(inLastYear);
+  for (const key of new Set([...nowCounts.keys(), ...pastCounts.keys()])) {
+    const [p, t] = key.split('|');
+    const n = nowCounts.get(key) || 0;
+    const before = pastCounts.get(key) || 0;
+    if (Math.max(n, before) < 2) continue;
+    const type = lower(typeName(t));
+    const diff = n - before;
+    if (isMe(p) && n >= 2) {
+      let text = `You had ${n} ${type} visits ${yearWord}`;
+      if (before && diff) text += `, ${Math.abs(diff)} ${diff > 0 ? 'more' : 'fewer'} than in ${lastYear}`;
+      else if (before) text += `, the same as in ${lastYear}`;
+      out.push({ emoji: diff > 0 && before ? '📈' : '🩺', text: `${text}.`, score: 10 + Math.abs(diff) * 8 + n });
+    } else if (before && diff) {
+      const who = isMe(p) ? 'Your' : `${personName(p)}'s`;
+      out.push({
+        emoji: diff > 0 ? '📈' : '📉',
+        text: `${who} ${type} visits went ${diff > 0 ? 'up' : 'down'} from ${before} in ${lastYear} to ${n} ${yearWord}.`,
+        score: 10 + Math.abs(diff) * 8,
+      });
+    } else if (n >= 2) {
+      out.push({ emoji: '🩺', text: `${personName(p)} had ${n} ${type} visits ${yearWord}.`, score: 8 + n });
+    }
+  }
+
+  // 2. Total spend compared with last year (only when both years have costs and it moved 10% or more).
+  const spend = sumCost(inYear);
+  const lastSpend = sumCost(inLastYear);
+  if (spend > 0 && lastSpend > 0) {
+    const pct = Math.round(((spend - lastSpend) / lastSpend) * 100);
+    if (Math.abs(pct) >= 10) {
+      out.push({
+        emoji: pct > 0 ? '💸' : '🌱',
+        text: `Medical spend is ${pct > 0 ? 'up' : 'down'} ${Math.abs(pct)}% ${yearWord} compared to ${lastYear}.`,
+        score: 15 + Math.min(Math.abs(pct), 100) / 4,
+      });
+    }
+  }
+
+  // 3. The kind of visit that cost the most, if it's a big share (needs 2+ visits of that kind).
+  const types = totalsBy(inYear, 'typeId').filter((t) => t.spend > 0 && t.count >= 2);
+  if (spend > 0 && types.length) {
+    const top = types.sort((a, b) => b.spend - a.spend)[0];
+    const share = Math.round((top.spend / spend) * 100);
+    if (share >= 40 && share < 100) {
+      out.push({
+        emoji: '🧾',
+        text: `${typeName(top.id)} visits were ${share}% of medical spend ${yearWord} (${formatMoney(top.spend)}).`,
+        score: 12 + share / 10,
+      });
+    }
+  }
+
+  // 4. Long gaps: a kind of visit someone has had 2+ times, but not in over 12 months.
+  const latest = new Map();
+  const everCounts = countMap(visits);
+  for (const v of visits) if (!latest.has(keyOf(v)) || v.date > latest.get(keyOf(v))) latest.set(keyOf(v), v.date);
+  for (const [key, date] of latest) {
+    if (everCounts.get(key) < 2) continue;
+    const months = monthsBetween(date, now);
+    if (months < 12) continue;
+    const [p, t] = key.split('|');
+    const whose = isMe(p) ? 'your' : `${personName(p)}'s`;
+    out.push({
+      emoji: '⏰',
+      text: `It's been ${months} months since ${whose} last ${lower(typeName(t))} visit.`,
+      score: 14 + Math.min(months - 12, 24),
+    });
+  }
+
+  // 5. Busiest months of the year (needs 4+ visits, and the busy stretch must hold half or more).
+  if (inYear.length >= 4) {
+    const perMonth = Array(12).fill(0);
+    inYear.forEach((v) => { perMonth[Number(v.date.slice(5, 7)) - 1] += 1; });
+    let best = { from: 0, to: 0, n: 0 };
+    perMonth.forEach((n, m) => {
+      if (n > best.n) best = { from: m, to: m, n };
+      if (m < 11 && n && perMonth[m + 1] && n + perMonth[m + 1] > best.n) best = { from: m, to: m + 1, n: n + perMonth[m + 1] };
+    });
+    const single = Math.max(...perMonth);
+    if (single * 2 >= inYear.length) best = { from: perMonth.indexOf(single), to: perMonth.indexOf(single), n: single };
+    if (best.n * 2 >= inYear.length && best.n >= 3) {
+      const when = best.from === best.to ? MONTHS[best.from] : `${MONTHS[best.from]}–${MONTHS[best.to]}`;
+      out.push({ emoji: '📅', text: `Most visits ${yearWord} happened in ${when} (${best.n} of ${inYear.length}).`, score: 13 });
+    }
+  }
+
+  return out.sort((a, b) => b.score - a.score).slice(0, 5);
+}
+
+function highlightsCard(args) {
+  const items = highlights(args);
+  return card({ title: '💡 Highlights', module: 'medical', children: [items.length
+    ? el('div', { className: 'stack' }, items.map((h) => el('div', { className: 'highlight' }, [
+      el('span', { className: 'highlight__emoji', 'aria-hidden': 'true', text: h.emoji }),
+      el('p', { className: 'highlight__text', text: h.text }),
+    ])))
+    : el('p', { className: 'progress-note', text: 'Highlights will appear here once you have at least 2 visits of the same kind.' })] });
 }
 
 // Rows = visit types, columns = people, cells = number of visits. Only those with visits that year.

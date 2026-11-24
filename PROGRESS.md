@@ -1279,3 +1279,22 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - None found. The plain-language insight cards come in MED-6.
+
+## MED-6: Medical highlights (24 Nov 2026)
+**Built**
+- New **💡 Highlights** card on the 🩺 Medical log's 📊 Insights tab, just under the year picker.
+  It shows up to 5 short sentences worked out from simple rules (no AI, nothing new saved):
+  - Visits of one kind compared with last year, e.g. "You had 5 general physician visits this year,
+    4 more than in 2025." or "Son's paediatrician visits went down from 6 in 2025 to 2 this year."
+  - Medical spend up or down by 10% or more compared with last year.
+  - One kind of visit that made up 40% or more of the year's spend.
+  - Long gaps: "It's been 14 months since your last dentist visit." (only for kinds of visit had 2+ times).
+  - Busiest months: "Most visits this year happened in July–August (4 of 8)." (needs 4+ visits that year).
+- Each rule only shows with enough data (at least 2 visits of that kind). The most useful ones (biggest
+  changes, longest gaps) come first. With too little data the card says highlights will appear later.
+- Follows the chosen year ("this year" for the current year, "in 2025" for a past year).
+- Small highlight bubble style added to `core/styles.css`. No change to saved data, no new files.
+- Checked at 375px in light and dark with made-up test visits; no sideways scrolling, no errors.
+
+**Known issues**
+- None found.
