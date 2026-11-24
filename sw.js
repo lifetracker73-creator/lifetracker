@@ -4,7 +4,7 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 9;
+const CACHE_VERSION = 10;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
 
 // Laptop testing address (not the live link). Phones and the live link keep using saved copies first.
@@ -27,8 +27,13 @@ const FILES = [
   './core/charts.js',
   './core/xlsx.js',
   './core/notify.js',
+  './core/appearance.js',
   './core/vendor/chart.umd.min.js',
   './core/fonts/Nunito-Variable.ttf',
+  './core/fonts/Quicksand-Variable.ttf',
+  './core/fonts/Comfortaa-Variable.ttf',
+  './core/fonts/Lexend-Variable.ttf',
+  './core/fonts/Lora-Variable.ttf',
 
   // modules
   './water/index.js',

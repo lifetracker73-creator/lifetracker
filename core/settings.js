@@ -3,6 +3,56 @@
 import { card, button, input, el, toast } from './ui.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
+import { MODES, THEMES, FONTS, getAppearance, setAppearance } from './appearance.js';
+
+// 🎨 Appearance: light/dark/auto, 3 calm colour themes and 5 fonts. Changes show at once.
+function appearanceCard() {
+  const groups = [];
+  function group(key, options, title, makeContent, extraClass = '') {
+    const grid = el('div', { className: `appearance-choices ${extraClass}`, role: 'group', 'aria-label': title });
+    for (const opt of options) {
+      const b = el('button', {
+        type: 'button',
+        className: 'btn btn--secondary appearance-choice',
+        onClick: () => { setAppearance({ [key]: opt.value }); paint(); },
+      }, makeContent(opt));
+      b.dataset.value = opt.value;
+      grid.append(b);
+    }
+    groups.push({ key, grid });
+    return el('div', { className: 'field' }, [el('div', { className: 'field__label', text: title }), grid]);
+  }
+  function paint() {
+    const now = getAppearance();
+    for (const { key, grid } of groups) {
+      grid.querySelectorAll('.appearance-choice').forEach((b) => {
+        const on = b.dataset.value === now[key];
+        b.classList.toggle('btn--primary', on);
+        b.classList.toggle('btn--secondary', !on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+    }
+  }
+  const note = (text) => el('span', { className: 'appearance-choice__note', text });
+  const body = el('div', { className: 'stack' }, [
+    group('mode', MODES, 'Light or dark', (o) => [el('span', { text: `${o.emoji} ${o.label}` })], 'appearance-choices--modes'),
+    el('p', { className: 'muted', text: 'Auto follows your phone. The ☀️/🌙 button at the top switches quickly too.' }),
+    group('theme', THEMES, 'Colour theme', (o) => [
+      el('span', { className: `appearance-swatches appearance-swatches--${o.value}`, 'aria-hidden': 'true' }, [el('span'), el('span'), el('span')]),
+      el('span', { text: `${o.emoji} ${o.label}` }),
+      note(o.note),
+    ]),
+    group('font', FONTS, 'Font', (o) => [
+      el('span', { className: `font-sample--${o.value}`, text: o.label }),
+      note(o.note),
+    ]),
+  ]);
+  paint();
+  // Keep the highlighted choice right when the ☀️/🌙 button at the top is tapped.
+  const repaint = () => (body.isConnected ? paint() : document.removeEventListener('appearancechange', repaint));
+  document.addEventListener('appearancechange', repaint);
+  return card({ title: '🎨 Appearance', children: [body] });
+}
 
 // 🔔 Notifications (CORE-9): shows if they're on, a "Turn on" button and "Send a test".
 function notificationsCard() {
@@ -142,6 +192,7 @@ export async function render(root) {
   });
 
   root.append(
+    appearanceCard(),
     card({
       title: '☁️ Google Sync',
       children: [

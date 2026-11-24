@@ -101,7 +101,7 @@ function readTheme(holder) {
   const muted = cssVar(holder, '--color-text-muted');
   const ink = cssVar(holder, '--color-on-accent');
   const surface = cssVar(holder, '--color-surface');
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = document.documentElement.dataset.mode === 'dark';
   return {
     accent,
     surface,
@@ -314,15 +314,15 @@ async function makeChart(box, type, config) {
   });
   canvas.setAttribute('aria-label', describe(state.labels, valuesList(), format));
 
-  // Redraw in the new colours when the phone switches light/dark mode.
-  const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+  // Redraw in the new colours when light/dark, the colour theme or the font changes.
+
   const retheme = () => {
     theme = readTheme(box);
     chart.data.datasets = datasetsFor(theme);
     chart.options = optionsFor(theme);
     chart.update('none');
   };
-  scheme.addEventListener('change', retheme);
+  document.addEventListener('appearancechange', retheme);
 
   return {
     update(next = {}) {
@@ -334,7 +334,7 @@ async function makeChart(box, type, config) {
       canvas.setAttribute('aria-label', describe(state.labels, valuesList(), format));
     },
     destroy() {
-      scheme.removeEventListener('change', retheme);
+      document.removeEventListener('appearancechange', retheme);
       chart.destroy();
       box.replaceChildren();
     },

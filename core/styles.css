@@ -11,6 +11,37 @@
   font-display: swap;
 }
 
+/* Extra fonts you can pick in Settings → Appearance (same free licence, see core/fonts/OFL.txt).
+   The phone only loads the one that's in use. */
+@font-face {
+  font-family: "Quicksand";
+  src: url("fonts/Quicksand-Variable.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comfortaa";
+  src: url("fonts/Comfortaa-Variable.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lexend";
+  src: url("fonts/Lexend-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("fonts/Lora-Variable.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
 
@@ -83,8 +114,47 @@
   --bounce: 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Calm colour themes (Settings → Appearance). "Lavender calm" is the default above.
+   Only the background, cards, text and main colour change; module pastels stay the same.
+   (These come before the dark blocks so dark mode wins over them.) */
+:root[data-theme="ocean"] {
+  --color-bg: #f2f7fa;            /* misty morning sky */
+  --color-surface: #ffffff;
+  --color-surface-2: #e7f1f7;
+  --color-text: #1f2d3a;
+  --color-text-muted: #56697a;
+  --color-primary: #b8dcef;       /* soft sea blue */
+  --color-primary-hover: #a2d0ea;
+  --color-on-accent: #1d2a36;
+  --color-link: #2c6a8f;
+  --color-focus: #4a8fb8;
+  --shadow-card: 0 6px 20px rgba(70, 110, 140, 0.12), 0 1px 3px rgba(70, 110, 140, 0.08);
+  --shadow-button: 0 3px 10px rgba(70, 110, 140, 0.18);
+  --shadow-nav: 0 -4px 20px rgba(70, 110, 140, 0.12);
+  --color-backdrop: rgba(31, 45, 58, 0.35);
+}
+:root[data-theme="forest"] {
+  --color-bg: #f4f8f1;            /* morning mist over leaves */
+  --color-surface: #ffffff;
+  --color-surface-2: #eaf2e6;
+  --color-text: #25302a;
+  --color-text-muted: #5a6a5e;
+  --color-primary: #c3e2bf;       /* soft sage */
+  --color-primary-hover: #b0d8ab;
+  --color-on-accent: #1f2b22;
+  --color-link: #3b7547;
+  --color-focus: #5b9a66;
+  --shadow-card: 0 6px 20px rgba(80, 112, 84, 0.12), 0 1px 3px rgba(80, 112, 84, 0.08);
+  --shadow-button: 0 3px 10px rgba(80, 112, 84, 0.18);
+  --shadow-nav: 0 -4px 20px rgba(80, 112, 84, 0.12);
+  --color-backdrop: rgba(37, 48, 42, 0.35);
+}
+
+/* Dark mode. core/appearance.js sets data-mode on <html> from the phone setting
+   or from the ☀️/🌙 button (index.html sets it from the phone setting before anything shows). */
+:root[data-mode="light"] { color-scheme: light; }
+:root[data-mode="dark"] {
+    color-scheme: dark;
     --color-bg: #1c1a24;
     --color-surface: #262331;
     --color-surface-2: #322e40;
@@ -116,8 +186,43 @@
     --accent-reading: #c1d6b0;
     --accent-medical: #e6b5b5;
     --color-primary: #bcaae6;
-  }
 }
+:root[data-theme="ocean"][data-mode="dark"] {
+  --color-bg: #141c22;            /* deep night sea */
+  --color-surface: #1c262e;
+  --color-surface-2: #27333c;
+  --color-text: #eaf3f8;
+  --color-text-muted: #a8bccb;
+  --color-primary: #a6cbe0;
+  --color-primary-hover: #bad8ea;
+  --color-link: #a2d0ea;
+  --color-focus: #a2d0ea;
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-button: 0 3px 10px rgba(0, 0, 0, 0.35);
+  --shadow-nav: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  --color-backdrop: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme="forest"][data-mode="dark"] {
+  --color-bg: #161c18;            /* quiet forest night */
+  --color-surface: #1f2721;
+  --color-surface-2: #2a332c;
+  --color-text: #eef4ec;
+  --color-text-muted: #b0c1b1;
+  --color-primary: #afd0ab;
+  --color-primary-hover: #c1dcbd;
+  --color-link: #b3d9ad;
+  --color-focus: #b3d9ad;
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-button: 0 3px 10px rgba(0, 0, 0, 0.35);
+  --shadow-nav: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  --color-backdrop: rgba(0, 0, 0, 0.55);
+}
+
+/* Font choices (Settings → Appearance). Nunito is the default above. */
+:root[data-font="quicksand"] { --font-family: "Quicksand", "Nunito", ui-rounded, system-ui, sans-serif; }
+:root[data-font="comfortaa"] { --font-family: "Comfortaa", "Nunito", ui-rounded, system-ui, sans-serif; }
+:root[data-font="lexend"] { --font-family: "Lexend", "Nunito", system-ui, sans-serif; }
+:root[data-font="lora"] { --font-family: "Lora", Georgia, "Noto Serif", serif; }
 
 /* Module accent classes */
 .mod-water { --accent: var(--accent-water); }
@@ -789,7 +894,8 @@ textarea.input {
 /* Google Sync (SHEETS-SYNC): status icon in the title bar, its pop-up, and the Settings screen */
 a.btn { text-decoration: none; }
 
-.sync-status {
+.sync-status,
+.mode-toggle {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -810,8 +916,56 @@ a.btn { text-decoration: none; }
   touch-action: manipulation;
   transition: transform var(--bounce);
 }
-.sync-status:active { transform: scale(0.92); transition-duration: 80ms; }
+.sync-status:active,
+.mode-toggle:active { transform: scale(0.92); transition-duration: 80ms; }
 .sync-status[hidden] { display: none; }
+.sync-status:not([hidden]) + .mode-toggle { margin-left: 0; }
+.mode-toggle { padding: 0; font-size: var(--font-size-md); }
+
+/* Settings → Appearance: choices for mode, colour theme and font */
+.appearance-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+.appearance-choices--modes { grid-template-columns: repeat(3, 1fr); }
+.appearance-choice {
+  flex-direction: column;
+  height: auto;
+  padding: var(--space-3);
+  text-align: center;
+  line-height: 1.3;
+  white-space: normal;
+}
+.appearance-choice__note {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  opacity: 0.8;
+}
+.appearance-swatches { display: inline-flex; gap: var(--space-1); }
+.appearance-choice { border-radius: var(--radius-lg); }
+.appearance-swatches span {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+/* Little colour dots that preview each theme (background, card tint, main colour) */
+.appearance-swatches--lavender span:nth-child(1) { background: #fff8f3; }
+.appearance-swatches--lavender span:nth-child(2) { background: #f6f1fb; }
+.appearance-swatches--lavender span:nth-child(3) { background: #cdb8ff; }
+.appearance-swatches--ocean span:nth-child(1) { background: #f2f7fa; }
+.appearance-swatches--ocean span:nth-child(2) { background: #e7f1f7; }
+.appearance-swatches--ocean span:nth-child(3) { background: #b8dcef; }
+.appearance-swatches--forest span:nth-child(1) { background: #f4f8f1; }
+.appearance-swatches--forest span:nth-child(2) { background: #eaf2e6; }
+.appearance-swatches--forest span:nth-child(3) { background: #c3e2bf; }
+/* Each font choice is shown in its own font */
+.font-sample--nunito { font-family: "Nunito", ui-rounded, system-ui, sans-serif; }
+.font-sample--quicksand { font-family: "Quicksand", system-ui, sans-serif; }
+.font-sample--comfortaa { font-family: "Comfortaa", system-ui, sans-serif; }
+.font-sample--lexend { font-family: "Lexend", system-ui, sans-serif; }
+.font-sample--lora { font-family: "Lora", Georgia, serif; }
 
 .more-settings { margin-top: var(--space-3); }
 
@@ -891,8 +1045,8 @@ a.btn { text-decoration: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .notify-banner { animation: none; }
-  .sync-status { transition: none; }
-  .sync-status:active { transform: none; }
+  .sync-status, .mode-toggle { transition: none; }
+  .sync-status:active, .mode-toggle:active { transform: none; }
 }
 
 /* Progress bar (WTR-2): soft rounded track with a pastel fill in the module colour */

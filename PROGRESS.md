@@ -1220,3 +1220,23 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Some phone photo formats (e.g. HEIC) may not open in the browser; then a message asks for JPG/PNG.
 - The ⏳ / ☁️ labels in an open form update the next time the screen is opened.
 - CORE-7 (Backup) must decide how to include these files (they can make the backup big).
+
+## Appearance: light/dark button, 3 calm themes, 5 fonts (24 Nov 2026)
+**Built**
+- ☀️/🌙 button in the title bar on every screen: one tap switches between light and dark.
+- Settings → 🎨 **Appearance** (first card): Light or dark (📱 Auto follows the phone, ☀️ Light, 🌙 Dark),
+  3 calm colour themes (🪻 Lavender calm, the original look and the default; 🌊 Ocean breeze, misty blues;
+  🌿 Forest mist, soft sage greens), each with its own gentle night version, and 5 fonts shown in their
+  own style (Nunito default, Quicksand, Comfortaa, Lexend, Lora). Changes show at once and are saved.
+- Module pastels (water blue, food peach…) stay the same in every theme. Charts redraw in the new
+  colours and font. The phone's top bar colour follows the theme.
+- 4 free fonts saved in `core/fonts/` (about 700 KB, same free licence; their copyright lines added
+  to `OFL.txt`), so everything works offline. New file `core/appearance.js`.
+- Saved data: one new settings row "appearance" `{ mode, theme, font }`. Settings are never synced.
+- `sw.js`: new files added, `CACHE_VERSION` 9 → 10.
+- Checked at 375px in light and dark: all choices, the top button, staying after reload, a chart
+  redrawing, no sideways scrolling, no errors.
+
+**Known issues**
+- If you force a mode different from the phone's, the phone's colours may flash for a split second
+  when the app opens, before your choice applies.

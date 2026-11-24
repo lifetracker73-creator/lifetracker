@@ -13,6 +13,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Lifetracker">
   <link rel="stylesheet" href="core/styles.css">
+  <!-- Start in the phone's light/dark setting; core/appearance.js then applies your saved choice. -->
+  <script>
+    document.documentElement.dataset.mode =
+      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  </script>
 </head>
 <body>
   <!-- App shell (CORE-3): title bar, screen area, bottom menu bar and the "More" panel. -->
@@ -21,6 +26,7 @@
       <span id="screen-badge"></span>
       <h1 id="screen-title" class="app-header__title" tabindex="-1">Lifetracker</h1>
       <button id="sync-status" class="sync-status" type="button" aria-haspopup="dialog" hidden></button>
+      <button id="mode-toggle" class="mode-toggle" type="button"></button>
     </div>
   </header>
   <main id="app" class="page app-main"></main>
@@ -34,6 +40,20 @@
     import { getSettings } from './core/storage.js';
     import { today, currentHour, formatDate } from './core/dates.js';
     import { startSync, onStatus, syncNow } from './core/sync.js';
+    import { startAppearance, setAppearance, isDark } from './core/appearance.js';
+
+    // ☀️/🌙 button in the title bar: switches between light and dark.
+    // (Settings → Appearance also has "Auto", colour themes and fonts.)
+    const modeToggle = document.getElementById('mode-toggle');
+    function paintModeToggle() {
+      const dark = isDark();
+      modeToggle.textContent = dark ? '☀️' : '🌙';
+      modeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+    document.addEventListener('appearancechange', paintModeToggle);
+    modeToggle.addEventListener('click', () => setAppearance({ mode: isDark() ? 'light' : 'dark' }));
+    paintModeToggle();
+    startAppearance();
 
     // Modules on the bottom bar; the rest sit in the "More" panel.
     const barModules = ['water', 'food', 'money', 'tasks'];
