@@ -85,7 +85,7 @@
     function tile(key) {
       return el('a', { className: `tile mod-${key}`, href: `#/${key}` }, [
         el('span', { className: 'tile__emoji', 'aria-hidden': 'true', text: modules[key].emoji }),
-        el('span', { text: modules[key].label }),
+        el('span', { className: 'tile__label', text: modules[key].label }),
       ]);
     }
 
@@ -314,8 +314,8 @@
         summaryCard(),
         readingBanner(),
         todaySection(menu.order),
-        installSlot,
         tiles,
+        installSlot, // REFINE-8: at the very end of Home
         quickAdd(menu.order),
       );
       fillTileStats(tiles);

@@ -1524,3 +1524,18 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The phone gets this at the final "release".
+
+## REFINE-8: Equal Home cards, Install button at the end (25 Nov 2026)
+**Built**
+- 📅 Today cards are all one size: each keeps room for its name, main line, small line and a progress bar
+  (blank when there's none). Long lines end with "…" (the full text shows on a long-press/hover).
+- Section tiles are all one size: each keeps a line for its live number (blank until there is one), and
+  names and numbers stay on one line with "…".
+- The "📲 Install app" button moved to the very end of Home, after the tiles (still only shows when the phone offers it).
+- No saved data changed. No new files. Cache version 22.
+- Checked at 360px in light and dark mode with a test water entry (deleted afterwards): every Today card 124px,
+  every tile 137px, Install button last and clear of the menu bar, no sideways scrolling, no errors.
+
+**Known issues**
+- The floating "+" button can sit over the right end of the Install button while scrolling (it floats on top).
+- The phone gets this at the final "release".

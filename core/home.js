@@ -11,14 +11,16 @@ const FOOD_DEFAULT_TARGETS = { kcal: 2000, proteinG: 60 };
 const isBlank = (v) => v === null || v === undefined || v === '';
 
 // One tappable card: emoji bubble, module name, main line, small line, optional bar.
+// REFINE-8: every card keeps room for all four lines (blank ones stay empty), and long lines end
+// with "…", so all Today cards are exactly the same size.
 function todayCard(key, { main, sub = '', bar = null, empty = false }) {
-  return el('a', { className: `card today-card mod-${key}${empty ? ' today-card--empty' : ''}`, href: `#/${key}` }, [
+  return el('a', { className: `card today-card mod-${key}${empty ? ' today-card--empty' : ''}`, href: `#/${key}`, title: [main, sub].filter(Boolean).join(' · ') }, [
     badge(key),
     el('div', { className: 'today-card__body' }, [
       el('span', { className: 'today-card__label', text: modules[key].label }),
       el('span', { className: 'today-card__main', text: main }),
-      sub ? el('span', { className: 'muted today-card__sub', text: sub }) : null,
-      bar,
+      el('span', { className: 'muted today-card__sub', text: sub || ' ' }),
+      bar || el('div', { className: 'today-card__bar-space', 'aria-hidden': 'true' }),
     ]),
   ]);
 }
@@ -336,9 +338,12 @@ export function fillTileStats(grid) {
   const day = today();
   for (const tileEl of grid.querySelectorAll('.tile')) {
     const key = tileEl.getAttribute('href').replace('#/', '');
+    // REFINE-8: every tile keeps a line for its number (blank until there is one), so all tiles are one size.
+    const stat = el('span', { className: 'tile__stat', text: ' ' });
+    tileEl.append(stat);
     if (!TILE_STATS[key]) continue;
     TILE_STATS[key](day).then((text) => {
-      if (text) tileEl.append(el('span', { className: 'tile__stat', text }));
+      if (text) { stat.textContent = text; stat.title = text; }
     }).catch((err) => console.error(err));
   }
 }

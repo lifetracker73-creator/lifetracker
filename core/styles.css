@@ -776,6 +776,9 @@ textarea.input {
 .home-banner-slot:empty { display: none; }
 .home-banner { color: inherit; text-decoration: none; }
 .tile__stat { font-size: var(--font-size-sm); font-weight: var(--font-weight-normal); }
+/* REFINE-8: one line each (long ones end with "…"), so every tile is the same size */
+.tile__label, .tile__stat { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile__label + .tile__stat { margin-top: calc(var(--space-3) * -1 + var(--space-1)); }
 .fab {
   position: fixed;
   right: max(var(--page-gutter), env(safe-area-inset-right));
@@ -842,6 +845,14 @@ textarea.input {
 .today-card--empty .today-card__main { font-weight: normal; }
 .today-card__sub { overflow-wrap: anywhere; }
 .today-card .progress { height: 10px; margin-top: var(--space-1); }
+/* REFINE-8: one line each (long ones end with "…") and a space where a card has no bar,
+   so every Today card is the same size. */
+.today-card__label, .today-card__main, .today-card__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.today-card__bar-space { height: 10px; margin-top: var(--space-1); }
 
 .install-slot:empty {
   display: none;
