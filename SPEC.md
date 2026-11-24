@@ -209,7 +209,8 @@ for a guaranteed alert.
 
 ## READING: check-in every 3rd day and weekly reflection
 **Book:** `title`, `author`, `totalPages`, `format` (paper / ebook / audio), `status`
-(reading / paused / finished / dropped), `startDate`, `finishDate` (optional), `rating` (1 to 5, optional).
+(reading / wishlist / paused / finished / dropped), `startDate`, `finishDate` (optional), `rating` (1 to 5, optional).
+A wishlist book has no `startDate`, and its `totalPages` is optional.
 
 **Check-in (every 3rd day):** `date`, `bookId`, `currentPage`, `minutesRead` (optional), `note` (optional).
 The app shows "Check-in due" when 3 or more days have passed since the last check-in.

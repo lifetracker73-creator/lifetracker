@@ -778,3 +778,26 @@
   repeat, notes), the file download, no sideways scrolling. Pretend task removed (this preview had an empty Google Sync waiting list, and it is empty again).
 - Known issue: the release secret scan only allows certain links, so `calendar.google.com` in `tasks/index.js`
   needs to be on the allowed list (CLAUDE.md) or the release will stop on it.
+
+## RDG-1: Books (24 Nov 2026)
+**Built**
+- 📚 Reading screen: "Add a book" card (title, author, total pages, format 📖 paper / 📱 ebook / 🎧 audio,
+  "Add to" Reading now or Wishlist, start date filled with today). Title is needed; pages are needed except
+  for the wishlist and must be a whole number from 1 to 20,000.
+- Lists: **Reading now**, **Wishlist** (asked for by you; each book has a "Start" button that moves it to
+  Reading now with today's start date), **Finished** (finish date and ⭐ rating shown), and **Paused & dropped**
+  (only shows when it has books).
+- Tap a book to edit it: every detail, any status, start date, and (when Finished) finish date and optional
+  1–5 ⭐ rating. Dates fill in with today when a status needs them; dates can't be in the future and the
+  finish date can't be before the start. "Delete book" in the edit box, or the bin on the row, with Undo.
+- Saved data: uses the existing books store; one new status value, "wishlist" (SPEC.md updated). No change
+  to how data is stored, no new files, so the offline list stays the same. Copied to the "Reading" tab of
+  Google Sheets like everything else.
+- Checked at 360px in light and dark mode with pretend books: all errors, wishlist → Start, edit to Finished
+  with rating, paused, delete + Undo, long Hindi title, no sideways scrolling. Pretend books removed (this
+  preview's Google Sync waiting list was empty and is empty again).
+
+**Known issues**
+- Long titles are cut short with "…" in the lists (same as other screens); tap the book to see it all.
+- A wishlist book started without a page count asks for pages the next time you edit and save it.
+- The phone gets this at the final "release".
