@@ -1018,3 +1018,29 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - The usual test servers on this laptop weren't running, so testing used a temporary one on port 8771 (stopped).
   Two pretend foods may be left in the old test browser at localhost:8765 (test browser only, not your data).
 - The phone gets this at the final "release".
+
+## FOOD-3: Today's macros (24 Nov 2026)
+**Built**
+- 🍱 Food screen, new **Today's macros** card (between "Log food" and "Food log"): calories, protein, carbs, fat and
+  fibre, each as "42.5 g of 60 g" with a soft peach bar, the % and "17.5 g to go", "Target reached 🎉" or
+  "20 g over target" (gentle, no red). It follows the day shown in the food log: going back with ◀ changes the title
+  to "Macros · 23 Nov 2026".
+- Unknown values: if some foods logged have a value left blank, the total says "at least 8 g" with a short note
+  explaining it; if none of them have it, it says "Unknown". Blank is never counted as zero.
+- **Totals per meal**: each meal heading in the food log shows "405 kcal · 12.5 g protein" ("405+ kcal" if some
+  foods have no value, "?" if none do).
+- New **My daily targets** card (below the food log): 5 boxes, two per line. Suggested 2,000 kcal, 60 g protein,
+  250 g carbs, 65 g fat, 30 g fibre until you save your own. Leave a box empty for no target. "2,500" is read as
+  2500. Friendly messages: not a number, 0 or less, under 500 kcal, over 10,000 kcal or 1,000 g.
+- Saved data: food settings get `targets` (settings are never sent to Google Sheets). Nothing existing changed.
+  SPEC.md updated. No new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with 2 pretend entries, one with fibre left blank (removed afterwards,
+  with their waiting Google Sync changes; test targets removed too): totals checked by hand, "at least", over
+  target, every error message, targets kept after reload, previous day, all boxes ≥ 44px, no sideways scrolling.
+
+**Known issues**
+- Targets will also appear in the Settings screen when CORE-8 is built.
+- In the food log (and other food boxes) "12,5" still means 12.5; only the targets boxes read the comma as thousands.
+- The usual test servers on this laptop belong to other chats, so testing used the old test browser at
+  localhost:8765. It still has 2 pretend foods (Poha, Milk) waiting for Google Sync there (test browser only).
+- The phone gets this at the final "release".

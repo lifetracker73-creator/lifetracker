@@ -8,11 +8,12 @@
 // FOOD-2: Log food: pick a food from the library (search, recent, favourites), choose the meal and
 //         how much. Each log entry keeps its own copy of the nutrients for the amount eaten, so
 //         editing or deleting the food later never changes past days. Food log by day, edit/delete.
-import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
+// FOOD-3: My daily targets (food settings `targets`), day totals versus targets, totals per meal.
+import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, get, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
 } from '../core/storage.js';
-import { formatNumber, formatKcal } from '../core/format.js';
+import { formatNumber, formatKcal, formatG } from '../core/format.js';
 import {
   today, yesterday, addDays, nowTime, currentHour, formatDate, formatTime,
 } from '../core/dates.js';
@@ -189,6 +190,32 @@ function checkWhen(dateBox, timeBox) {
 }
 
 // "Today · 24 Nov 2026", "Yesterday · 23 Nov 2026" or "22 Nov 2026".
+// FOOD-3: daily targets (kept in food settings as `targets`; null = no target) and day totals.
+const TARGET_MACROS = MACROS.slice(0, 5); // calories, protein, carbs, fat, fibre
+const DEFAULT_TARGETS = { kcal: 2000, proteinG: 60, carbsG: 250, fatG: 65, fibreG: 30 };
+const MAX_TARGET = { kcal: 10000, other: 1000 };
+const MIN_KCAL_TARGET = 500;
+const shortName = (n) => n.label.replace(/\s*\(.*\)$/, '');
+const amountOf = (key, n) => (key === 'kcal' ? formatKcal(n) : formatG(n));
+
+// Adds up one nutrient. Blank values are unknown: they're counted, never treated as zero.
+function sumNutrient(entries, key) {
+  let total = 0;
+  let unknown = 0;
+  entries.forEach((e) => { if (isBlank(e[key])) unknown += 1; else total += Number(e[key]); });
+  return { total, unknown, allUnknown: entries.length > 0 && unknown === entries.length };
+}
+
+// "405 kcal · 12.5 g protein" for a meal heading; "405+ kcal" when some foods have no value.
+function mealTotalText(rows) {
+  const num = (key) => {
+    const s = sumNutrient(rows, key);
+    if (s.allUnknown) return '?';
+    return `${formatNumber(key === 'kcal' ? Math.round(s.total) : s.total, 1)}${s.unknown ? '+' : ''}`;
+  };
+  return `${num('kcal')} kcal · ${num('proteinG')} g protein`;
+}
+
 function dayTitle(ymd) {
   if (ymd === today()) return `Today · ${formatDate(ymd)}`;
   if (ymd === yesterday()) return `Yesterday · ${formatDate(ymd)}`;
@@ -960,13 +987,94 @@ export async function render(root) {
         const rows = day.filter((x) => (x.meal || 'snack') === key);
         if (!rows.length) return null;
         return el('div', { className: 'list-group' }, [
-          el('h3', { className: 'list-group__title' }, [el('span', { text })]),
+          el('h3', { className: 'list-group__title' }, [el('span', { text }), el('span', { text: mealTotalText(rows) })]),
           list(rows.map(logRow)),
         ]);
       }).filter(Boolean));
     }
+    showMacros(day);
     if (!picked) refreshPicker();
   }
+
+  // ---- Today's macros (FOOD-3): totals for the day shown in the food log versus targets ----
+  let targets = (await getSettings('food', { targets: DEFAULT_TARGETS })).targets || {};
+  const macrosBox = el('div', { className: 'stack' });
+  const macrosNote = el('p', { className: 'progress-note' });
+  let macrosTitle = null; // the card's title, which follows the day shown in the food log
+
+  function showMacros(day) {
+    if (macrosTitle) {
+      macrosTitle.textContent = shownDay === today() ? "Today's macros" : `Macros · ${formatDate(shownDay)}`;
+    }
+    let anyUnknown = false;
+    macrosBox.replaceChildren(...TARGET_MACROS.map((n) => {
+      const s = sumNutrient(day, n.key);
+      const target = targets[n.key] > 0 ? targets[n.key] : null;
+      if (s.unknown && !s.allUnknown) anyUnknown = true;
+      let amount;
+      if (s.allUnknown) amount = 'Unknown';
+      else amount = `${s.unknown ? 'at least ' : ''}${amountOf(n.key, s.total)}${target ? ` of ${amountOf(n.key, target)}` : ''}`;
+      const right = target && !s.allUnknown ? `${Math.round((s.total / target) * 100)}%` : '';
+      let note;
+      if (s.allUnknown) note = `No ${shortName(n).toLowerCase()} info in the foods logged`;
+      else if (!target) note = 'No target set';
+      else if (s.total > target) note = `${amountOf(n.key, s.total - target)} over target`;
+      else if (s.total >= target - 0.05) note = 'Target reached 🎉';
+      else note = `${amountOf(n.key, target - s.total)} to go`;
+      const bar = target ? progressBar({ value: s.total, max: target, label: `${shortName(n)} toward your target` }) : null;
+      return el('div', {}, [
+        el('div', { className: 'progress-stats' }, [
+          el('strong', { text: shortName(n) }),
+          el('span', { className: 'progress-stats__percent', text: right }),
+        ]),
+        el('div', { className: 'list-item__title', text: amount }),
+        bar,
+        el('p', { className: 'progress-note', text: note }),
+      ]);
+    }));
+    macrosNote.textContent = anyUnknown
+      ? '"At least" means some foods you logged have that value left blank, so the real total may be higher.'
+      : '';
+    macrosNote.hidden = !anyUnknown;
+  }
+
+  // ---- My daily targets (FOOD-3) ----
+  const targetFields = TARGET_MACROS.map((n) => {
+    const f = input({
+      label: n.label, name: n.key, inputmode: 'decimal',
+      value: targets[n.key] > 0 ? String(targets[n.key]) : '',
+      placeholder: `e.g. ${DEFAULT_TARGETS[n.key]}`,
+    });
+    f.input.addEventListener('input', () => f.setError(''));
+    return f;
+  });
+  const targetsForm = el('form', { className: 'stack', novalidate: true }, [
+    el('p', { className: 'progress-note', text: 'Leave a box empty if you don\'t want a target for it.' }),
+    el('div', { className: 'field-grid' }, targetFields),
+    button({ label: 'Save targets', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  targetsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const next = {};
+    let ok = true;
+    TARGET_MACROS.forEach((n, i) => {
+      const f = targetFields[i];
+      // Targets are big round numbers, so a comma here is a thousands comma: "2,500" = 2500.
+      const v = parseNum(f.input.value.replace(/,/g, ''));
+      const max = n.key === 'kcal' ? MAX_TARGET.kcal : MAX_TARGET.other;
+      if (v === '') { next[n.key] = null; return; }
+      if (Number.isNaN(v)) f.setError('Please type a number, e.g. 60');
+      else if (v <= 0) f.setError('Please type more than 0, or leave it empty');
+      else if (n.key === 'kcal' && v < MIN_KCAL_TARGET) f.setError(`Please type at least ${MIN_KCAL_TARGET} kcal, or leave it empty`);
+      else if (v > max) f.setError(`That's a lot! Please type ${formatNumber(max)} or less`);
+      else { next[n.key] = round(v, 1); return; }
+      ok = false;
+    });
+    if (!ok) return;
+    targets = (await saveSettings('food', { targets: next })).targets;
+    toast({ message: 'Daily targets saved 🎯' });
+    showMacros(await listByDate('foodLog', shownDay));
+  });
 
   async function deleteLog(entry) {
     const removed = await remove('foodLog', entry.id);
@@ -984,12 +1092,16 @@ export async function render(root) {
   }
 
   buildAddForm();
+  const macrosCard = card({ title: "Today's macros", module: 'food', children: [macrosBox, macrosNote] });
+  macrosTitle = macrosCard.querySelector('.card__title > span:last-child');
   root.append(el('div', { className: 'mod-food stack' }, [
     card({ title: 'Log food', module: 'food', children: [logForm] }),
+    macrosCard,
     card({ title: 'Food log', module: 'food', children: [el('div', { className: 'stack' }, [
       el('div', { className: 'month-nav' }, [prevDay, dayLabel, nextDay]),
       logListBox,
     ])] }),
+    card({ title: 'My daily targets', module: 'food', children: [targetsForm] }),
     card({ title: 'Add a food', module: 'food', children: [addBox] }),
     card({ title: 'My foods', module: 'food', children: [el('div', { className: 'stack' }, [search, countLine, listBox])] }),
     card({ title: 'My extra nutrients', module: 'food', children: [el('div', { className: 'stack' }, [

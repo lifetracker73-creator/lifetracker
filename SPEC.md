@@ -167,6 +167,8 @@ plus `extraNutrients`, and the entry also keeps `foodName`, `servingName`, `serv
 (total grams eaten), so it still shows correctly if the food is later changed or deleted.
 
 **Settings:** daily targets for kcal, protein, carbs, fat, fibre and any micros the user chooses.
+Added in FOOD-3: `targets` ({ kcal, proteinG, carbsG, fatG, fibreG }; null = no target), suggested
+2,000 kcal, 60 g protein, 250 g carbs, 65 g fat, 30 g fibre until the user saves their own.
 
 | Code | Unit |
 |---|---|
