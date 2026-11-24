@@ -42,17 +42,25 @@ function checkDate(date) {
 // "Ravi owes you" / "You owe Ravi"
 const headline = (loan) => (loan.direction === 'borrowed' ? `You owe ${loan.person}` : `${loan.person} owes you`);
 
-// Two pill buttons: I lent / I borrowed.
-function directionPick(selected, onChange) {
+// REFINE-6: how the money moved. Saved as `paymentMode` on an entry and on each repayment
+// (entries saved before REFINE-6 have none, and simply show no mode).
+const PAY_MODES = [
+  { key: 'cash', label: '💵 Cash' },
+  { key: 'online', label: '📱 Online' },
+];
+const modeText = (key) => PAY_MODES.find((m) => m.key === key)?.label || '';
+
+// Two pill buttons: I lent / I borrowed (or, with `options`, Cash / Online).
+function directionPick(selected, onChange, options = DIRECTIONS, label = 'Lent or borrowed') {
   let chosen = selected;
-  const box = el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Lent or borrowed' });
+  const box = el('div', { className: 'btn-row', role: 'group', 'aria-label': label });
   const paint = () => box.querySelectorAll('.btn').forEach((b) => {
     const on = b.dataset.key === chosen;
     b.classList.toggle('btn--primary', on);
     b.classList.toggle('btn--secondary', !on);
     b.setAttribute('aria-pressed', String(on));
   });
-  for (const d of DIRECTIONS) {
+  for (const d of options) {
     const b = button({ label: d.label, variant: 'secondary', onClick: () => { chosen = d.key; paint(); onChange?.(chosen); } });
     b.dataset.key = d.key;
     box.append(b);
@@ -72,6 +80,7 @@ function loanFields(values = {}, peopleListId) {
   if (peopleListId) person.input.setAttribute('list', peopleListId);
   person.input.setAttribute('autocomplete', 'off');
   const amount = input({ label: 'Amount (₹)', name: 'amount', inputmode: 'decimal', value: values.amount ?? '', placeholder: 'e.g. 500' });
+  const payPick = directionPick(values.paymentMode || 'online', null, PAY_MODES, 'Paid by');
   const date = input({ label: 'Date', name: 'date', type: 'date', value: values.date ?? today(), max: today() });
   const due = input({ label: 'Back by (optional)', name: 'dueDate', type: 'date', value: values.dueDate ?? '' });
   const note = input({ label: 'Note (optional)', name: 'note', value: values.note ?? '', placeholder: 'e.g. train tickets' });
@@ -80,7 +89,11 @@ function loanFields(values = {}, peopleListId) {
 
   return {
     person, amount,
-    elements: [dirPick, person, amount, el('div', { className: 'field-grid' }, [date, due]), note],
+    elements: [
+      dirPick, person, amount,
+      el('div', { className: 'field' }, [el('div', { className: 'field__label', text: 'Paid by' }), payPick]),
+      el('div', { className: 'field-grid' }, [date, due]), note,
+    ],
     read(minAmount = 0) {
       const name = cleanText(person.input.value);
       person.setError(name ? '' : 'Type a name, e.g. Ravi');
@@ -93,7 +106,7 @@ function loanFields(values = {}, peopleListId) {
       due.setError(dueError);
       if (!name || error || dateError || dueError) return null;
       return {
-        direction, person: name, amountPaise: paise, date: date.input.value,
+        direction, person: name, amountPaise: paise, paymentMode: payPick.value(), date: date.input.value,
         dueDate: due.input.value || '', note: cleanText(note.input.value),
       };
     },
@@ -134,8 +147,10 @@ export async function render(root) {
     const word = loan.direction === 'lent' ? 'Got back' : 'Paid back';
     const amt = input({ label: `${word} (₹)`, name: 'backAmount', inputmode: 'decimal', value: amountText(left(loan)) });
     const day = input({ label: 'On', name: 'backDate', type: 'date', value: today(), max: today() });
+    const payPick = directionPick(loan.paymentMode || 'online', null, PAY_MODES, 'Paid by');
     const f = el('form', { className: 'stack', novalidate: true }, [
       el('div', { className: 'field-grid' }, [amt, day]),
+      el('div', { className: 'field' }, [el('div', { className: 'field__label', text: 'Paid by' }), payPick]),
       button({ label: loan.direction === 'lent' ? '✅ Got it back' : '✅ Paid it back', variant: 'primary', type: 'submit', block: true }),
     ]);
     f.addEventListener('submit', async (e) => {
@@ -147,7 +162,7 @@ export async function render(root) {
       day.setError(dateError);
       if (error || dateError) return;
       const before = loan.repayments || [];
-      const saved = await update('loans', loan.id, { repayments: [...before, { date: day.input.value, amountPaise: paise }] });
+      const saved = await update('loans', loan.id, { repayments: [...before, { date: day.input.value, amountPaise: paise, paymentMode: payPick.value() }] });
       const done = left(saved) === 0;
       if (done) openId = null;
       await refresh();
@@ -163,7 +178,7 @@ export async function render(root) {
   function editForm(loan) {
     const f = loanFields({
       direction: loan.direction, person: loan.person, amount: amountText(loan.amountPaise),
-      date: loan.date, dueDate: loan.dueDate, note: loan.note,
+      date: loan.date, dueDate: loan.dueDate, note: loan.note, paymentMode: loan.paymentMode,
     }, peopleListId);
     const formEl = el('form', { className: 'stack', novalidate: true }, [
       ...f.elements,
@@ -201,6 +216,7 @@ export async function render(root) {
   function subtitle(loan) {
     const back = paidBack(loan);
     const parts = [formatDate(loan.date)];
+    if (loan.paymentMode) parts.push(modeText(loan.paymentMode));
     if (loan.note) parts.push(loan.note);
     if (left(loan) === 0) {
       const last = (loan.repayments || []).map((r) => r.date).sort().pop();
@@ -232,7 +248,7 @@ export async function render(root) {
           el('div', { className: 'list-group__title' }, [el('span', { text: loan.direction === 'lent' ? 'Money back' : 'Paid back' })]),
           list(loan.repayments.map((r, i) => listItem({
             title: formatMoney(r.amountPaise),
-            subtitle: formatDate(r.date),
+            subtitle: [modeText(r.paymentMode), formatDate(r.date)].filter(Boolean).join(' · '),
             actions: [button({
               icon: 'trash', variant: 'ghost', ariaLabel: `Remove ${formatMoney(r.amountPaise)} on ${formatDate(r.date)}`,
               onClick: async () => {

@@ -1501,3 +1501,16 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - People in a group are names only (no contacts or phone numbers).
 - The phone gets this at the final "release".
+
+## REFINE-6: Cash / Online in 📒 Lent & borrowed (25 Nov 2026)
+**Built**
+- "Paid by" pill buttons, 💵 Cash or 📱 Online (Online picked first), on the add and edit form and on the
+  "Got it back" / "Paid it back" step. Shown in each entry's details and next to each repayment.
+- Saved as `paymentMode` ('cash' / 'online') on the entry and on each repayment. Entries saved before
+  simply show no mode; no saved data was changed. Google Sync / Excel get a "Payment mode" column by themselves.
+- No new files. Cache version 20.
+- Checked at 360px in dark mode with test entries (deleted afterwards): saved and shown correctly, old entry fine,
+  no sideways scrolling, no errors.
+
+**Known issues**
+- The phone gets this at the final "release".
