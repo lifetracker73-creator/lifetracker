@@ -32,7 +32,10 @@ const TABS = {
 };
 
 // Fields that point at another entry: shown in the Sheet by that entry's name.
-const LINKS = { category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books' };
+const LINKS = {
+  category: 'categories', foodId: 'foods', recipeId: 'recipes', bookId: 'books', bookIds: 'books',
+  personId: 'people', typeId: 'types', // Medical log: these two lists live in its settings (MED-2).
+};
 
 // Column names that the automatic naming would get wrong.
 const LABELS = {
@@ -41,6 +44,7 @@ const LABELS = {
   satFatG: 'Saturated fat (g)', vitAUg: 'Vitamin A (µg)', vitB12Ug: 'Vitamin B12 (µg)',
   vitCMg: 'Vitamin C (mg)', vitDUg: 'Vitamin D (µg)',
   howIUsedIt: 'How I used it',
+  personId: 'Person', typeId: 'Type', place: 'Doctor / clinic / lab', costPaise: 'Cost (₹)',
   lendType: 'Lent / gifted / borrowed', lendPerson: 'Person', lendDate: 'Lent / gifted on', lendBackDate: 'Back on',
 };
 const UNITS = { Paise: '₹', Ml: 'ml', Kg: 'kg', Cm: 'cm', Ug: 'µg', Mg: 'mg', G: 'g' };
@@ -127,6 +131,10 @@ async function loadNames() {
   // Your own food nutrients live in food settings (FOOD-1 extra).
   const { customMicros = [] } = await getSettings('food');
   names.extraNutrients = new Map(customMicros.map((c) => [c.id, `${c.name} (${c.unit})`]));
+  // Medical log people and visit types live in its settings (MED-1).
+  const { people = [], types = [] } = await getSettings('medical');
+  names.people = new Map(people.map((x) => [x.id, x.name]));
+  names.types = new Map(types.map((x) => [x.id, x.name]));
   return names;
 }
 

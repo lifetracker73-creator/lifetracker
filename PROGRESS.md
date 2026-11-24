@@ -1168,3 +1168,23 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - Settings aren't copied to Google Sheets; the Sheet will show names when visits are added (MED-2).
 - Removing uses Undo instead of an "Are you sure?" question, the same as the rest of the app.
+
+## MED-2: Add, edit and delete a visit (24 Nov 2026)
+**Built**
+- 🩺 Medical log screen now starts with an **Add a visit** card: date (today), who ("Me" first),
+  visit type, doctor / clinic / lab, cost in ₹ and a note. Only date, who and type are needed.
+- Doctor / clinic / lab suggests names you've used before while you type (newest first, no repeats).
+- Checks: no future dates, cost like 500 or 99.50 (or blank), place 80 letters at most.
+- A simple **Visits** list (newest first) shows type · person, date, place, note and cost.
+  Tap a visit to edit it (with a Delete button there too); 🗑️ deletes with Undo.
+- Renaming a person or type (MED-1 card) instantly updates the form and every visit in the list;
+  the visit counts in the People & visit types card update after each save or delete.
+- Google Sheets: the "Medical log" tab gets one row per visit with columns Date, Person, Type,
+  Doctor / clinic / lab, Cost (₹), Note, showing names instead of codes.
+- Saved data: visits go into the existing `visits` drawer as `{ date, personId, typeId, place,
+  costPaise, note }`. No change to existing data and no new files.
+
+**Known issues**
+- After renaming a person or type, rows already in the Google Sheet keep the old name until that
+  visit is changed again (or "🔄 Sync everything now" in Settings is tapped).
+- Filters, search and the big "+ Add visit" button come in MED-4; attachments in MED-3.
