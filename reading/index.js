@@ -5,12 +5,14 @@
 // "Check-in due" after 3 days, a book's check-ins in its edit box (edit/delete with Undo).
 // RDG-3: weekly reflection (Monday to Sunday, one per week). Moves to the top on a Sunday that has none yet;
 // form with books, key idea, how I used it, ⭐ rating and next week's goal; past reflections (edit/delete with Undo).
+// RDG-4: stats. Pages read per week chart (4/8/12 weeks), books finished this year, check-in streak.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import { add, update, remove, restore, list as listAll } from '../core/storage.js';
 import {
   today, formatDate, isoToKolkata, daysBetween, addDays, weekStart, isSunday,
 } from '../core/dates.js';
 import { formatNumber } from '../core/format.js';
+import { barChart } from '../core/charts.js';
 
 const FORMATS = [
   { value: 'paper', label: '📖 Paper' },
@@ -319,6 +321,39 @@ function starPicker(value = 0) {
   group.focus = () => buttons[0].focus();
   pick(value);
   return group;
+}
+
+// ---------- Stats helpers (RDG-4) ----------
+const STATS_WEEKS = [4, 8, 12];
+
+// Pages read at each check-in: how far it moved on from that book's check-in before
+// (the first check-in of a book counts from page 0; going back a page counts as 0).
+function pagesRead(checkins) {
+  const byBook = {};
+  for (const c of checkins) (byBook[c.bookId] ||= []).push(c);
+  const out = [];
+  for (const items of Object.values(byBook)) {
+    items.sort((a, b) => a.date.localeCompare(b.date));
+    let prev = 0;
+    for (const c of items) {
+      const page = Number(c.currentPage) || 0;
+      out.push({ date: c.date, pages: Math.max(0, page - prev) });
+      prev = page;
+    }
+  }
+  return out;
+}
+
+// Days with a check-in (any book) in a row, each no more than 3 days after the one before.
+// The streak is still alive while the latest check-in is within 3 days of today (`due` once it's 3 days).
+function checkinStreak(checkins) {
+  const days = [...new Set(checkins.map((c) => c.date))].filter((d) => d <= today()).sort().reverse();
+  if (!days.length) return { streak: 0, due: false };
+  const sinceLast = daysBetween(days[0], today());
+  if (sinceLast > DUE_AFTER_DAYS) return { streak: 0, due: false };
+  let streak = 1;
+  while (streak < days.length && daysBetween(days[streak], days[streak - 1]) <= DUE_AFTER_DAYS) streak += 1;
+  return { streak, due: sinceLast >= DUE_AFTER_DAYS };
 }
 
 export async function render(root) {
@@ -842,7 +877,7 @@ export async function render(root) {
           : '🌿 Weeks run Monday to Sunday. You\'ll get a nudge here on Sunday.';
     const top = sunday && !doneThisWeek;
     if (top) screen.prepend(reflectCard);
-    else screen.insertBefore(reflectCard, otherCard);
+    else screen.insertBefore(reflectCard, statsCard);
 
     const past = [...reflections].sort((a, b) => b.weekStart.localeCompare(a.weekStart));
     pastBox.replaceChildren(
@@ -859,6 +894,90 @@ export async function render(root) {
       reflectFields.reset();
     } else reflectFields.refreshBooks();
     syncSaveLabel();
+  }
+
+  // ---------- Stats (RDG-4) ----------
+  // Everything here is worked out on screen from books and check-ins; nothing is stored.
+  let statsWeeks = STATS_WEEKS[0];
+  let statsChart = null;
+  const statsChartBox = el('div', { className: 'chart-box' });
+  const statsWeekNote = el('p', { className: 'progress-note' });
+  const yearAmount = el('div', { className: 'progress-stats__amount' });
+  const yearNote = el('p', { className: 'progress-note' });
+  const streakNote = el('p', { className: 'progress-note' });
+  const weekButtons = STATS_WEEKS.map((n) => {
+    const btn = button({
+      label: String(n),
+      variant: n === statsWeeks ? 'primary' : 'secondary',
+      ariaLabel: `Show the last ${n} weeks`,
+      onClick: async () => {
+        statsWeeks = n;
+        weekButtons.forEach((b) => {
+          const on = b.dataset.weeks === String(n);
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        await fillStatsCard();
+      },
+    });
+    btn.dataset.weeks = String(n);
+    btn.setAttribute('aria-pressed', String(n === statsWeeks));
+    return btn;
+  });
+  const statsCard = card({ title: 'Stats', module: 'reading', children: [el('div', { className: 'stack' }, [
+    el('div', { className: 'stack' }, [
+      el('p', { className: 'progress-note', text: 'Pages read per week · weeks to show' }),
+      el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Weeks to show' }, weekButtons),
+    ]),
+    statsChartBox,
+    statsWeekNote,
+    el('div', {}, [yearAmount, yearNote]),
+    streakNote,
+  ])] });
+
+  async function fillStatsCard() {
+    const read = pagesRead(checkins);
+    // Pages per week (weeks start on Monday; each bar is labelled with its Monday).
+    const nowWeek = thisWeekStart();
+    const weeks = Array.from({ length: statsWeeks }, (_, i) => addDays(nowWeek, -7 * (statsWeeks - 1 - i)));
+    const perWeek = Object.fromEntries(weeks.map((w) => [w, 0]));
+    for (const r of read) {
+      const w = weekStart(r.date);
+      if (w in perWeek) perWeek[w] += r.pages;
+    }
+    const values = weeks.map((w) => perWeek[w] || null); // no pages = gap
+    const total = weeks.reduce((sum, w) => sum + perWeek[w], 0);
+    statsWeekNote.textContent = total
+      ? `${formatNumber(total)} pages in the last ${statsWeeks} weeks · about ${formatNumber(Math.round(total / statsWeeks))} a week. Bars are labelled with each week's Monday.`
+      : `No pages logged in the last ${statsWeeks} weeks yet. Check in to fill the chart 📖`;
+
+    // This year: books finished, pages read, average stars.
+    const year = today().slice(0, 4);
+    const finished = books.filter((b) => b.status === 'finished' && (b.finishDate || '').startsWith(year));
+    const rated = finished.filter((b) => b.rating);
+    const pagesYear = read.filter((r) => r.date.startsWith(year)).reduce((sum, r) => sum + r.pages, 0);
+    yearAmount.textContent = `📚 ${finished.length} book${finished.length === 1 ? '' : 's'} finished in ${year}`;
+    const yearParts = [`${formatNumber(pagesYear)} pages read this year`];
+    if (rated.length) {
+      const avg = rated.reduce((sum, b) => sum + b.rating, 0) / rated.length;
+      yearParts.push(`average ⭐ ${formatNumber(avg, 1)}`);
+    }
+    yearNote.textContent = yearParts.join(' · ');
+
+    // Check-in streak: days with a check-in, each within 3 days of the one before, up to now.
+    const { streak, due } = checkinStreak(checkins);
+    streakNote.textContent = streak === 0 ? 'Check in to start a streak 💪'
+      : `🔥 ${streak} check-in${streak === 1 ? '' : 's'} in a row on time${due ? ' · 📌 check in today to keep it going' : ''}`;
+
+    const config = { labels: weeks, values };
+    if (!statsChartBox.isConnected) return;
+    if (statsChart) (await statsChart).update(config);
+    else {
+      // Keep the promise so quick taps never draw a second chart.
+      statsChart = barChart(statsChartBox, { module: 'reading', ...config, format: (v) => `${formatNumber(v)} p.` });
+      await statsChart;
+    }
   }
 
   function fill(box, items, empty) {
@@ -884,6 +1003,7 @@ export async function render(root) {
     fill(otherBox, other, {});
     fillPeopleCard();
     fillReflectionCard();
+    await fillStatsCard();
   }
 
   const screen = el('div', { className: 'mod-reading stack' }, [
@@ -892,6 +1012,7 @@ export async function render(root) {
     card({ title: 'Add a book', module: 'reading', children: [addForm] }),
     card({ title: 'Wishlist', children: [wishBox] }),
     card({ title: 'Finished', children: [finishedBox] }),
+    statsCard,
     otherCard,
     card({ title: 'Lent, gifted & suggested', children: [peopleBox] }),
   ]);

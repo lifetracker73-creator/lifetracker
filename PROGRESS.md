@@ -902,3 +902,27 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Checked: 20,001 letters gives a friendly message in all three places; exactly 20,000 saves. Test data removed.
 - Known issue: going higher (Google Sheets' own limit is 50,000 per cell) would need a change to
   `google-apps-script/Code.gs` and pasting it into Google again by hand.
+
+## RDG-4: Reading stats (24 Nov 2026)
+**Built**
+- 📚 Reading screen: new "Stats" card (sage) under "Weekly reflection".
+- **Pages read per week:** bar chart with "weeks to show" pills 4, 8 and 12 (opens on 4). Weeks run Monday to
+  Sunday and each bar is labelled with its Monday ("9 Nov"). Pages come from check-ins: how far each check-in moved
+  on from that book's check-in before (a book's first check-in counts from page 0; going back counts as 0).
+  Under it: "320 pages in the last 4 weeks · about 80 a week", or a friendly message when there are none.
+- **This year:** "📚 1 book finished in 2026" (Finished books with a finish date this year), plus pages read this
+  year and the average ⭐ of those books (if any are rated).
+- **Check-in streak:** "🔥 8 check-ins in a row on time": days with a check-in (any book), each no more than 3 days
+  after the one before. It stays alive until a check-in is more than 3 days late; once one is due it adds
+  "📌 check in today to keep it going". With no streak: "Check in to start a streak 💪".
+- Updates straight away after check-ins, book changes, deletes and Undo. Worked out on screen; saved data unchanged,
+  no new files, so `sw.js` didn't need changing.
+- Checked at phone size (375px) in light and dark mode with 3 pretend books and 11 check-ins (removed afterwards,
+  with their waiting Google Sync changes; fresh test browser): numbers checked by hand for 4 and 12 weeks, this year,
+  streak, "due" note, streak broken, delete and Undo, empty state, buttons 44px, no sideways scrolling, no errors.
+
+**Known issues**
+- Pages are counted on the day of the check-in, so 3 days of reading logged in one check-in all land on that day
+  (and in that day's week).
+- A book read before you started using check-ins counts its first check-in's page as read that day.
+- The phone gets this at the final "release".
