@@ -801,3 +801,35 @@
 - Long titles are cut short with "…" in the lists (same as other screens); tap the book to see it all.
 - A wishlist book started without a page count asks for pages the next time you edit and save it.
 - The phone gets this at the final "release".
+
+## RDG-2: Check-ins (24 Nov 2026)
+**Built**
+- 📚 Reading screen: new "Check in" card at the top (above "Reading now"; "Add a book" moved below them, since
+  checking in is the everyday job). Pick a book you're reading now, then Date (today to start with), "Page I'm on",
+  optional minutes read and note. A line under the book shows "Last time: p. 60 of 300 · 20% · 5 days ago".
+  With no book on the go it says so instead.
+- Friendly messages for a page past the book's last page (or not a whole number), a future date, a date before
+  you started the book, and minutes that aren't 1–1,440.
+- One check-in per book per day: checking in again that day replaces the first ("Updated: p. 150 of 300 · 50% 📚").
+  Reaching the last page says "Last page! 🎉 Tap the book to mark it Finished."
+- "Reading now" rows: a sage progress bar from the latest check-in and a line "p. 150 of 300 · 50% · today"
+  (or "No check-ins yet"). "📌 Check-in due" shows when 3 or more days have passed since the last check-in
+  (or since the start date if there's none).
+- Tap a book: under its edit boxes, "📍 Check-ins" lists them newest first ("p. 75 of 300 · 25%",
+  "20 Nov 2026 · 20 min · Good start"). Tap one to edit it in place (can't move it onto a day that already has
+  one); 🗑️ deletes with Undo.
+- Deleting a book also deletes its check-ins; Undo brings both back.
+- Saved data: check-ins use the existing drawer with `date`, `bookId`, `currentPage`, `minutesRead` (or empty),
+  `note`, as in the spec. They copy to the "Reading" tab in Google Sheets (type "Check-in", book shown by name).
+  Nothing existing changed; no new files, so `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with pretend books and check-ins (removed afterwards, with their
+  waiting Google Sync changes; this was a fresh test browser): all error messages, save, same-day replace,
+  due note on and off, edit + clash message, delete + Undo, book delete + Undo, no sideways scrolling,
+  all boxes and buttons ≥ 44px, no errors.
+
+**Known issues**
+- Checking in again on the same day replaces everything for that day, so leaving minutes empty the second time
+  clears the minutes from the first.
+- Check-ins are for "Reading now" books only; paused or finished books' check-ins can still be seen and edited
+  by tapping the book.
+- The phone gets this at the final "release".
