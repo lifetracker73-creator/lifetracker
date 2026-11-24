@@ -211,6 +211,9 @@ for a guaranteed alert.
 **Book:** `title`, `author`, `totalPages`, `format` (paper / ebook / audio), `status`
 (reading / wishlist / paused / finished / dropped), `startDate`, `finishDate` (optional), `rating` (1 to 5, optional).
 A wishlist book has no `startDate`, and its `totalPages` is optional.
+Optional people details (added 24 Nov 2026, so I remember to give credit and get books back):
+`suggestedBy` (name), `lendType` ('' / lent / gifted / borrowed / gift), `lendPerson`, `lendDate`,
+`lendBackDate` (only for lent and borrowed). Shown in a "Lent, gifted & suggested" card.
 
 **Check-in (every 3rd day):** `date`, `bookId`, `currentPage`, `minutesRead` (optional), `note` (optional).
 The app shows "Check-in due" when 3 or more days have passed since the last check-in.

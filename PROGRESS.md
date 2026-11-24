@@ -833,3 +833,31 @@
 - Check-ins are for "Reading now" books only; paused or finished books' check-ins can still be seen and edited
   by tapping the book.
 - The phone gets this at the final "release".
+
+## RDG extra: lent, gifted & suggested books (24 Nov 2026)
+Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there were updated).
+**Built**
+- 📚 Reading, add form and every book's edit box: new optional "💡 Suggested by" name, and
+  "🤝 Lent, gifted or borrowed?" with No / 📤 Lent to / 🎁 Gifted to / 📥 Borrowed from / 💝 Gift from.
+  Choosing one shows a name box (labelled e.g. "Borrowed from (name)") and a date (today to start with);
+  Lent and Borrowed also get "Got it back on" / "Gave it back on" (optional). Friendly messages for a missing
+  name, a name over 60 letters, a future date, or a back date before the lend date.
+- Book rows show a people line, e.g. "💡 Suggested by Priya · 📤 Lent to Rahul · 20 Nov 2026".
+- New "Lent, gifted & suggested" card at the bottom, in groups (empty groups are hidden):
+  📤 With someone else ("Got it back" button), 📥 To give back ("Gave it back" button), 🎁 Gifts,
+  ↩️ Back home, and 💡 Suggested by (sorted by the person's name). Both buttons offer Undo.
+  Tapping a row opens that book's edit box and scrolls to it.
+- Saved data: books get 5 new optional fields: `suggestedBy`, `lendType`, `lendPerson`, `lendDate`,
+  `lendBackDate`. Older books simply have none (nothing to convert, no data changed). Google Sheets
+  "Reading" tab gets columns "Suggested by", "Lent / gifted / borrowed", "Person", "Lent / gifted on", "Back on"
+  (`core/sync.js` column names). No new files.
+- Also: "Nothing on the go" now says "Add a book below" (the add form moved below in RDG-2).
+- Checked at 360px in light and dark mode with pretend books (removed afterwards, with their waiting Google
+  Sync changes): add with each type, missing-name and back-date messages, Got it back + Undo, Gave it back via
+  edit, tapping a row opens the book, no sideways scrolling, all boxes and buttons ≥ 44px, no errors.
+
+**Known issues**
+- Only books in your lists can be lent or gifted; a book you never logged needs adding first (e.g. as Finished).
+- One lend/gift at a time per book: lending a book that was a gift replaces the "Gift from" details.
+- Lent/gifted types show in Google Sheets as lowercase words ("lent", "borrowed").
+- The phone gets this at the final "release".

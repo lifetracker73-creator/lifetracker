@@ -25,6 +25,16 @@ const RATINGS = [
   ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: '⭐'.repeat(n) })),
 ];
 const MAX_PAGES = 20000;
+const MAX_NAME = 60;
+// Lent, gifted or borrowed (extra, asked for after RDG-2). `who` is the label for the person's name box.
+const LEND_TYPES = [
+  { value: '', label: 'No' },
+  { value: 'lent', label: '📤 Lent to', who: 'Lent to', ask: 'who you lent it to', back: 'Got it back on (optional)' },
+  { value: 'gifted', label: '🎁 Gifted to', who: 'Gifted to', ask: 'who you gave it to' },
+  { value: 'borrowed', label: '📥 Borrowed from', who: 'Borrowed from', ask: 'who you borrowed it from', back: 'Gave it back on (optional)' },
+  { value: 'gift', label: '💝 Gift from', who: 'Gift from', ask: 'who gave it to you' },
+];
+const lendInfo = (type) => LEND_TYPES.find((x) => x.value === type && type);
 const formatEmoji = (f) => (FORMATS.find((x) => x.value === f)?.label || '📖').split(' ')[0];
 const show = (node, on) => { node.style.display = on ? '' : 'none'; };
 const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label.replace(/^\S+\s/, '') || s;
@@ -45,7 +55,27 @@ function bookFields(book = {}, statuses = STATUSES) {
   const start = input({ label: 'Started on', name: 'startDate', type: 'date', max: today(), value: book.startDate || '' });
   const finish = input({ label: 'Finished on', name: 'finishDate', type: 'date', max: today(), value: book.finishDate || '' });
   const rating = input({ label: 'Rating (optional)', name: 'rating', type: 'select', options: RATINGS, value: book.rating ? String(book.rating) : '' });
-  const all = [title, author, pages, format, status, start, finish, rating];
+  const suggested = input({ label: '💡 Suggested by (optional)', name: 'suggestedBy', value: book.suggestedBy || '' });
+  const lendType = input({
+    label: '🤝 Lent, gifted or borrowed?', name: 'lendType', type: 'select', options: LEND_TYPES, value: book.lendType || '',
+  });
+  const lendPerson = input({ label: 'Name', name: 'lendPerson', value: book.lendPerson || '' });
+  const lendDate = input({ label: 'On', name: 'lendDate', type: 'date', max: today(), value: book.lendDate || '' });
+  const lendBack = input({ label: 'Back on (optional)', name: 'lendBackDate', type: 'date', max: today(), value: book.lendBackDate || '' });
+  const all = [title, author, pages, format, status, start, finish, rating, suggested, lendType, lendPerson, lendDate, lendBack];
+
+  // Show the name, date and "back on" boxes only when they fit the lend choice.
+  function showForLend() {
+    const info = lendInfo(lendType.input.value);
+    [lendPerson, lendDate].forEach((f) => show(f, Boolean(info)));
+    show(lendBack, Boolean(info?.back));
+    if (!info) return;
+    lendPerson.querySelector('.field__label').textContent = `${info.who} (name)`;
+    if (info.back) lendBack.querySelector('.field__label').textContent = info.back;
+    if (!lendDate.input.value) lendDate.input.value = today();
+  }
+  lendType.input.addEventListener('change', showForLend);
+  showForLend();
 
   // Show only the boxes that fit the status, and fill in today's date when a date becomes needed.
   function showForStatus() {
@@ -98,6 +128,26 @@ function bookFields(book = {}, statuses = STATUSES) {
       data.finishDate = d;
       data.rating = rating.input.value ? Number(rating.input.value) : null;
     }
+    const by = suggested.input.value.trim();
+    if (by.length > MAX_NAME) return { error: [suggested, `Please keep the name under ${MAX_NAME} letters.`] };
+    data.suggestedBy = by;
+    Object.assign(data, { lendType: '', lendPerson: '', lendDate: null, lendBackDate: null });
+    const info = lendInfo(lendType.input.value);
+    if (info) {
+      const who = lendPerson.input.value.trim();
+      if (!who) return { error: [lendPerson, `Please type ${info.ask}.`] };
+      if (who.length > MAX_NAME) return { error: [lendPerson, `Please keep the name under ${MAX_NAME} letters.`] };
+      const d = lendDate.input.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { error: [lendDate, 'Please pick the date.'] };
+      if (d > today()) return { error: [lendDate, "The date can't be in the future."] };
+      Object.assign(data, { lendType: info.value, lendPerson: who, lendDate: d });
+      const back = info.back ? lendBack.input.value : '';
+      if (back) {
+        if (back > today()) return { error: [lendBack, "The date can't be in the future."] };
+        if (back < d) return { error: [lendBack, `This can't be before ${formatDate(d)}.`] };
+        data.lendBackDate = back;
+      }
+    }
     return { data };
   }
 
@@ -106,10 +156,12 @@ function bookFields(book = {}, statuses = STATUSES) {
     read,
     showError: ([field, message]) => { field.setError(message); field.input.focus(); },
     reset() {
-      [title, author, pages, start, finish].forEach((f) => { f.input.value = ''; });
+      [title, author, pages, start, finish, suggested, lendPerson, lendDate, lendBack].forEach((f) => { f.input.value = ''; });
       format.input.value = 'paper';
       rating.input.value = '';
+      lendType.input.value = '';
       showForStatus();
+      showForLend();
     },
   };
 }
@@ -122,6 +174,20 @@ function bookSubtitle(b) {
   else if (b.status === 'wishlist') parts.push(`Added ${formatDate(isoToKolkata(b.createdAt).slice(0, 10))}`);
   else if (b.startDate) parts.push(`Started ${formatDate(b.startDate)}`);
   return parts.join(' · ');
+}
+
+// "📤 Lent to Rahul · 20 Nov 2026" (or "↩️ … back 24 Nov 2026" once returned).
+function lendText(b) {
+  const info = lendInfo(b.lendType);
+  if (!info) return '';
+  const emoji = b.lendBackDate ? '↩️' : info.label.split(' ')[0];
+  const when = b.lendBackDate ? `back ${formatDate(b.lendBackDate)}` : formatDate(b.lendDate);
+  return `${emoji} ${info.who} ${b.lendPerson} · ${when}`;
+}
+
+// The people line under a book: who suggested it, and who it's lent to / from.
+function peopleText(b) {
+  return [b.suggestedBy ? `💡 Suggested by ${b.suggestedBy}` : '', lendText(b)].filter(Boolean).join(' · ');
 }
 
 // ---------- check-ins (RDG-2) ----------
@@ -208,6 +274,7 @@ export async function render(root) {
   const wishBox = el('div');
   const finishedBox = el('div');
   const otherBox = el('div');
+  const peopleBox = el('div', { className: 'stack' });
   const otherCard = card({ title: 'Paused & dropped', children: [otherBox] });
 
   // ---------- Add a book ----------
@@ -336,7 +403,7 @@ export async function render(root) {
         if (error) { fields.showError(error); return; }
         const clash = checkins.find((x) => x.bookId === book.id && x.date === data.date && x.id !== c.id);
         if (clash) {
-          fields.showError([fields.date,'This book already has a check-in on that day. Edit that one instead.']);
+          fields.showError([fields.date, 'This book already has a check-in on that day. Edit that one instead.']);
           return;
         }
         await update('checkins', c.id, data);
@@ -437,7 +504,67 @@ export async function render(root) {
       parts.push(last ? `${pageText(last.currentPage, book.totalPages)} · ${agoText(last.date)}` : 'No check-ins yet');
       main.append(el('div', { className: 'list-item__subtitle', text: parts.join(' · ') }));
     }
+    const people = peopleText(book);
+    if (people) row.querySelector('.list-item__main').append(el('div', { className: 'list-item__subtitle', text: people }));
     return row;
+  }
+
+  // ---------- Lent, gifted & suggested ----------
+  // Open a book's edit box from this card and scroll to it.
+  async function openBook(book) {
+    editingId = book.id;
+    editingCheckinId = null;
+    await refresh();
+    root.querySelector('.list-item [name="title"]')?.closest('.list-item')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function markBack(book) {
+    await update('books', book.id, { lendBackDate: today() });
+    toast({
+      message: book.lendType === 'lent' ? `Got “${book.title}” back from ${book.lendPerson} ✨` : `Gave “${book.title}” back to ${book.lendPerson} ✨`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await update('books', book.id, { lendBackDate: null });
+        if (readingBox.isConnected) await refresh();
+      },
+    });
+    await refresh();
+  }
+
+  function peopleRow(book, subtitle, action) {
+    return listItem({ title: book.title, subtitle, onClick: () => openBook(book), actions: action ? [action] : [] });
+  }
+
+  function fillPeopleCard() {
+    const lent = books.filter((b) => lendInfo(b.lendType));
+    const open = (type) => lent.filter((b) => b.lendType === type && !b.lendBackDate)
+      .sort((a, b) => a.lendDate.localeCompare(b.lendDate));
+    const sinceText = (b) => {
+      const d = daysBetween(b.lendDate, today());
+      return `${lendText(b)}${d > 0 ? ` · ${d} day${d === 1 ? '' : 's'} ago` : ''}`;
+    };
+    const groups = [
+      ['📤 With someone else', open('lent').map((b) => peopleRow(b, sinceText(b),
+        button({ label: 'Got it back', variant: 'secondary', ariaLabel: `Got ${b.title} back`, onClick: () => markBack(b) })))],
+      ['📥 To give back', open('borrowed').map((b) => peopleRow(b, sinceText(b),
+        button({ label: 'Gave it back', variant: 'secondary', ariaLabel: `Gave ${b.title} back`, onClick: () => markBack(b) })))],
+      ['🎁 Gifts', lent.filter((b) => b.lendType === 'gifted' || b.lendType === 'gift')
+        .sort((a, b) => b.lendDate.localeCompare(a.lendDate)).map((b) => peopleRow(b, lendText(b)))],
+      ['↩️ Back home', lent.filter((b) => b.lendBackDate)
+        .sort((a, b) => b.lendBackDate.localeCompare(a.lendBackDate)).map((b) => peopleRow(b, lendText(b)))],
+      ['💡 Suggested by', books.filter((b) => b.suggestedBy)
+        .sort((a, b) => a.suggestedBy.localeCompare(b.suggestedBy) || a.title.localeCompare(b.title))
+        .map((b) => peopleRow(b, `💡 ${b.suggestedBy}`))],
+    ].filter(([, rows]) => rows.length);
+    peopleBox.replaceChildren(...(groups.length
+      ? groups.map(([heading, rows]) => el('div', { className: 'stack' }, [
+        el('div', { className: 'list-group__title' }, [el('span', { text: heading }), el('span', { text: String(rows.length) })]),
+        list(rows),
+      ]))
+      : [emptyState({
+        emoji: '🤝', title: 'Nothing here yet',
+        text: 'Tap a book to note who suggested it, or who you lent it to, gifted it to or borrowed it from.',
+      })]));
   }
 
   function fill(box, items, empty) {
@@ -450,7 +577,7 @@ export async function render(root) {
     const newest = (field) => (a, b) => (b[field] || '').localeCompare(a[field] || '') || b.createdAt.localeCompare(a.createdAt);
     const of = (...statuses) => books.filter((b) => statuses.includes(b.status));
     fill(readingBox, of('reading').sort(newest('startDate')), {
-      emoji: '📖', title: 'Nothing on the go', text: 'Add a book above, or start one from your wishlist.',
+      emoji: '📖', title: 'Nothing on the go', text: 'Add a book below, or start one from your wishlist.',
     });
     fill(wishBox, of('wishlist').sort(newest('createdAt')), {
       emoji: '🌟', title: 'Wishlist is empty', text: 'Add books you want to read one day.',
@@ -461,6 +588,7 @@ export async function render(root) {
     const other = of('paused', 'dropped').sort(newest('startDate'));
     show(otherCard, other.length > 0);
     fill(otherBox, other, {});
+    fillPeopleCard();
   }
 
   root.append(el('div', { className: 'mod-reading stack' }, [
@@ -470,6 +598,7 @@ export async function render(root) {
     card({ title: 'Wishlist', children: [wishBox] }),
     card({ title: 'Finished', children: [finishedBox] }),
     otherCard,
+    card({ title: 'Lent, gifted & suggested', children: [peopleBox] }),
   ]));
 
   await refresh();

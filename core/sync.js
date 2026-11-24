@@ -41,6 +41,7 @@ const LABELS = {
   foodId: 'Food', recipeId: 'Recipe', bookId: 'Book', bookIds: 'Books', markerId: 'Marker',
   satFatG: 'Saturated fat (g)', vitAUg: 'Vitamin A (µg)', vitB12Ug: 'Vitamin B12 (µg)',
   vitCMg: 'Vitamin C (mg)', vitDUg: 'Vitamin D (µg)', refLow: 'Range low', refHigh: 'Range high',
+  lendType: 'Lent / gifted / borrowed', lendPerson: 'Person', lendDate: 'Lent / gifted on', lendBackDate: 'Back on',
 };
 const UNITS = { Paise: '₹', Ml: 'ml', Kg: 'kg', Cm: 'cm', Ug: 'µg', Mg: 'mg', G: 'g' };
 
