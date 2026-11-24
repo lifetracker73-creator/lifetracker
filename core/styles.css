@@ -666,6 +666,13 @@ textarea.input {
   line-height: 1;
 }
 
+/* REFINE-7: the "More" button's ☰ icon, same size as the emoji */
+.nav-item__emoji svg {
+  display: block;
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
 .nav-item.is-active {
   background: var(--accent, var(--color-primary));
   color: var(--color-on-accent);

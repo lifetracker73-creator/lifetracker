@@ -40,7 +40,7 @@
   <dialog id="sync-sheet" class="sheet" aria-labelledby="sync-title"></dialog>
 
   <script type="module">
-    import { el, badge, button, card, modules } from './core/ui.js';
+    import { el, badge, button, card, modules, icons } from './core/ui.js';
     import { startRouter } from './core/router.js';
     import { getSettings } from './core/storage.js';
     import { today, currentHour, formatDate, addDays } from './core/dates.js';
@@ -101,7 +101,9 @@
         : el('button', { ...attrs, type: 'button', 'aria-haspopup': 'dialog', onClick }, inner);
     }
 
-    const moreButton = navItem({ key: 'more', emoji: '🌈', label: 'More', onClick: () => sheet.showModal() });
+    const moreButton = navItem({ key: 'more', emoji: '', label: 'More', onClick: () => sheet.showModal() });
+    // REFINE-7: a plain ☰ (three lines) icon in the text colour instead of an emoji.
+    moreButton.querySelector('.nav-item__emoji').innerHTML = icons.menu;
     const moreGrid = el('div', { className: 'tile-grid' });
     // Draws the bottom bar and the More panel's tiles from your menu.
     function drawMenu() {

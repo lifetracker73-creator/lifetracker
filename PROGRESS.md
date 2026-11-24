@@ -1514,3 +1514,13 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The phone gets this at the final "release".
+
+## REFINE-7: Neutral "More" icon (25 Nov 2026)
+**Built**
+- The bottom "More" button shows a plain ☰ (three lines) drawn in the text colour instead of 🌈.
+  Same size and place; it still takes the colour of a More section while you're on one.
+- New `menu` icon in `core/ui.js`. No saved data changed. Cache version 21.
+- Checked at 360px in light and dark mode: icon shows, active colour works, no errors.
+
+**Known issues**
+- The phone gets this at the final "release".
