@@ -9,12 +9,12 @@
 // MED-3: Photos & PDFs on a visit. Photos are shrunk on the phone; files are saved in the storage "files"
 // drawer and the visit keeps only a short list `attachments: [{ id, name, type, size, url }]`.
 // sync.js uploads them to Drive and fills in `url` (the Sheet shows only the links).
-import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
+import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   list as listAll, add, update, remove, restore, getSettings, saveSettings,
   saveFile, getFile, listFiles, removeFiles,
 } from '../core/storage.js';
-import { today, formatDate } from '../core/dates.js';
+import { today, formatDate, daysBetween } from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
 
 const DEFAULT_PEOPLE = ['Me'];
@@ -700,7 +700,7 @@ export async function render(root) {
   }
   showAddForm(false);
 
-  root.append(el('div', { className: 'mod-medical stack' }, [
+  const logView = el('div', { className: 'stack' }, [
     addButton,
     addCard,
     card({ title: 'Visits', children: [el('div', { className: 'stack' }, [searchField, filterSelects, filterNote, visitBox])] }),
@@ -713,5 +713,193 @@ export async function render(root) {
         types,
       ])],
     }),
+  ]);
+
+  // ---- Insights (MED-5): worked out on screen from the visits each time the tab opens ----
+  const insightsView = el('div', { className: 'stack' });
+  let insightYear = today().slice(0, 4);
+
+  function drawInsights() {
+    insightsView.replaceChildren(...insightCards({ visits, lists, year: insightYear, personName, typeName, onYear: (y) => {
+      insightYear = y;
+      drawInsights();
+    } }));
+  }
+
+  // "Log" and "Insights" tab buttons at the top. The screen always opens on Log.
+  const tabs = [['log', '📋 Log'], ['insights', '📊 Insights']].map(([key, label]) => {
+    const btn = button({ label, variant: key === 'log' ? 'primary' : 'secondary', onClick: () => showTab(key) });
+    btn.dataset.tab = key;
+    btn.setAttribute('aria-pressed', String(key === 'log'));
+    return btn;
+  });
+  function showTab(key) {
+    tabs.forEach((b) => {
+      const on = b.dataset.tab === key;
+      b.classList.toggle('btn--primary', on);
+      b.classList.toggle('btn--secondary', !on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    logView.hidden = key !== 'log';
+    insightsView.hidden = key !== 'insights';
+    if (key === 'insights') drawInsights();
+  }
+  showTab('log');
+
+  root.append(el('div', { className: 'mod-medical stack' }, [
+    el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Medical log view' }, tabs),
+    logView,
+    insightsView,
   ]));
+}
+
+// ---- Insights helpers (MED-5) ----
+
+// "today", "5 days ago", "3 months ago", "14 months ago", "2 years ago".
+function agoText(date, now = today()) {
+  const [y1, m1, d1] = date.split('-').map(Number);
+  const [y2, m2, d2] = now.split('-').map(Number);
+  const months = (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+  if (months < 1) {
+    const days = daysBetween(date, now);
+    if (days <= 0) return 'today';
+    return days === 1 ? 'yesterday' : `${days} days ago`;
+  }
+  if (months < 24) return months === 1 ? '1 month ago' : `${months} months ago`;
+  return `${Math.floor(months / 12)} years ago`;
+}
+
+// Adds up visits by a key (person or type): { id, spend, count, costCount }, biggest spend first.
+function totalsBy(visits, key) {
+  const map = new Map();
+  for (const v of visits) {
+    const t = map.get(v[key]) || { id: v[key], spend: 0, count: 0, costCount: 0 };
+    t.count += 1;
+    if (v.costPaise != null) { t.spend += v.costPaise; t.costCount += 1; }
+    map.set(v[key], t);
+  }
+  return [...map.values()];
+}
+
+const sumCost = (visits) => visits.reduce((s, v) => s + (v.costPaise || 0), 0);
+
+// A list of names with an amount and a small bar sized against the biggest one.
+function barList(rows, nameOf, label) {
+  const top = Math.max(...rows.map((r) => r.spend));
+  return list(rows.map((r) => {
+    const row = listItem({ title: nameOf(r.id), subtitle: visitsText(r.count), meta: formatMoney(r.spend) });
+    row.querySelector('.list-item__main').append(progressBar({ value: r.spend, max: top, label: `${label} ${nameOf(r.id)}` }));
+    return row;
+  }));
+}
+
+// All the Insights cards for one year.
+function insightCards({ visits, lists, year, personName, typeName, onYear }) {
+  if (!visits.length) {
+    return [card({ children: [emptyState({
+      emoji: '📊', title: 'No insights yet', text: 'Add visits on the Log tab and your insights will show here.',
+    })] })];
+  }
+  const years = [...new Set([today().slice(0, 4), year, ...visits.map((v) => v.date.slice(0, 4))])].sort().reverse();
+  const yearField = input({
+    label: 'Year', name: 'insightYear', type: 'select', value: year,
+    options: years.map((y) => ({ value: y, label: y })),
+  });
+  yearField.input.addEventListener('change', () => onYear(yearField.input.value));
+
+  const lastYear = String(Number(year) - 1);
+  const inYear = visits.filter((v) => v.date.startsWith(year));
+  const inLastYear = visits.filter((v) => v.date.startsWith(lastYear));
+  const spend = sumCost(inYear);
+  const lastSpend = sumCost(inLastYear);
+  let compare = `${lastYear}: ${formatMoney(lastSpend)}`;
+  if (inLastYear.length && spend !== lastSpend) {
+    compare += ` · ${formatMoney(Math.abs(spend - lastSpend))} ${spend > lastSpend ? 'more' : 'less'} this year`;
+  }
+
+  const cards = [card({ title: `Spend in ${year}`, module: 'medical', children: [el('div', { className: 'stack' }, [
+    yearField,
+    el('div', { className: 'progress-stats__amount', text: formatMoney(spend) }),
+    el('p', { className: 'progress-note', text: `${visitsText(inYear.length)} in ${year}` }),
+    el('p', { className: 'progress-note', text: inLastYear.length ? compare : `No visits in ${lastYear}.` }),
+  ])] })];
+
+  if (!inYear.length) {
+    cards.push(card({ children: [emptyState({
+      emoji: '🗓️', title: `No visits in ${year}`, text: 'Pick another year above.',
+    })] }));
+  } else {
+    const byPerson = totalsBy(inYear, 'personId').filter((t) => t.spend > 0).sort((a, b) => b.spend - a.spend);
+    const byType = totalsBy(inYear, 'typeId');
+    const spentTypes = byType.filter((t) => t.spend > 0).sort((a, b) => b.spend - a.spend);
+    const noCosts = el('p', { className: 'progress-note', text: `No costs entered for ${year} yet.` });
+    cards.push(
+      card({ title: '👪 Spend by person', children: [byPerson.length ? barList(byPerson, personName, 'Spend for') : noCosts] }),
+      card({ title: '🏥 Spend by type', children: [spentTypes.length ? barList(spentTypes, typeName, 'Spend on') : noCosts.cloneNode(true)] }),
+      card({ title: `🔢 Visits in ${year}`, children: [countTable(inYear, lists, personName, typeName)] }),
+    );
+    const withCost = byType.filter((t) => t.costCount > 0).sort((a, b) => b.spend / b.costCount - a.spend / a.costCount);
+    cards.push(card({ title: '🧾 Average cost per visit', children: [withCost.length
+      ? el('div', { className: 'stack' }, [
+        el('p', { className: 'progress-note', text: 'Only visits with a cost are counted.' }),
+        list(withCost.map((t) => listItem({
+          title: typeName(t.id),
+          subtitle: `from ${visitsText(t.costCount)} with a cost`,
+          meta: formatMoney(Math.round(t.spend / t.costCount)),
+        }))),
+      ])
+      : el('p', { className: 'progress-note', text: `No costs entered for ${year} yet.` })] }));
+  }
+
+  cards.push(card({ title: '⏰ Last visit', children: [lastVisits(visits, lists, personName, typeName)] }));
+  return cards;
+}
+
+// Rows = visit types, columns = people, cells = number of visits. Only those with visits that year.
+function countTable(visits, lists, personName, typeName) {
+  const order = (items, ids) => [
+    ...items.filter((x) => ids.has(x.id)).map((x) => x.id),
+    ...[...ids].filter((id) => !items.some((x) => x.id === id)), // visits whose person/type was removed
+  ];
+  const personIds = order(lists.people, new Set(visits.map((v) => v.personId)));
+  const typeIds = order(lists.types, new Set(visits.map((v) => v.typeId)));
+  const count = (p, t) => visits.filter((v) => v.personId === p && v.typeId === t).length;
+  const table = el('table', { className: 'count-table' }, [
+    el('thead', {}, [el('tr', {}, [
+      el('th', { scope: 'col', text: 'Type' }),
+      ...personIds.map((p) => el('th', { scope: 'col', text: personName(p) })),
+    ])]),
+    el('tbody', {}, typeIds.map((t) => el('tr', {}, [
+      el('th', { scope: 'row', text: typeName(t) }),
+      ...personIds.map((p) => {
+        const n = count(p, t);
+        return el('td', { className: n ? '' : 'count-table__zero', text: n ? String(n) : '–' });
+      }),
+    ]))),
+  ]);
+  return el('div', { className: 'count-table__wrap' }, [table]);
+}
+
+// For each person, each kind of visit they've had and how long ago the latest one was (all years).
+function lastVisits(visits, lists, personName, typeName) {
+  const latest = new Map(); // "person|type" -> newest visit
+  for (const v of visits) {
+    const k = `${v.personId}|${v.typeId}`;
+    if (!latest.has(k) || v.date > latest.get(k).date) latest.set(k, v);
+  }
+  const people = [...new Set(visits.map((v) => v.personId))]
+    .sort((a, b) => lists.people.findIndex((x) => x.id === a) - lists.people.findIndex((x) => x.id === b));
+  return el('div', { className: 'stack' }, [
+    el('p', { className: 'progress-note', text: 'Across all years, most recent first.' }),
+    ...people.map((p) => {
+      const rows = [...latest.values()].filter((v) => v.personId === p).sort((a, b) => b.date.localeCompare(a.date));
+      return el('div', { className: 'list-group' }, [
+        el('h3', { className: 'list-group__title' }, [el('span', { text: personName(p) })]),
+        list(rows.map((v) => listItem({
+          title: typeName(v.typeId),
+          subtitle: `Last visit ${agoText(v.date)} · ${formatDate(v.date)}`,
+        }))),
+      ]);
+    }),
+  ]);
 }

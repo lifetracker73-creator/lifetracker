@@ -1122,3 +1122,23 @@ a.btn { text-decoration: none; }
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
+
+/* Medical insights (MED-5): visit count table. Scrolls sideways inside its card if there are many people. */
+.count-table__wrap { overflow-x: auto; border-radius: var(--radius-md); }
+.count-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.count-table th, .count-table td {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  text-align: center;
+  white-space: nowrap;
+}
+.count-table thead th { background: var(--accent, var(--color-primary)); color: var(--color-on-accent); }
+.count-table tbody th { text-align: left; font-weight: var(--font-weight-bold); white-space: normal; }
+.count-table td { font-weight: var(--font-weight-bold); }
+.count-table td.count-table__zero { color: var(--color-text-muted); font-weight: var(--font-weight-normal); }

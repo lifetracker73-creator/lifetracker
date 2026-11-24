@@ -1258,3 +1258,24 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - None found. The Insights tab comes in MED-5.
+
+## MED-5: Medical insights (24 Nov 2026)
+**Built**
+- 🩺 Medical log now has two tabs at the top: **📋 Log** (the screen from MED-4, unchanged) and
+  **📊 Insights**. It always opens on Log.
+- Insights, worked out on screen each time the tab opens (nothing new is saved):
+  - **Spend in <year>**: a year picker (this year by default; only years with visits, plus this year),
+    the year's total, the number of visits, and last year's total with "₹X more / less this year".
+  - **Spend by person** and **Spend by type**: highest first, each with its visit count and a small rose bar.
+  - **Visits in <year>**: a table, types down the side and people across the top (– means none).
+    Only people and types with visits that year are shown; with many people it scrolls sideways inside its card.
+  - **Average cost per visit** for each type (only visits with a cost count).
+  - **Last visit**: for each person, every kind of visit they've had and how long ago the latest was
+    (e.g. "Last visit 14 months ago · 23 Sept 2025"). This one covers all years.
+- Friendly messages when there are no visits yet, none in the chosen year, or no costs entered.
+- Small table style added to `core/styles.css`. No change to saved data, no new files, so `sw.js` didn't change.
+- Checked at 375px in light and dark: tabs, year change, a year with no visits the year before,
+  table fits with no sideways page scrolling, no errors.
+
+**Known issues**
+- None found. The plain-language insight cards come in MED-6.
