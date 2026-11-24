@@ -27,6 +27,7 @@
       <h1 id="screen-title" class="app-header__title" tabindex="-1">Lifetracker</h1>
       <button id="sync-status" class="sync-status" type="button" aria-haspopup="dialog" hidden></button>
       <button id="mode-toggle" class="mode-toggle" type="button"></button>
+      <a id="settings-link" class="mode-toggle settings-link" href="#/settings" aria-label="Settings"><span aria-hidden="true">⚙️</span></a>
     </div>
   </header>
   <main id="app" class="page app-main"></main>
@@ -115,13 +116,9 @@
         button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => sheet.close() }),
       ]),
       moreGrid,
-      el('a', { className: 'btn btn--secondary btn--block more-settings', href: '#/settings' }, [
-        el('span', { 'aria-hidden': 'true', text: '⚙️' }),
-        el('span', { text: 'Settings' }),
-      ]),
     );
     sheet.addEventListener('click', (e) => {
-      if (e.target === sheet || e.target.closest('.tile, .more-settings')) sheet.close();
+      if (e.target === sheet || e.target.closest('.tile')) sheet.close();
     });
 
     // Google Sync status icon (SHEETS-SYNC): ✅ synced / ⏳ X waiting / ⚠️ problem.
@@ -294,7 +291,12 @@
     let currentScreen = '';
     function highlight(name) {
       currentScreen = name;
-      const activeKey = moreModules.includes(name) || name === 'settings' ? 'more' : name;
+      const activeKey = moreModules.includes(name) ? 'more' : name;
+      // ⚙️ in the title bar looks "pressed" while you're on Settings.
+      const settingsLink = document.getElementById('settings-link');
+      settingsLink.classList.toggle('is-active', name === 'settings');
+      if (name === 'settings') settingsLink.setAttribute('aria-current', 'page');
+      else settingsLink.removeAttribute('aria-current');
       for (const item of nav.querySelectorAll('.nav-item')) {
         const active = item.dataset.key === activeKey;
         item.classList.toggle('is-active', active);

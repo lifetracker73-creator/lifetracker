@@ -1401,3 +1401,15 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Quick add opens the module's screen; it doesn't open a separate pop-up form.
 - Like the Today cards, the summary refreshes when Home is opened again, not while it stays open.
 - The "+" button can sit over the right edge of a card while scrolling (it floats on top, as usual for this kind of button).
+
+## REFINE-1: Settings button in the title bar (25 Nov 2026)
+**Built**
+- A round ⚙️ button in the title bar, right after ☀️/🌙. The order is now: sync icon, dark mode, settings.
+  Tapping it opens Settings. It looks "pressed" (coloured) while you're on the Settings screen.
+- The ⚙️ Settings button at the bottom of the "More" panel is removed. The "More" menu button no longer
+  lights up on the Settings screen.
+- No new files and no saved data changed. Cache version 15 so phones pick up the change.
+- Checked at 375px: button order, tapping opens Settings, More panel has no Settings button, no errors.
+
+**Known issues**
+- None. The phone gets this at the final "release".

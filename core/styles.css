@@ -1042,6 +1042,10 @@ a.btn { text-decoration: none; }
 .sync-status[hidden] { display: none; }
 .sync-status:not([hidden]) + .mode-toggle { margin-left: 0; }
 .mode-toggle { padding: 0; font-size: var(--font-size-md); }
+/* ⚙️ Settings button, right after ☀️/🌙 */
+.mode-toggle + .settings-link { margin-left: var(--space-2); }
+.settings-link { text-decoration: none; }
+.settings-link.is-active { background: var(--color-primary); color: var(--color-on-accent); }
 
 /* Settings → Appearance: choices for mode, colour theme and font */
 .appearance-choices {
@@ -1088,7 +1092,6 @@ a.btn { text-decoration: none; }
 .font-sample--lexend { font-family: "Lexend", system-ui, sans-serif; }
 .font-sample--lora { font-family: "Lora", Georgia, serif; }
 
-.more-settings { margin-top: var(--space-3); }
 
 .sync-sheet__text { font-weight: var(--font-weight-bold); }
 .sync-sheet__when { margin-top: calc(var(--space-2) * -1); }
