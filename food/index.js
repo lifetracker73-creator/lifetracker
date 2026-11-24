@@ -20,6 +20,7 @@ import {
 } from '../core/storage.js';
 import { formatNumber, formatKcal, formatG } from '../core/format.js';
 import { barChart } from '../core/charts.js';
+import { buddyMood } from '../core/buddy.js';
 import {
   today, yesterday, addDays, nowTime, currentHour, formatDate, formatTime, dateRange,
 } from '../core/dates.js';
@@ -1436,7 +1437,20 @@ export async function render(root) {
   const macrosNote = el('p', { className: 'progress-note' });
   let macrosTitle = null; // the card's title, which follows the day shown in the food log
 
+  // 🍄 The buddy is hungry with nothing logged today and gets happier as calories reach the target (REFINE-3).
+  function feedBuddy(day) {
+    if (shownDay !== today()) return;
+    const kcal = sumNutrient(day, 'kcal').total;
+    const target = targets.kcal > 0 ? targets.kcal : null;
+    const share = target ? kcal / target : 1;
+    if (!day.length) buddyMood('hungry', '{name} is hungry! Log a meal 🍱');
+    else if (share < 0.5) buddyMood('okay', "Getting there… {name}'s tummy is still rumbling 🍙");
+    else if (share < 0.9) buddyMood('content', '{name} is feeling nicely fed 😊');
+    else buddyMood('happy', '{name} is full and happy! 🥰');
+  }
+
   function showMacros(day) {
+    feedBuddy(day);
     if (macrosTitle) {
       macrosTitle.textContent = shownDay === today() ? "Today's macros" : `Macros · ${formatDate(shownDay)}`;
     }

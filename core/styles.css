@@ -85,6 +85,10 @@
   --buddy-spot: #fff8f0;         /* cream spots and pom-pom */
   --buddy-feet: #ffd2b5;         /* peach */
   --buddy-line: #3b3347;         /* dark plum outline and eyes */
+  --buddy-white: #ffffff;        /* eye shine, bib, pillow */
+  --buddy-blush: #ff9fb6;        /* rosy cheeks and tongue */
+  --buddy-silver: #dfe1ec;       /* spoon, stethoscope */
+  --buddy-coin: #ffe27a;         /* gold ₹ coin */
 
   /* Spacing */
   --space-1: 4px;
@@ -1355,10 +1359,55 @@ a.btn { text-decoration: none; }
 .buddy__foot { fill: var(--buddy-feet); }
 .buddy__line { fill: none; }
 .buddy__pupil, .buddy__mouth { fill: var(--buddy-line); stroke: none; }
-.buddy__shine { fill: #ffffff; stroke: none; }
-.buddy__eyes-closed { display: none; }
-.buddy--sleepy .buddy__eyes-open { display: none; }
-.buddy--sleepy .buddy__eyes-closed { display: inline; }
+.buddy__shine { fill: var(--buddy-white); stroke: none; }
+/* Faces (REFINE-3) */
+.buddy__art .buddy__thick { stroke-width: 14; }
+.buddy__blush { fill: var(--buddy-blush); stroke: none; opacity: 0.8; }
+.buddy__mouth-big { fill: var(--buddy-line); }
+.buddy__tongue { fill: var(--buddy-blush); stroke: none; }
+.buddy__drop { fill: var(--accent-water); stroke-width: 6; }
+/* Outfits (REFINE-3): module pastels with the same outline */
+.buddy__fill-water { fill: var(--accent-water); }
+.buddy__fill-sleep { fill: var(--accent-sleep); }
+.buddy__fill-weight { fill: var(--accent-weight); }
+.buddy__fill-tasks { fill: var(--accent-tasks); }
+.buddy__fill-reading { fill: var(--accent-reading); }
+.buddy__fill-plaster { fill: var(--buddy-feet); }
+.buddy__fill-white { fill: var(--buddy-white); }
+.buddy__fill-silver { fill: var(--buddy-silver); }
+.buddy__fill-coin { fill: var(--buddy-coin); }
+.buddy__fill-dark { fill: var(--buddy-line); }
+.buddy__dot-food { fill: var(--accent-food); stroke: none; }
+.buddy__art .buddy__held * { stroke-width: 7; } /* drawn 1.35× bigger, so the outline matches */
+.buddy__art .buddy__held .buddy__tick { stroke-width: 10; }
+.buddy__art .buddy__rupee { fill: var(--buddy-line); stroke: none; font-family: var(--font-family); font-size: 68px; font-weight: 800; }
+.buddy__art .buddy__band { fill: none; stroke: var(--accent-weight); stroke-width: 30; }
+.buddy__art .buddy__band-edge { fill: none; stroke-width: 42; }
+.buddy__art .buddy__tube { fill: none; stroke: var(--accent-medical); stroke-width: 14; }
+.buddy__lens { fill: var(--buddy-white); fill-opacity: 0.18; }
+
+/* The buddy card at the top of each module screen (REFINE-3) */
+.buddy-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--accent, var(--color-surface));
+  box-shadow: var(--shadow-card);
+  color: var(--color-on-accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.buddy-card__say { flex: 1; min-width: 0; font-weight: var(--font-weight-bold); }
+.buddy-settings { display: flex; align-items: center; gap: var(--space-3); }
+.buddy-settings .settings-note { margin: 0; }
 
 /* Idle: gentle bob, a blink every few seconds, a little pom-pom wiggle */
 .buddy__body-group { transform-box: fill-box; transform-origin: 50% 100%; animation: buddy-bob 2.6s ease-in-out infinite; }

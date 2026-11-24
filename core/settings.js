@@ -7,6 +7,7 @@ import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
 import { MODES, THEMES, FONTS, getAppearance, setAppearance } from './appearance.js';
 import { backupCard } from './backup.js';
+import { buddy, getBuddyName, setBuddyName } from './buddy.js';
 
 // 👋 You: your name, used in the home greeting ("Good morning, Asha ☀️").
 async function profileCard() {
@@ -26,6 +27,30 @@ async function profileCard() {
     toast({ message: name ? `Hello, ${name} 👋` : 'Name cleared' });
   });
   return card({ title: '👋 You', children: [form] });
+}
+
+// 🍄 Your buddy (REFINE-3): give the doodle friend a name; it's used in its little messages.
+async function buddyCard() {
+  const nameField = input({
+    label: "Your buddy's name", name: 'buddyName', value: await getBuddyName(), placeholder: 'e.g. Mochi',
+  });
+  nameField.input.maxLength = 20;
+  const friend = buddy({ size: 72, face: 'content' });
+  friend.setAttribute('aria-hidden', 'true');
+  const form = el('form', { className: 'stack', novalidate: true }, [
+    el('div', { className: 'buddy-settings' }, [friend, el('p', { className: 'settings-note', text: 'Your little friend shows up on Home, on each section and when you reach a goal.' })]),
+    nameField,
+    button({ label: 'Save buddy name', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = nameField.input.value.trim().replace(/\s+/g, ' ');
+    nameField.input.value = name;
+    await setBuddyName(name);
+    friend.hop();
+    toast({ message: name ? `Hi, I'm ${name}! 🍄` : 'Buddy name cleared' });
+  });
+  return card({ title: '🍄 Your buddy', children: [form] });
 }
 
 // 🎯 Goals: the same saved values each module uses, so a change here shows there too.
@@ -409,9 +434,10 @@ export async function render(root) {
     },
   });
 
-  const [youCard, goals, menuBox] = await Promise.all([profileCard(), goalsCard(), menuCard()]);
+  const [youCard, buddyBox, goals, menuBox] = await Promise.all([profileCard(), buddyCard(), goalsCard(), menuCard()]);
   root.append(
     youCard,
+    buddyBox,
     goals,
     menuBox,
     appearanceCard(),

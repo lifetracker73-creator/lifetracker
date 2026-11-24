@@ -40,7 +40,7 @@
     import { startRouter } from './core/router.js';
     import { getSettings } from './core/storage.js';
     import { today, currentHour, formatDate, addDays } from './core/dates.js';
-    import { buddy } from './core/buddy.js';
+    import { buddy, withName } from './core/buddy.js';
     import { startSync, onStatus, syncNow } from './core/sync.js';
     import { startAppearance, setAppearance, isDark } from './core/appearance.js';
     import { getMenu } from './core/menu.js';
@@ -274,7 +274,7 @@
         onClick: () => {
           friend.hop();
           lineIndex = (lineIndex + 1) % BUDDY_LINES.length;
-          say.textContent = sleepy() ? 'Zzz… sweet dreams 🌙' : BUDDY_LINES[lineIndex];
+          say.textContent = withName(sleepy() ? '{name}: Zzz… sweet dreams 🌙' : `{name} says: ${BUDDY_LINES[lineIndex]}`);
         },
       }, [friend]);
       getSettings('sleep', { pendingBedTime: null })
@@ -292,7 +292,7 @@
         if (streak <= logged) return; // nothing logged today yet
         cheeredStreakOn = today();
         friend.hop();
-        say.textContent = `🔥 ${streak} days in a row! Yay!`;
+        say.textContent = withName(`{name}: 🔥 ${streak} days in a row! Yay!`);
       }).catch((err) => console.error(err));
 
       root.append(

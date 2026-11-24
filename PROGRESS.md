@@ -1432,3 +1432,27 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - The streak cheer can show again if the app is fully closed and reopened the same day.
 - The phone gets this at the final "release".
+
+## REFINE-3: Name your buddy, outfits and faces for each section (25 Nov 2026)
+**Built**
+- **Name**: Settings → 🍄 Your buddy, with a name box (e.g. "Mochi"). The name is used in its messages
+  ("Mochi says: Proud of you ✨", "Mochi is cheering! 💧 Water goal reached"). No name = "your buddy".
+  Saved as a new setting `buddy` ({ name }); nothing else in saved data changed.
+- **Outfits**: 💧 water drop, 😴 eye mask and pillow, ⚖️ headband and dumbbell, 🍱 bib and spoon, 💸 gold ₹ coin,
+  ✅ clipboard with a tick, 📚 round glasses and a book, 🩺 stethoscope and a plaster.
+- **Faces**: calm, okay, content (smile and rosy cheeks), happy (happy eyes, big smile), hungry (sad brows,
+  open mouth, drool), thirsty (sad brows, sweat drop), worried (wavy mouth, sweat drop).
+- **Buddy card at the top of every section**, in that section's colour and outfit, with a short line. Tap it to hop.
+  - 🍱 Food (today): hungry with nothing logged → "getting there" under 50% of the calorie target → fed under 90% → full and happy.
+  - 💧 Water: thirsty at 0 → sipping → more than halfway → happy at the goal.
+  - ✅ Tasks: calm → proud when something is done today → happy when nothing is left for today.
+  - 💸 Money (this month): calm with no budgets → happy inside every budget → worried when one goes over.
+  - Sleep, weight, reading and medical log: friendly face with their outfit.
+- Empty screens and cheer pop-ups use the outfit of the section you're on (hungry in Food, thirsty in Water).
+- No new files. Cache version 17.
+- Checked at 360px and 375px in light and dark mode with test meals, a test budget and expense and a test task
+  (all deleted afterwards): every outfit and face, the name in messages, no sideways scrolling, no errors.
+
+**Known issues**
+- The faces follow today's data when a section is opened or changed; they don't change on their own at midnight.
+- The phone gets this at the final "release".

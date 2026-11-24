@@ -8,6 +8,7 @@
 // e.g. ['history'] for "#/water/history". The module file loads only when first opened.
 
 import { modules, emptyState } from './ui.js';
+import { screenBuddy } from './buddy.js';
 
 /** The current address without "#/", split into parts. "#/water/history" -> ['water', 'history'] */
 export function currentPath() {
@@ -58,6 +59,8 @@ export function startRouter({ outlet, home, onChange, screens = {} }) {
       outlet.append(emptyState({ emoji: '😿', title: "Couldn't open this screen", text: 'Please try again.' }));
       return;
     }
+    // 🍄 A module screen starts with the buddy in that module's outfit (REFINE-3).
+    if (modules[name]) outlet.append(screenBuddy(name));
     try {
       await render(outlet, { path: rest });
     } catch (err) {

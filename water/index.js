@@ -7,7 +7,7 @@ import { add, remove, restore, list as listAll, listByDate, getSettings } from '
 import { today, yesterday, addDays, dateRange, nowTime, formatTime } from '../core/dates.js';
 import { formatMl } from '../core/format.js';
 import { barChart } from '../core/charts.js';
-import { celebrate } from '../core/buddy.js';
+import { celebrate, buddyMood } from '../core/buddy.js';
 
 const DEFAULTS = { dailyGoalMl: 2500, quickAmounts: [250, 500, 750] };
 const MAX_ML = 5000; // one entry above this is almost surely a typo
@@ -56,6 +56,11 @@ export async function render(root) {
     noteText.textContent = totalMl >= goalMl
       ? 'Goal reached! 🎉'
       : `${formatMl(goalMl - totalMl)} to go`;
+    // 🍄 Thirsty with no water today, happier as you get closer to the goal (REFINE-3).
+    if (totalMl <= 0) buddyMood('thirsty', '{name} is thirsty! A glass of water? 💧');
+    else if (totalMl >= goalMl) buddyMood('happy', '{name} is fully watered and happy! 💦');
+    else if (totalMl >= goalMl / 2) buddyMood('content', 'More than halfway! {name} feels fresh 💧');
+    else buddyMood('okay', '{name} is sipping along… keep going 💧');
   }
 
   // History (WTR-3): chart of daily totals plus the goal streak. Worked out on screen.
@@ -134,7 +139,7 @@ export async function render(root) {
     await add('water', { date: today(), time: nowTime(), amountMl });
     await refresh();
     // 🍄 The buddy cheers when this glass reaches today's goal (REFINE-2).
-    if (before < goalMl && shownTotal >= goalMl) celebrate('Water goal reached! 💧 Yay!');
+    if (before < goalMl && shownTotal >= goalMl) celebrate('{name} is cheering! 💧 Water goal reached');
   }
 
   async function deleteEntry(entry) {

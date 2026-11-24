@@ -18,6 +18,7 @@ import {
 import { formatMoney, parseMoney } from '../core/format.js';
 import { barChart } from '../core/charts.js';
 import { makeXlsx, saveFile } from '../core/xlsx.js';
+import { buddyMood } from '../core/buddy.js';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Food', icon: '🍔' },
@@ -668,6 +669,13 @@ export async function render(root) {
     const spentBy = new Map();
     for (const x of items) spentBy.set(x.category, (spentBy.get(x.category) || 0) + x.amountPaise);
     const budgeted = categories.filter((c) => c.monthlyBudgetPaise);
+    // 🍄 This month only: happy inside every budget, worried when one goes over (REFINE-3).
+    if (shownMonth === today().slice(0, 7)) {
+      const over = budgeted.filter((c) => (spentBy.get(c.id) || 0) > c.monthlyBudgetPaise);
+      if (!budgeted.length) buddyMood('calm', '{name} is keeping an eye on the coins 💸');
+      else if (over.length) buddyMood('worried', `Uh-oh, ${over[0].icon} ${over[0].name} is over budget. {name} is a bit worried 😟`);
+      else buddyMood('happy', 'Inside every budget! {name} is happy 💰');
+    }
     if (budgeted.length) {
       const total = budgeted.reduce((s, c) => s + c.monthlyBudgetPaise, 0);
       const spent = budgeted.reduce((s, c) => s + (spentBy.get(c.id) || 0), 0);

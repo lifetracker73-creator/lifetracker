@@ -9,7 +9,7 @@ import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, forma
 import { notify, showBanner, notificationState, askPermission } from '../core/notify.js';
 import { saveFile } from '../core/xlsx.js';
 import { formatNumber } from '../core/format.js';
-import { celebrate } from '../core/buddy.js';
+import { celebrate, buddyMood } from '../core/buddy.js';
 
 const MAX_TITLE = 200;
 const MAX_NOTES = 20000; // the most Google Sync accepts in one box (google-apps-script/Code.gs LIMITS.text)
@@ -599,7 +599,7 @@ export async function render(root) {
     await refresh();
     let message = nowDone ? `Done! 🎉 "${task.title}"` : `"${task.title}" is back on your list`;
     if (next) message = `Done! 🎉 Next one: ${formatDate(next.dueDate)}`;
-    if (nowDone) celebrate('One less thing to do ✨'); // 🍄 buddy cheer (REFINE-2)
+    if (nowDone) celebrate('{name} says: one less thing to do ✨'); // 🍄 buddy cheer (REFINE-2)
     toast({
       message,
       actionLabel: 'Undo',
@@ -645,6 +645,13 @@ export async function render(root) {
     const counts = Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length]));
     showViewButtons(counts);
     const overdue = groups.today.filter((t) => t.dueDate < now).length;
+    // 🍄 Calm until something is ticked off today, then happier; happiest when nothing is left for today (REFINE-3).
+    const doneToday = groups.done.filter((t) => String(t.doneAt || '').startsWith(now)).length;
+    if (!doneToday) {
+      buddyMood('calm', groups.today.length ? '{name} is ready to help ✅ Tick one off?' : 'Nothing due today. {name} says relax 🌸');
+    } else if (groups.today.length) {
+      buddyMood('content', `${doneToday} done today! {name} is proud of you ✨`);
+    } else buddyMood('happy', 'All done for today! {name} is so happy 🎉');
     const shown = groups[view];
     if (view === 'today' && shown.length) {
       countNote.textContent = `${shown.length} to do${overdue ? ` · ${overdue} overdue` : ''}`;

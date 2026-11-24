@@ -2,7 +2,7 @@
 // Every module builds its screens from these so the app looks the same everywhere.
 // Each function returns a DOM element. Text is always set safely as text, never as HTML.
 
-import { buddy } from './buddy.js';
+import { buddy, screenModule } from './buddy.js';
 
 // Small inline SVG icons (no icon libraries). Our own constant strings only.
 export const icons = {
@@ -261,12 +261,15 @@ export function toast({ message, actionLabel, onAction, duration = 5000 } = {}) 
 /**
  * Empty state: shown when a list has nothing in it yet.
  * emptyState({ title: 'No entries yet', text: 'Add your first one.', action: button(...) })
- * Shows the 🍄 buddy (REFINE-2); pass `emoji` (e.g. '💧') to add it in a little bubble beside the buddy.
+ * Shows the 🍄 buddy (REFINE-2) in the outfit of the module on screen (REFINE-3): hungry in Food,
+ * thirsty in Water. Pass `emoji` (e.g. '💧') to add it in a little bubble beside the buddy.
  */
+const EMPTY_FACES = { food: 'hungry', water: 'thirsty' };
 export function emptyState({ emoji, title, text, action } = {}) {
+  const outfit = screenModule();
   return el('div', { className: 'empty' }, [
     el('span', { className: 'empty__buddy', 'aria-hidden': 'true' }, [
-      buddy({ size: 80 }),
+      buddy({ size: 80, outfit, face: EMPTY_FACES[outfit] || 'calm' }),
       emoji ? el('span', { className: 'empty__buddy-emoji', text: emoji }) : null,
     ]),
     title ? el('p', { className: 'empty__title', text: title }) : null,
