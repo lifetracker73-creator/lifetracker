@@ -958,3 +958,29 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - In Google Sheets the nutrient columns (e.g. "Protein (g)") are per 100 g, but the column names don't say so.
 - Deleting a food will matter once FOOD-2 logs it: past log entries keep their own copy of the nutrients.
 - The phone gets this at the final "release".
+
+### FOOD-1 extra: your own vitamins and minerals (24 Nov 2026)
+**Built**
+- 🍱 Food, "Vitamins & minerals" fold-out (add form and edit box): a "＋ Add your own" button opens a name box and
+  unit pills (mg / µg / g). The new nutrient gets a box straight away, in every open food form, without losing
+  what's typed.
+- New "My extra nutrients" card at the bottom: add one, list ("Selenium (µg) · In 2 foods"), tap or ✏️ to rename
+  or change the unit in place, 🗑️ to delete. Deleting also takes its values off every food; Undo puts both back.
+- Friendly messages: empty name, over 30 letters, a name already in the built-in list (e.g. "Sodium"), or one you
+  already made (any capitals). Values work like the built-in ones: per 100 g or per serving, converted when the pills
+  switch, and can't weigh more than the food.
+- Saved data: food settings get `customMicros` (the list; settings are never synced) and each food gets an optional
+  `extraNutrients` (values per 100 g, by nutrient). Existing foods have none; nothing needed converting. SPEC.md updated.
+- `core/sync.js`: Google Sheets shows these in one "Extra nutrients" column as readable text,
+  e.g. "Selenium (µg): 30, Omega-3 (g): 0.2".
+- Checked at 360px in light and dark mode with a pretend egg and two pretend nutrients (removed afterwards; the
+  waiting Google Sync list is back to 0): all 3 name messages, add from the fold-out and from the card, per-serving
+  values saved per 100 g (15 µg in 50 g → 30), too-heavy message, rename and delete + Undo while a food's edit box
+  was open, no sideways scrolling, no errors.
+
+**Known issues**
+- Changing a nutrient's unit keeps the numbers as they are (it doesn't convert mg ↔ µg); a note says so.
+- Renaming a nutrient shows the new name in Google Sheets only when a food using it is saved again, or after
+  "Sync everything now".
+- Food settings now hold an empty `customMicros` list from testing; harmless.
+- These extra nutrients get targets and daily totals with FOOD-4.

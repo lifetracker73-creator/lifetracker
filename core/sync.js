@@ -64,6 +64,13 @@ function cellValue(field, value, names) {
     const lookup = (id) => names[LINKS[field]]?.get(id) || id;
     return Array.isArray(value) ? value.map(lookup).join(', ') : lookup(value);
   }
+  // Food's own extra nutrients ({ id: value }) -> "Selenium (µg): 12, Omega-3 (g): 0.5".
+  if (field === 'extraNutrients' && typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value)
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([id, v]) => `${names.extraNutrients?.get(id) || 'Deleted nutrient'}: ${v}`)
+      .join(', ');
+  }
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '';
@@ -118,6 +125,9 @@ async function loadNames() {
     if (!STORES[store]) continue;
     names[store] = new Map((await list(store)).map((r) => [r.id, r.name || r.title || r.id]));
   }
+  // Your own food nutrients live in food settings (FOOD-1 extra).
+  const { customMicros = [] } = await getSettings('food');
+  names.extraNutrients = new Map(customMicros.map((c) => [c.id, `${c.name} (${c.unit})`]));
   return names;
 }
 

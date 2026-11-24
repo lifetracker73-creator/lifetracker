@@ -153,6 +153,9 @@ Foods are saved once in a personal library, then logged by picking from it.
 - The user can enter values "per serving" instead; the app converts them to per 100 g.
   `enteredPer` ('100g' / 'serving', added in FOOD-1) only remembers which way they were typed,
   so editing shows them the same way.
+- Your own extra nutrients (added 24 Nov 2026): a shared list in food settings, `customMicros`
+  (`id`, `name`, `unit` mg / µg / g). Each food keeps their values per 100 g in `extraNutrients`
+  ({ nutrient id: number }); blank ones are left out. Deleting a nutrient removes its values from every food.
 
 **Recipe (optional, FOOD-5):** `name`, a list of `{ foodId, grams }`, `servings`. Nutrients are calculated.
 
