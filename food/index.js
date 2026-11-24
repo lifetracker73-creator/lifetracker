@@ -12,13 +12,16 @@
 // FOOD-4: Vitamins & minerals for the day (built-in and your own) versus optional targets, unknowns marked.
 // FOOD-5: Recipes (name, servings, ingredients [{ foodId, grams }]) made from library foods, logged like a
 //         food (the log entry has `recipeId` instead of `foodId`, with its own copy of the nutrients).
+// FOOD-6: History: kcal and protein bar charts for the last 7 or 30 days with target lines, and
+//         daily averages over the days that have food logged. Worked out on screen; nothing saved.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, get, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
 } from '../core/storage.js';
 import { formatNumber, formatKcal, formatG } from '../core/format.js';
+import { barChart } from '../core/charts.js';
 import {
-  today, yesterday, addDays, nowTime, currentHour, formatDate, formatTime,
+  today, yesterday, addDays, nowTime, currentHour, formatDate, formatTime, dateRange,
 } from '../core/dates.js';
 
 // Nutrients per 100 g. `grams` = how many grams one unit is (used to catch impossible values).
@@ -1348,6 +1351,83 @@ export async function render(root) {
     showMacros(day);
     showMicros(day);
     if (!picked) refreshPicker();
+    await refreshHistory();
+  }
+
+  // ---- History (FOOD-6): kcal and protein per day for the last 7 or 30 days ----
+  const HISTORY_DAYS = [7, 30];
+  let historyDays = HISTORY_DAYS[0];
+  const historyCharts = {
+    kcal: { box: el('div', { className: 'chart-box' }), chart: null, goal: null },
+    proteinG: { box: el('div', { className: 'chart-box' }), chart: null, goal: null },
+  };
+  const averageText = el('p', { className: 'progress-note' });
+  const rangeButtons = HISTORY_DAYS.map((days) => {
+    const btn = button({
+      label: `${days} days`,
+      variant: days === historyDays ? 'primary' : 'secondary',
+      ariaLabel: `Show the last ${days} days`,
+      onClick: async () => {
+        historyDays = days;
+        rangeButtons.forEach((b) => {
+          const on = b.dataset.days === String(days);
+          b.classList.toggle('btn--primary', on);
+          b.classList.toggle('btn--secondary', !on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        await refreshHistory();
+      },
+    });
+    btn.dataset.days = String(days);
+    btn.setAttribute('aria-pressed', String(days === historyDays));
+    return btn;
+  });
+
+  // Day totals of one nutrient. A day with no known value for it is a gap (null), never zero.
+  function dayTotals(dates, byDate, key) {
+    return dates.map((d) => {
+      const known = (byDate[d] || []).map((x) => x[key])
+        .filter((v) => v != null && v !== '' && !Number.isNaN(Number(v)));
+      return known.length ? known.reduce((sum, v) => sum + Number(v), 0) : null;
+    });
+  }
+
+  async function drawHistory(key, labels, values, format) {
+    const h = historyCharts[key];
+    const goal = targets[key] > 0 ? targets[key] : null;
+    if (!h.box.isConnected) return;
+    if (h.chart && h.goal !== goal) { (await h.chart).destroy(); h.chart = null; } // target changed
+    if (h.chart) { (await h.chart).update({ labels, values }); return; }
+    h.goal = goal;
+    // Keep the promise so quick taps never draw a second chart.
+    h.chart = barChart(h.box, { module: 'food', labels, values, goal, goalLabel: 'Target', format });
+    await h.chart;
+  }
+
+  async function refreshHistory() {
+    const dates = dateRange(addDays(today(), -(historyDays - 1)), today());
+    const byDate = {};
+    logEntries.forEach((x) => { (byDate[x.date] = byDate[x.date] || []).push(x); });
+    const kcal = dayTotals(dates, byDate, 'kcal');
+    const protein = dayTotals(dates, byDate, 'proteinG');
+    await drawHistory('kcal', dates, kcal, (v) => formatKcal(v));
+    await drawHistory('proteinG', dates, protein, (v) => formatG(v));
+    const avg = (vals) => {
+      const known = vals.filter((v) => v != null);
+      return known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+    };
+    const logged = dates.filter((d) => byDate[d] && byDate[d].length).length;
+    if (!logged) {
+      averageText.textContent = `Log food to see your daily averages for the last ${historyDays} days ✨`;
+      return;
+    }
+    const parts = [];
+    if (avg(kcal) != null) parts.push(formatKcal(avg(kcal)));
+    if (avg(protein) != null) parts.push(`${formatG(avg(protein))} protein`);
+    const days = `${logged} logged ${logged === 1 ? 'day' : 'days'}`;
+    averageText.textContent = parts.length
+      ? `📊 Daily average: ${parts.join(' · ')} (over ${days})`
+      : `📊 Calories and protein are unknown for these foods (${days})`;
   }
 
   // ---- Today's macros (FOOD-3): totals for the day shown in the food log versus targets ----
@@ -1536,6 +1616,7 @@ export async function render(root) {
     const dayNow = await listByDate('foodLog', shownDay);
     showMacros(dayNow);
     showMicros(dayNow);
+    await refreshHistory();
   });
 
   async function deleteLog(entry) {
@@ -1566,6 +1647,17 @@ export async function render(root) {
     card({ title: 'Food log', module: 'food', children: [el('div', { className: 'stack' }, [
       el('div', { className: 'month-nav' }, [prevDay, dayLabel, nextDay]),
       logListBox,
+    ])] }),
+    card({ title: 'History', module: 'food', children: [el('div', { className: 'stack' }, [
+      el('div', { className: 'stack' }, [
+        el('p', { className: 'progress-note', text: 'Days to show' }),
+        el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Days to show' }, rangeButtons),
+      ]),
+      el('h3', { className: 'list-group__title' }, [el('span', { text: 'Calories per day' })]),
+      historyCharts.kcal.box,
+      el('h3', { className: 'list-group__title' }, [el('span', { text: 'Protein per day' })]),
+      historyCharts.proteinG.box,
+      averageText,
     ])] }),
     card({ title: 'My daily targets', module: 'food', children: [targetsForm] }),
     card({ title: 'Add a food', module: 'food', children: [addBox] }),

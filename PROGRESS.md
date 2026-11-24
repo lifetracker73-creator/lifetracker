@@ -1107,3 +1107,26 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Ingredients are typed in grams only (the serving size is shown as a hint).
 - Changing a recipe while it's picked in "Log food" needs "Change" and picking it again to use the new values.
 - The phone gets this at the final "release".
+
+## FOOD-6: Food history (24 Nov 2026)
+**Built**
+- 🍱 Food screen: new **History** card (peach) under the Food log, with "Days to show" pill buttons **7 days** and
+  **30 days** (opens on 7; the chosen one lights up).
+- **Calories per day** bar chart with a dashed "Target" line at your daily calorie target, and a **Protein per day**
+  bar chart with its own target line. Days with nothing logged (or only unknown values) show as a gap, not zero.
+  With no target saved, there's no line.
+- Under the charts: "📊 Daily average: 1,970 kcal · 63 g protein (over 6 logged days)". Only days with food logged
+  count, so empty days don't pull the average down; unknown (blank) values are left out, never counted as zero.
+  With nothing logged: "Log food to see your daily averages for the last 7 days ✨".
+- Charts and averages update straight away after logging, editing, deleting, Undo, or saving new targets
+  (the target line moves). Everything is worked out on screen; saved data is unchanged. No new files, so `sw.js`
+  didn't need changing.
+- Checked at 360px in light and dark mode with 20 pretend entries over 20 days (removed afterwards; Google Sync isn't
+  set up in the test browser, so nothing was sent): averages checked by hand for 7 and 30 days (9,850 ÷ 5 = 1,970),
+  delete and Undo, target change 2,000 → 2,500 kcal, empty message, no sideways scrolling, no new errors.
+
+**Known issues**
+- "Logged days" counts every day with food logged; if a day's foods all have blank calories, that day is left out of
+  the calorie average but still counted in the number of days shown.
+- The 30-day view shows a date label about every 8 days to fit the phone; tap a bar to see its full date.
+- The phone gets this at the final "release".
