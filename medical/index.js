@@ -6,9 +6,13 @@
 // A person or type that still has visits can't be removed, and at least one of each is always kept.
 // MED-2: Add a visit (date, person, type, place with suggestions, cost, note), a simple list of visits
 // (newest first) where a tap opens it for editing, and delete with Undo. Visits save personId / typeId.
+// MED-3: Photos & PDFs on a visit. Photos are shrunk on the phone; files are saved in the storage "files"
+// drawer and the visit keeps only a short list `attachments: [{ id, name, type, size, url }]`.
+// sync.js uploads them to Drive and fills in `url` (the Sheet shows only the links).
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import {
   list as listAll, add, update, remove, restore, getSettings, saveSettings,
+  saveFile, getFile, listFiles, removeFiles,
 } from '../core/storage.js';
 import { today, formatDate } from '../core/dates.js';
 import { formatMoney, parseMoney } from '../core/format.js';
@@ -83,10 +87,196 @@ function placesFrom(visits) {
   return places;
 }
 
+// ---- Attachments (MED-3) ----
+const MAX_FILES = 10;                  // per visit
+const MAX_PDF = 15 * 1024 * 1024;      // the most Google will take
+const PHOTO_MAX_SIDE = 1600;           // px: still sharp enough to read a report
+const KEEP_UNUSED_MS = 10 * 60 * 1000; // unused files (e.g. from a deleted visit) are kept this long for Undo
+
+const isPdf = (type) => type === 'application/pdf';
+
+function sizeText(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// "IMG 2031.HEIC" -> "IMG 2031.jpg" (short enough for Drive).
+function cleanName(name, ext) {
+  const base = String(name || '').replace(/\.[^.]*$/, '').trim().slice(0, 60);
+  return `${base || 'file'}.${ext}`;
+}
+
+// Makes a photo smaller (longest side 1600 px, JPEG) so it saves and uploads quickly.
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch { throw new Error("couldn't read this photo. Try a JPG or PNG."); }
+    const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; // JPEG has no see-through parts: fill them with white
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+    if (!blob) throw new Error("couldn't shrink this photo.");
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Saves one picked file on the phone. Gives back the saved file row, or throws with a short reason.
+async function keepFile(file) {
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+    if (file.size > MAX_PDF) throw new Error('too big (15 MB at most).');
+    return saveFile({ name: cleanName(file.name, 'pdf'), type: 'application/pdf', data: await file.arrayBuffer() });
+  }
+  if (!file.type || file.type.startsWith('image/')) {
+    const blob = await shrinkPhoto(file);
+    return saveFile({ name: cleanName(file.name, 'jpg'), type: 'image/jpeg', data: await blob.arrayBuffer() });
+  }
+  throw new Error('only photos and PDFs can be added.');
+}
+
+// Shows one attachment in a sheet: the photo itself, plus buttons to open it and to open it in Drive.
+async function openAttachment(att, fileRow) {
+  const file = fileRow ? await getFile(att.id) : null;
+  const blobUrl = file ? URL.createObjectURL(new Blob([file.data], { type: file.type })) : null;
+  const link = (label, href) => el('a', {
+    className: 'btn btn--secondary btn--block', href, target: '_blank', rel: 'noopener', text: label,
+  });
+  const dialog = el('dialog', { className: 'sheet', 'aria-label': att.name }, [
+    el('div', { className: 'sheet__head' }, [
+      el('h2', { className: 'sheet__title attach-title', text: att.name }),
+      button({ icon: 'close', variant: 'ghost', ariaLabel: 'Close', onClick: () => dialog.close() }),
+    ]),
+    el('div', { className: 'stack' }, [
+      blobUrl && !isPdf(att.type) ? el('img', { className: 'attach-view', src: blobUrl, alt: att.name }) : null,
+      blobUrl ? link(isPdf(att.type) ? '📄 Open PDF' : '🔍 Open full size', blobUrl) : null,
+      att.url ? link('☁️ Open in Google Drive', att.url) : null,
+      !blobUrl && !att.url ? el('p', { className: 'muted', text: "This file isn't on this phone any more." }) : null,
+    ]),
+  ]);
+  const close = () => { if (dialog.open) dialog.close(); };
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
+  dialog.addEventListener('close', () => {
+    window.removeEventListener('hashchange', close);
+    dialog.remove();
+    // Kept a little longer so a PDF opened in another tab has time to load.
+    if (blobUrl) setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  });
+  window.addEventListener('hashchange', close);
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
+// The "Photos & PDFs" part of the visit form. `fileRows` is the screen's Map of saved files (id -> row).
+function attachField(initial, fileRows) {
+  let atts = (initial || []).map((a) => ({ ...a }));
+  const listBox = el('div');
+  const errorEl = el('div', { className: 'field__error', hidden: true });
+  const setError = (text) => { errorEl.textContent = text; errorEl.hidden = !text; };
+  const picker = el('input', { type: 'file', accept: 'image/*,application/pdf', multiple: true, hidden: true });
+  const addBtn = button({ label: '📎 Add photo or PDF', variant: 'secondary', block: true, onClick: () => picker.click() });
+  const addLabel = addBtn.querySelector('span:last-child');
+
+  function status(att) {
+    const row = fileRows.get(att.id);
+    if (att.url) return '☁️ In Google Drive';
+    if (!row) return '❓ Not on this phone';
+    if (row.failed) return "⚠️ Google couldn't take this file";
+    return '⏳ Uploads when synced';
+  }
+
+  function thumb(att) {
+    const box = el('span', { className: 'attach-thumb', 'aria-hidden': 'true', text: isPdf(att.type) ? '📄' : '🖼️' });
+    if (!isPdf(att.type) && fileRows.has(att.id)) {
+      getFile(att.id).then((file) => {
+        if (!file) return;
+        const src = URL.createObjectURL(new Blob([file.data], { type: file.type }));
+        const img = el('img', { src, alt: '' });
+        img.addEventListener('load', () => URL.revokeObjectURL(src));
+        box.replaceChildren(img);
+      });
+    }
+    return box;
+  }
+
+  function draw() {
+    if (!atts.length) { listBox.replaceChildren(); return; }
+    listBox.replaceChildren(list(atts.map((att) => {
+      const row = listItem({
+        title: att.name,
+        subtitle: `${isPdf(att.type) ? 'PDF' : 'Photo'} · ${sizeText(att.size)} · ${status(att)}`,
+        onClick: () => openAttachment(att, fileRows.get(att.id)),
+        actions: [button({ icon: 'trash', variant: 'ghost', ariaLabel: `Remove ${att.name}`, onClick: () => removeAtt(att) })],
+      });
+      row.prepend(thumb(att));
+      return row;
+    })));
+  }
+
+  function removeAtt(att) {
+    const index = atts.findIndex((a) => a.id === att.id);
+    if (index < 0) return;
+    atts.splice(index, 1);
+    draw();
+    toast({
+      message: `Removed ${att.name}`,
+      actionLabel: 'Undo',
+      onAction: () => {
+        if (atts.some((a) => a.id === att.id)) return;
+        atts.splice(Math.min(index, atts.length), 0, att);
+        draw();
+      },
+    });
+  }
+
+  picker.addEventListener('change', async () => {
+    const picked = [...picker.files];
+    picker.value = '';
+    if (!picked.length) return;
+    setError('');
+    const room = MAX_FILES - atts.length;
+    if (room <= 0) { setError(`A visit can have up to ${MAX_FILES} files.`); return; }
+    addBtn.disabled = true;
+    addLabel.textContent = 'Adding…';
+    const problems = [];
+    for (const file of picked.slice(0, room)) {
+      try {
+        const saved = await keepFile(file);
+        const { data, ...rowInfo } = saved;
+        fileRows.set(saved.id, rowInfo);
+        atts.push({ id: saved.id, name: saved.name, type: saved.type, size: saved.size, url: '' });
+      } catch (err) {
+        problems.push(`${file.name}: ${err.message || "couldn't be added."}`);
+      }
+    }
+    if (picked.length > room) problems.push(`A visit can have up to ${MAX_FILES} files, so some were left out.`);
+    addBtn.disabled = false;
+    addLabel.textContent = '📎 Add photo or PDF';
+    setError(problems.join(' '));
+    draw();
+  });
+
+  draw();
+  const wrapper = el('div', { className: 'field' }, [
+    el('div', { className: 'field__label', text: 'Photos & PDFs (optional)' }),
+    listBox, addBtn, picker, errorEl,
+  ]);
+  wrapper.value = () => atts.map((a) => ({ ...a }));
+  wrapper.clear = () => { atts = []; setError(''); draw(); };
+  return wrapper;
+}
+
 let suggestCount = 0;
 
-// The date, person, type, place, cost and note boxes. Used to add and to edit a visit.
-function visitFields(lists, places, values = {}) {
+// The date, person, type, place, cost, note and attachment boxes. Used to add and to edit a visit.
+function visitFields(lists, places, values = {}, fileRows = new Map()) {
   const option = (x) => ({ value: x.id, label: x.name });
   const date = input({ label: 'Date', name: 'date', type: 'date', value: values.date ?? today(), max: today() });
   const person = input({
@@ -115,10 +305,11 @@ function visitFields(lists, places, values = {}) {
     placeholder: 'Reason, what the doctor said, medicines…',
   });
   for (const f of [date, place, cost]) f.input.addEventListener('input', () => f.setError(''));
+  const attach = attachField(values.attachments, fileRows);
 
   return {
-    date, person, type, place, cost, note,
-    elements: [date, el('div', { className: 'btn-row' }, [person, type]), place, cost, note],
+    date, person, type, place, cost, note, attach,
+    elements: [date, el('div', { className: 'btn-row' }, [person, type]), place, cost, note, attach],
     // Gives back the visit to save, or null after showing what's wrong.
     read() {
       const dateError = checkDate(date.input.value);
@@ -140,6 +331,7 @@ function visitFields(lists, places, values = {}) {
         place: placeText,
         costPaise: paise,
         note: note.input.value.trim(),
+        attachments: attach.value(),
       };
     },
   };
@@ -275,6 +467,16 @@ export async function render(root) {
   // ---- Visits (MED-2) ----
   let visits = await listAll('visits');
   let editingVisitId = null;
+
+  // Saved photos/PDFs (MED-3). Files no visit uses any more (removed, or from a deleted visit) are
+  // tidied away here once they're older than 10 minutes, so Undo still works meanwhile.
+  const fileRows = new Map((await listFiles()).map((f) => [f.id, f]));
+  const usedFiles = new Set(visits.flatMap((v) => (v.attachments || []).map((a) => a.id)));
+  const unused = [...fileRows.values()]
+    .filter((f) => !usedFiles.has(f.id) && Date.now() - Date.parse(f.createdAt) > KEEP_UNUSED_MS)
+    .map((f) => f.id);
+  await removeFiles(unused);
+  for (const id of unused) fileRows.delete(id);
   const nameOf = (items, id, fallback) => items.find((x) => x.id === id)?.name ?? fallback;
   const personName = (id) => nameOf(lists.people, id, 'Unknown person');
   const typeName = (id) => nameOf(lists.types, id, 'Unknown type');
@@ -287,12 +489,12 @@ export async function render(root) {
   function buildForm() {
     const kept = fields ? {
       date: fields.date.input.value, personId: fields.person.input.value, typeId: fields.type.input.value,
-      place: fields.place.input.value, note: fields.note.input.value,
+      place: fields.place.input.value, note: fields.note.input.value, attachments: fields.attach.value(),
     } : {};
     const keptCost = fields?.cost.input.value ?? '';
     if (kept.personId && !lists.people.some((x) => x.id === kept.personId)) delete kept.personId;
     if (kept.typeId && !lists.types.some((x) => x.id === kept.typeId)) delete kept.typeId;
-    fields = visitFields(lists, placesFrom(visits), kept);
+    fields = visitFields(lists, placesFrom(visits), kept, fileRows);
     fields.cost.input.value = keptCost;
     const form = el('form', { className: 'stack', novalidate: true }, [
       ...fields.elements,
@@ -306,6 +508,7 @@ export async function render(root) {
       fields.place.input.value = '';
       fields.cost.input.value = '';
       fields.note.input.value = '';
+      fields.attach.clear();
       toast({ message: `Saved ${typeName(visit.typeId)} · ${personName(visit.personId)} ✨` });
       await visitsChanged();
     });
@@ -313,7 +516,7 @@ export async function render(root) {
   }
 
   function visitEditRow(visit) {
-    const f = visitFields(lists, placesFrom(visits), visit);
+    const f = visitFields(lists, placesFrom(visits), visit, fileRows);
     const editForm = el('form', { className: 'stack', novalidate: true }, [
       ...f.elements,
       el('div', { className: 'btn-row' }, [
@@ -338,7 +541,9 @@ export async function render(root) {
   function visitRow(visit) {
     if (visit.id === editingVisitId) return visitEditRow(visit);
     const title = `${typeName(visit.typeId)} · ${personName(visit.personId)}`;
-    const details = [formatDate(visit.date), visit.place, visit.note].filter(Boolean).join(' · ');
+    const files = visit.attachments?.length || 0;
+    const details = [formatDate(visit.date), visit.place, visit.note, files ? `📎 ${files}` : '']
+      .filter(Boolean).join(' · ');
     return listItem({
       title,
       subtitle: details,

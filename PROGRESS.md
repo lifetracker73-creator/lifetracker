@@ -1188,3 +1188,35 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - After renaming a person or type, rows already in the Google Sheet keep the old name until that
   visit is changed again (or "🔄 Sync everything now" in Settings is tapped).
 - Filters, search and the big "+ Add visit" button come in MED-4; attachments in MED-3.
+
+## MED-3: Photos & PDFs on a visit (24 Nov 2026)
+**Built**
+- The visit form (add and edit) has a **Photos & PDFs** part with "📎 Add photo or PDF" (you can pick
+  several at once, up to 10 per visit). Photos are made smaller on the phone (longest side 1600 px,
+  JPG): a 4.9 MB test photo became 27 KB. PDFs are kept as they are, 15 MB at most. Other files get
+  a friendly "only photos and PDFs" message.
+- Each file shows a small preview (📄 for PDFs), its size and where it is: ⏳ Uploads when synced,
+  ☁️ In Google Drive, or ⚠️ Google couldn't take this file. 🗑️ removes it from the visit (with Undo).
+- Tap a file to open it: photos show inside the app, with "Open full size"; PDFs get "Open PDF";
+  uploaded files also get "Open in Google Drive". The visit list shows 📎 and the number of files.
+- Google: when connected and online, each new file is uploaded once to Drive "LifeTracker/Reports"
+  (before the Sheet rows are sent). Its link is saved on the visit, and the "Medical log" tab gets an
+  **Attachments** column with only the Drive links (never the files). Offline, it waits and retries.
+  If Google refuses one file, that file is marked ⚠️ and everything else keeps syncing.
+  The sync icon counts files waiting to upload as well.
+- Saved data: database version 4 (safe upgrade) adds a **files** drawer for the photos/PDFs.
+  Visits get a short list `attachments` (name, type, size, Drive link). Nothing else changed; tested
+  on a fresh start and on an upgrade from version 3 (old visits and other entries kept).
+- Files no visit uses any more (removed from a visit, or from a deleted visit) are cleared from the
+  phone 10 minutes later, the next time Medical log opens, so Undo still works meanwhile.
+- No new files, so `sw.js` didn't change. The Apps Script (`Code.gs`) already had the upload part.
+
+**Known issues**
+- Uploading was tested with a pretend Google; the real upload gets tested at release (after pasting
+  the updated `Code.gs`).
+- Removing a file or deleting a visit doesn't delete its copy in Google Drive (delete it there by hand).
+- On an Android phone, "Open PDF" may save the PDF to Downloads instead of showing it;
+  "Open in Google Drive" works once it's uploaded.
+- Some phone photo formats (e.g. HEIC) may not open in the browser; then a message asks for JPG/PNG.
+- The ⏳ / ☁️ labels in an open form update the next time the screen is opened.
+- CORE-7 (Backup) must decide how to include these files (they can make the backup big).

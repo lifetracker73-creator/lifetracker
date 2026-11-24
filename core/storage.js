@@ -36,6 +36,11 @@ const SETTINGS = 'settings'; // one row per module, keyed by module name
 // Settings are never put in the outbox.
 const OUTBOX = 'outbox';
 
+// MED-3: attached photos/PDFs. Kept apart from the records (big files would slow lists and the outbox),
+// never put in the outbox and never sent to the Sheet; sync.js uploads them to Drive separately.
+// Row: { id, name, type, size, data (ArrayBuffer), url ('' until uploaded), failed, createdAt }.
+const FILES = 'files';
+
 // Migrations: entry N upgrades the database from version N-1 to version N.
 // To change the data structure later, ADD a new entry at the end (never edit old ones).
 // Each step gets the open database and the upgrade transaction, so it can also
@@ -63,6 +68,10 @@ const migrations = [
     for (const old of ['markers', 'reports']) {
       if (db.objectStoreNames.contains(old)) db.deleteObjectStore(old);
     }
+  },
+  // Version 4 (MED-3): add the files drawer for photos/PDFs attached to visits. Existing data is not touched.
+  (db) => {
+    db.createObjectStore(FILES, { keyPath: 'id' });
   },
 ];
 
@@ -310,6 +319,61 @@ export async function listByDateRange(storeName, from, to) {
   if (!STORES[storeName].dateField) throw new Error(`"${storeName}" has no date to search by`);
   const { store } = await storeFor(storeName);
   return done(store.index('date').getAll(IDBKeyRange.bound(from, to)));
+}
+
+// ---------- files (MED-3) ----------
+
+/** Save a file. `data` is an ArrayBuffer. Returns the saved row (with id). */
+export async function saveFile({ name, type, data }) {
+  const row = { id: uuid(), name, type, size: data.byteLength, data, url: '', failed: false, createdAt: nowIso() };
+  const db = await openDb();
+  const tx = db.transaction(FILES, 'readwrite');
+  tx.objectStore(FILES).add(row);
+  await txDone(tx);
+  return row;
+}
+
+/** One file row (with its data), or null. */
+export async function getFile(id) {
+  const db = await openDb();
+  return (await done(db.transaction(FILES).objectStore(FILES).get(id))) ?? null;
+}
+
+/** Change some fields of a file row (e.g. its Drive link). */
+export async function updateFile(id, changes) {
+  const db = await openDb();
+  const tx = db.transaction(FILES, 'readwrite');
+  const store = tx.objectStore(FILES);
+  const existing = await done(store.get(id));
+  if (existing) store.put({ ...existing, ...changes, id });
+  await txDone(tx);
+}
+
+/** Every file row without its data: { id, name, type, size, url, failed, createdAt }. */
+export async function listFiles() {
+  const db = await openDb();
+  const rows = [];
+  await new Promise((resolve, reject) => {
+    const req = db.transaction(FILES).objectStore(FILES).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) { resolve(); return; }
+      const { data, ...rest } = cursor.value;
+      rows.push(rest);
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+  return rows;
+}
+
+/** Delete file rows by id. */
+export async function removeFiles(ids) {
+  if (!ids.length) return;
+  const db = await openDb();
+  const tx = db.transaction(FILES, 'readwrite');
+  for (const id of ids) tx.objectStore(FILES).delete(id);
+  await txDone(tx);
 }
 
 // ---------- settings ----------

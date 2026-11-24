@@ -6,12 +6,14 @@
 // (settings row "sync"). They are never in the code. Settings are never sent to Google.
 
 import {
-  STORES, list, listOutbox, countOutbox, clearSent, queueEverything, getSettings, saveSettings,
+  STORES, list, get, update, listOutbox, countOutbox, clearSent, queueEverything, getSettings, saveSettings,
+  listFiles, getFile, updateFile,
 } from './storage.js';
 import { isoToKolkata, toIndianDate } from './dates.js';
 
 const BATCH = 100;            // changes per request
 const TIMEOUT_MS = 45000;     // give up on one request after this long
+const UPLOAD_TIMEOUT_MS = 180000; // a photo/PDF upload (MED-3) can take longer on a slow phone connection
 const RETRY_DELAYS = [30, 60, 120, 300, 600].map((s) => s * 1000);
 
 // Which Google Sheet tab each kind of data goes into, and its "Type" on shared tabs.
@@ -73,6 +75,13 @@ function cellValue(field, value, names) {
       .filter(([, v]) => v !== null && v !== undefined && v !== '')
       .map(([id, v]) => `${names.extraNutrients?.get(id) || 'Deleted nutrient'}: ${v}`)
       .join(', ');
+  }
+  // Medical log attachments (MED-3): only the Drive links go in the Sheet, never the files.
+  if (field === 'attachments' && Array.isArray(value)) {
+    const links = value.filter((a) => a?.url).map((a) => a.url);
+    const waiting = value.length - links.length;
+    if (waiting) links.push(`${waiting} ${waiting === 1 ? 'file' : 'files'} waiting to upload`);
+    return links.join('\n');
   }
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'number') {
@@ -151,9 +160,9 @@ class SyncError extends Error {
   constructor(code, detail = '') { super(code); this.code = code; this.detail = detail; }
 }
 
-async function post(cfg, body) {
+async function post(cfg, body, timeoutMs = TIMEOUT_MS) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res;
   try {
     // Sent as plain text so the browser doesn't need an extra permission check with Google.
@@ -242,7 +251,8 @@ export function onStatus(fn) {
 }
 
 async function refreshStatus() {
-  const [waiting, cfg] = await Promise.all([countOutbox(), getConfig()]);
+  const [outboxCount, uploads, cfg] = await Promise.all([countOutbox(), pendingUploads(), getConfig()]);
+  const waiting = outboxCount + uploads.length;
   let state;
   let message;
   if (!isSetUp(cfg)) { state = 'problem'; message = MESSAGES.not_set_up(); }
@@ -255,6 +265,64 @@ async function refreshStatus() {
   for (const fn of listeners) fn(current);
 }
 
+// ---------- attachments (MED-3) ----------
+
+// Visit attachments not yet in Drive: [{ visitId, fileId, file }]. Skips files Google refused.
+async function pendingUploads() {
+  const files = new Map((await listFiles()).map((f) => [f.id, f]));
+  const pending = [];
+  for (const visit of await list('visits')) {
+    for (const att of visit.attachments || []) {
+      const file = files.get(att.id);
+      if (!att.url && file && !file.failed) pending.push({ visitId: visit.id, fileId: att.id, file });
+    }
+  }
+  return pending;
+}
+
+function toBase64(buffer) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(new Blob([buffer]));
+  });
+}
+
+// Uploads each waiting photo/PDF to Drive "LifeTracker/Reports", then saves its link on the visit
+// (which queues the visit again, so the Sheet gets the link). A file is uploaded only once.
+async function uploadFiles(cfg) {
+  const links = new Map(); // visitId -> Map(fileId -> url)
+  for (const { visitId, fileId, file } of await pendingUploads()) {
+    let { url } = file;
+    if (!url) {
+      const full = await getFile(fileId);
+      if (!full) continue;
+      try {
+        const data = await post(cfg, {
+          action: 'upload', name: full.name, mimeType: full.type, data: await toBase64(full.data),
+        }, UPLOAD_TIMEOUT_MS);
+        url = String(data.url || '');
+      } catch (err) {
+        // Google refused this one file: mark it so it doesn't block everything else.
+        if (err.code === 'rejected') { await updateFile(fileId, { failed: true }); continue; }
+        throw err;
+      }
+      if (!url) continue;
+      await updateFile(fileId, { url });
+    }
+    if (!links.has(visitId)) links.set(visitId, new Map());
+    links.get(visitId).set(fileId, url);
+  }
+  for (const [visitId, urls] of links) {
+    const visit = await get('visits', visitId); // fresh copy, in case it was edited meanwhile
+    if (!visit?.attachments) continue;
+    await update('visits', visitId, {
+      attachments: visit.attachments.map((a) => (urls.has(a.id) && !a.url ? { ...a, url: urls.get(a.id) } : a)),
+    });
+  }
+}
+
 // ---------- sending ----------
 
 let again = false;
@@ -264,6 +332,7 @@ let retryCount = 0;
 async function sendAll() {
   const cfg = await getConfig();
   if (!isSetUp(cfg) || !navigator.onLine) return;
+  await uploadFiles(cfg);
   for (let round = 0; round < 1000; round++) {
     const batch = await listOutbox(BATCH);
     if (!batch.length) break;
