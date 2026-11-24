@@ -1375,3 +1375,29 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Weight, Reading and Medical log have no Today card (not in the spec for HOME-1).
 - The cards refresh when Home is opened again, not while it stays open (e.g. at midnight).
 - The phone gets this at the final "release".
+
+## HOME-SUMMARY: richer home screen (25 Nov 2026)
+**Built**
+- The "Your daily summary will appear here ✨" card is replaced by a summary card under the 😴 sleep card:
+  - **🔥 Streak chip**: days in a row you logged anything (water, sleep, weight, food, expense, reading
+    check-in, medical visit or a finished task), ending today or yesterday. With none: "🌱 Log something to start a streak".
+  - **Three rings** for today: 💧 water vs your goal, 🍱 calories vs your target, 😴 last night's sleep vs
+    your target hours. Each shows % in the middle and the amount below; tapping one opens that module.
+  - **Mini chart**: water for the last 7 days with the goal line.
+  - **One friendly message** from simple rules about your own data, e.g. "💧 3 days in a row at your water
+    goal. Lovely!", sleep longer/shorter than usual, logging streak, tasks finished today; otherwise a gentle
+    line for the time of day.
+- **📚 Check-in due banner** when a book you're reading has had no check-in for 3+ days; tapping it opens Reading.
+- **Live numbers on the module tiles**: e.g. "1.25 L today", "8 h last night", "72.4 kg", "640 kcal today",
+  "₹571 this month", "1 to do", "1 reading now", "2 visits this year". Nothing shows when there's no data yet.
+- **Floating "+" button** on Home (above the menu bar): opens "✨ Quick add" with one tile per module
+  ("Add water", "Add expense", "Add task"…) that opens that module, where its add form is at the top.
+- Worked out on screen from saved data; nothing new is stored and no saved data changed. No new files;
+  cache version 14 so phones pick up the change.
+- Checked at 375px in light and dark mode with made-up test entries (in a test-only browser address, all
+  deleted afterwards), and with no data at all: no sideways scrolling, no errors.
+
+**Known issues**
+- Quick add opens the module's screen; it doesn't open a separate pop-up form.
+- Like the Today cards, the summary refreshes when Home is opened again, not while it stays open.
+- The "+" button can sit over the right edge of a card while scrolling (it floats on top, as usual for this kind of button).

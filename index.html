@@ -42,7 +42,7 @@
     import { startSync, onStatus, syncNow } from './core/sync.js';
     import { startAppearance, setAppearance, isDark } from './core/appearance.js';
     import { getMenu } from './core/menu.js';
-    import { todaySection } from './core/home.js';
+    import { todaySection, summaryCard, readingBanner, fillTileStats, quickAdd } from './core/home.js';
 
     // ☀️/🌙 button in the title bar: switches between light and dark.
     // (Settings → Appearance also has "Auto", colour themes and fonts.)
@@ -256,19 +256,23 @@
         .then((c) => sleepSlot.append(c))
         .catch((err) => console.error(err));
 
+      // Module tiles, each with a small live number (HOME-SUMMARY).
+      const tiles = el('div', { className: 'tile-grid' }, menu.order.map(tile));
+
       root.append(
         el('div', { className: 'home-greeting' }, [
           el('h2', { className: 'home-greeting__title', text: `${greeting}${name ? `, ${name}` : ''} ${emoji}` }),
           el('p', { className: 'muted home-greeting__date', text: formatDate(today(), { weekday: true }) }),
         ]),
         sleepSlot,
+        summaryCard(),
+        readingBanner(),
         todaySection(menu.order),
-        card({ className: 'home-summary', children: [
-          el('p', { className: 'muted', text: 'Your daily summary will appear here ✨' }),
-        ] }),
         installSlot,
-        el('div', { className: 'tile-grid' }, menu.order.map(tile)),
+        tiles,
+        quickAdd(menu.order),
       );
+      fillTileStats(tiles);
       updateInstallSlot();
     }
 

@@ -4,7 +4,7 @@
 // RULE: every time a file is added, add it to FILES below AND bump CACHE_VERSION.
 // Bumping the version makes phones fetch the new files and throw away the old copy.
 
-const CACHE_VERSION = 13;
+const CACHE_VERSION = 14;
 const CACHE_NAME = `lifetracker-v${CACHE_VERSION}`;
 
 // Laptop testing address (not the live link). Phones and the live link keep using saved copies first.
