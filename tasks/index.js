@@ -2,7 +2,7 @@
 // TSK-1: add, edit, complete, delete tasks; lists for Today (incl. overdue), Upcoming, No date, Done.
 // TSK-2: due time, priority (low / normal / high) and repeating tasks (daily / weekly / monthly).
 // TSK-3: reminders (`reminderAt`): a notification when due while the app is open, a banner for missed ones.
-// TSK-4: "Add to calendar" saves a dated task as an .ics file for the phone's calendar.
+// TSK-4: "Add to calendar" for a dated task: open Google Calendar, or save an .ics file for any calendar.
 import { card, button, input, list, listItem, emptyState, toast, el } from '../core/ui.js';
 import { add, update, remove, restore, list as listAll, getSettings, saveSettings } from '../core/storage.js';
 import { today, addDays, daysBetween, formatDate, formatTime, nowDateTime, formatDateTime, monthEnd } from '../core/dates.js';
@@ -316,15 +316,46 @@ function taskCalendar(task) {
   return lines.map(icsFold).join('\r\n') + '\r\n';
 }
 
-// Downloads the task's calendar file, e.g. "Pay rent.ics".
-function addToCalendar(task) {
-  if (!task.dueDate) {
-    toast({ message: 'Give the task a due date first 📅' });
-    return;
-  }
+// Two ways to add a task (only when it has a due date):
+// - "Calendar file": downloads an .ics file, e.g. "Pay rent.ics" (keeps the exact reminder, works offline).
+// - "Google Calendar": opens Google Calendar with the task filled in, ready to save (needs internet;
+//   Google can't take the reminder this way, so it uses the calendar's usual alert).
+function needsDate(task) {
+  if (task.dueDate) return false;
+  toast({ message: 'Give the task a due date first 📅' });
+  return true;
+}
+
+function saveCalendarFile(task) {
+  if (needsDate(task)) return;
   const name = task.title.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim().slice(0, 60) || 'Task';
   saveFile(new Blob([taskCalendar(task)], { type: 'text/calendar;charset=utf-8' }), `${name}.ics`);
   toast({ message: `Saved "${name}.ics" · open it to add to your calendar 📅` });
+}
+
+function openGoogleCalendar(task) {
+  if (needsDate(task)) return;
+  const start = dueMoment(task);
+  const dates = task.dueTime
+    ? `${icsUtc(start)}/${icsUtc(shiftMinutes(start, 30))}`
+    : `${task.dueDate.replaceAll('-', '')}/${addDays(task.dueDate, 1).replaceAll('-', '')}`;
+  const params = new URLSearchParams({ action: 'TEMPLATE', text: `✅ ${task.title}`, dates, ctz: 'Asia/Kolkata' });
+  if (task.notes) params.set('details', task.notes);
+  const rule = icsRepeat(task);
+  if (rule) params.set('recur', rule);
+  window.open(`https://calendar.google.com/calendar/render?${params}`, '_blank', 'noopener');
+}
+
+// "📅 Add to calendar" with the two choices. getTask() gives the task to add, or null to stop.
+function calendarChoices(getTask) {
+  const pick = (fn) => () => { const task = getTask(); if (task) fn(task); };
+  return el('div', { className: 'field' }, [
+    el('div', { className: 'field__label', text: '📅 Add to calendar' }),
+    el('div', { className: 'stack', role: 'group', 'aria-label': 'Add to calendar' }, [
+      button({ label: 'Google Calendar', variant: 'secondary', block: true, onClick: pick(openGoogleCalendar) }),
+      button({ label: 'Calendar file (any calendar)', variant: 'secondary', block: true, onClick: pick(saveCalendarFile) }),
+    ]),
+  ]);
 }
 
 // Saving a reminder is a good moment to ask the phone for notifications (only if not yet asked).
@@ -398,6 +429,7 @@ export function startReminders() {
 export async function render(root) {
   let view = 'today';
   let editingId = null;
+  let calendarId = null; // the task whose calendar choices are showing
   const listBox = el('div');
 
   // Add form
@@ -428,7 +460,7 @@ export async function render(root) {
 
   // List switcher
   const viewButtons = VIEWS.map(({ key, label }) => {
-    const btn = button({ label, variant: 'secondary', onClick: () => { view = key; editingId = null; refresh(); } });
+    const btn = button({ label, variant: 'secondary', onClick: () => { view = key; editingId = null; calendarId = null; refresh(); } });
     btn.dataset.view = key;
     return btn;
   });
@@ -478,12 +510,12 @@ export async function render(root) {
     const row = listItem({
       title: task.title,
       subtitle: subtitleOf(task, now),
-      onClick: () => { editingId = task.id; refresh(); },
+      onClick: () => { editingId = task.id; calendarId = null; refresh(); },
       actions: [!task.done && task.dueDate ? button({
         icon: 'calendar',
         variant: 'ghost',
         ariaLabel: `Add "${task.title}" to calendar`,
-        onClick: () => addToCalendar(task),
+        onClick: () => { calendarId = calendarId === task.id ? null : task.id; refresh(); },
       }) : null, button({
         icon: 'trash',
         variant: 'ghost',
@@ -504,11 +536,11 @@ export async function render(root) {
     const editForm = el('form', { className: 'stack', novalidate: true }, [
       ...formParts(fields, { narrow: true }),
       // Uses what's in the boxes now, so a changed date or time doesn't need saving first.
-      button({ label: 'Add to calendar', icon: 'calendar', variant: 'secondary', block: true, onClick: () => {
+      calendarChoices(() => {
         const { values, errors } = readForm(fields);
-        if (errors) { showErrors(fields, errors); return; }
-        addToCalendar({ ...values, id: task.id });
-      } }),
+        if (errors) { showErrors(fields, errors); return null; }
+        return { ...values, id: task.id };
+      }),
       el('div', { className: 'btn-row' }, [
         button({ label: 'Cancel', variant: 'secondary', onClick: () => { editingId = null; refresh(); } }),
         button({ label: 'Save', variant: 'primary', type: 'submit' }),
@@ -625,7 +657,14 @@ export async function render(root) {
       listBox.replaceChildren(emptyState({ emoji, title, text }));
       return;
     }
-    listBox.replaceChildren(list(shown.map((task) => (task.id === editingId ? editRow(task) : taskRow(task, now)))));
+    listBox.replaceChildren(list(shown.flatMap((task) => {
+      if (task.id === editingId) return [editRow(task)];
+      if (task.id !== calendarId || task.done) return [taskRow(task, now)];
+      const choices = el('li', { className: 'list-item' }, [el('div', { className: 'list-item__main' }, [
+        calendarChoices(() => { calendarId = null; refresh(); return task; }),
+      ])]);
+      return [taskRow(task, now), choices];
+    })));
   }
 
   root.append(el('div', { className: 'mod-tasks stack' }, [

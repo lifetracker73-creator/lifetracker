@@ -765,3 +765,16 @@
   📅 again after a change may update it or add a second event, depending on the calendar app.
 - Some calendar apps ignore alarms in imported files and use their own default alert instead.
 - The phone gets this at the final "release".
+
+### TSK-4 update: Google Calendar choice (24 Nov 2026)
+- Tapping 📅 on a task now shows "📅 Add to calendar" under it with two buttons: **Google Calendar** and
+  **Calendar file (any calendar)**. Tapping 📅 again, another task or another list closes it. The edit row shows
+  the same two buttons (using what's in the boxes now).
+- Google Calendar opens calendar.google.com (or the Google Calendar app) with the task's name, date and time
+  (India time), notes and repeat filled in; tap Save there. It needs internet, and Google can't take the
+  reminder this way, so it uses your calendar's usual alert. The calendar file still keeps the exact reminder
+  and works offline (on the laptop it opens in Outlook because that's the laptop's calendar app).
+- Checked at 360px in dark mode with a pretend task: both buttons, the Google link (timed and all-day, monthly
+  repeat, notes), the file download, no sideways scrolling. Pretend task removed; Google Sync waiting list back to 12.
+- Known issue: the release secret scan only allows certain links, so `calendar.google.com` in `tasks/index.js`
+  needs to be on the allowed list (CLAUDE.md) or the release will stop on it.
