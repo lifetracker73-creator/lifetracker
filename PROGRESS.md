@@ -1044,3 +1044,32 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - The usual test servers on this laptop belong to other chats, so testing used the old test browser at
   localhost:8765. It still has 2 pretend foods (Poha, Milk) waiting for Google Sync there (test browser only).
 - The phone gets this at the final "release".
+
+## FOOD-4: Today's vitamins & minerals (24 Nov 2026)
+**Built**
+- 🍱 Food screen, new **Today's vitamins & minerals** card under "Today's macros". It follows the day shown in the
+  food log (◀ ▶ changes the title to "Vitamins & minerals · 23 Nov 2026").
+- Covers the 11 built-in ones (sodium, potassium, calcium, iron, magnesium, zinc, vitamins A, B12, C, D, folate) and
+  your own extra nutrients (e.g. Selenium).
+- Ones with a target: like the macros, "at least 5.6 mg of 18 mg" with a soft peach bar, %, and "12.4 mg to go",
+  "Target reached 🎉" or "5.5 mg over target". If no food logged that day has a value: "Unknown" (no bar).
+- Ones without a target: under "No target set", just the total ("Calcium · 100 mg").
+- Unknown values clearly marked: "at least …" when some foods have that value blank (with a short note), and one line
+  "❔ Unknown (no info in the foods logged): Sodium, Vitamin D, …" for the rest. Blank is never counted as zero.
+- A day with nothing logged and no targets shows a friendly empty message.
+- **My daily targets** card: new fold-out "Vitamins & minerals (optional)" with a box for each one (your own too; a new
+  nutrient gets a box straight away, keeping what's typed). Empty = no target. No suggested values are filled in.
+  Friendly messages for not a number, 0 or less, and too big (over 1,00,000, or 1,000 for a nutrient in g); a mistake
+  opens the fold-out.
+- Saved data: micro targets go into the existing food settings `targets` (built-in ones by name, e.g. `ironMg`; your
+  own by the nutrient's ID). Settings are never sent to Google Sheets. Nothing existing changed; no new files, so
+  `sw.js` didn't need changing.
+- Checked at 360px in light and dark mode with 2 pretend entries and a pretend Selenium nutrient (fresh test browser
+  on port 8772, database deleted afterwards): totals checked by hand, "at least", over target, Unknown target row,
+  error message opens the fold-out, previous day with targets, new nutrient gets a box, boxes 44px, no sideways scrolling.
+
+**Known issues**
+- Changing a nutrient's unit (mg ↔ µg) keeps its target number as it is, like the food values.
+- Deleting your own nutrient keeps its target in settings (unused), so Undo brings it back with its target.
+- All 5 test-server slots belonged to other chats, so testing used a temporary server on port 8772 (stopped).
+- The phone gets this at the final "release".

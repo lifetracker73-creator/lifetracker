@@ -9,6 +9,7 @@
 //         how much. Each log entry keeps its own copy of the nutrients for the amount eaten, so
 //         editing or deleting the food later never changes past days. Food log by day, edit/delete.
 // FOOD-3: My daily targets (food settings `targets`), day totals versus targets, totals per meal.
+// FOOD-4: Vitamins & minerals for the day (built-in and your own) versus optional targets, unknowns marked.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, get, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
@@ -214,6 +215,31 @@ function mealTotalText(rows) {
     return `${formatNumber(key === 'kcal' ? Math.round(s.total) : s.total, 1)}${s.unknown ? '+' : ''}`;
   };
   return `${num('kcal')} kcal · ${num('proteinG')} g protein`;
+}
+
+// FOOD-4: vitamins & minerals for a day. Built-in ones are read from the entry's own field, your own
+// ones from its `extraNutrients`. Their targets live in the same `targets` setting (built-in ones by
+// key, e.g. ironMg; your own ones by the nutrient's id). No target = not set.
+const MAX_MICRO_TARGET = { g: 1000, other: 100000 };
+const unitOf = (n) => (/\((mg|µg|g)\)$/.exec(n.label) || [])[1] || 'mg';
+const microAmount = (unit, n) => `${formatNumber(n, Math.abs(n) < 1 ? 2 : 1)} ${unit}`;
+
+// Every vitamin/mineral to show: { key, name, unit, valueOf(entry) }.
+function microList(extras) {
+  return [
+    ...MICROS.map((n) => ({ key: n.key, name: shortName(n), unit: unitOf(n), valueOf: (e) => e[n.key] })),
+    ...extras.map((c) => ({
+      key: c.id, name: c.name, unit: c.unit, valueOf: (e) => (e.extraNutrients || {})[c.id],
+    })),
+  ];
+}
+
+// Adds up one vitamin/mineral. Blank values are unknown: counted, never treated as zero.
+function sumMicro(entries, m) {
+  let total = 0;
+  let unknown = 0;
+  entries.forEach((e) => { const v = m.valueOf(e); if (isBlank(v)) unknown += 1; else total += Number(v); });
+  return { total, unknown, allUnknown: entries.length > 0 && unknown === entries.length };
 }
 
 function dayTitle(ymd) {
@@ -497,6 +523,8 @@ export async function render(root) {
     addFields.setExtras(listNow);
     if (editFields) editFields.setExtras(listNow);
     await refreshExtras();
+    buildMicroTargets(); // FOOD-4: your own nutrients get a target box and a row for the day
+    showMicros(await listByDate('foodLog', shownDay));
   }
 
   // ---- Add a food ----
@@ -993,6 +1021,7 @@ export async function render(root) {
       }).filter(Boolean));
     }
     showMacros(day);
+    showMicros(day);
     if (!picked) refreshPicker();
   }
 
@@ -1038,6 +1067,70 @@ export async function render(root) {
     macrosNote.hidden = !anyUnknown;
   }
 
+  // ---- Today's vitamins & minerals (FOOD-4): same day as the food log ----
+  const microsBox = el('div', { className: 'stack' });
+  const microsNote = el('p', { className: 'progress-note' });
+  let microsTitle = null;
+
+  // A nutrient with a target: amount, soft bar, % and what's left (like the macros).
+  function microTargetRow({ m, s, target }) {
+    const fmt = (n) => microAmount(m.unit, n);
+    const amount = s.allUnknown ? 'Unknown' : `${s.unknown ? 'at least ' : ''}${fmt(s.total)} of ${fmt(target)}`;
+    let note;
+    if (s.allUnknown) note = `No ${m.name} info in the foods logged`;
+    else if (s.total > target) note = `${fmt(s.total - target)} over target`;
+    else if (s.total >= target * 0.999) note = 'Target reached 🎉';
+    else note = `${fmt(target - s.total)} to go`;
+    return el('div', {}, [
+      el('div', { className: 'progress-stats' }, [
+        el('strong', { text: m.name }),
+        el('span', { className: 'progress-stats__percent', text: s.allUnknown ? '' : `${Math.round((s.total / target) * 100)}%` }),
+      ]),
+      el('div', { className: 'list-item__title', text: amount }),
+      s.allUnknown ? null : progressBar({ value: s.total, max: target, label: `${m.name} toward your target` }),
+      el('p', { className: 'progress-note', text: note }),
+    ]);
+  }
+
+  function showMicros(day) {
+    if (microsTitle) {
+      microsTitle.textContent = shownDay === today()
+        ? "Today's vitamins & minerals" : `Vitamins & minerals · ${formatDate(shownDay)}`;
+    }
+    const rows = microList(extras).map((m) => ({
+      m, s: sumMicro(day, m), target: targets[m.key] > 0 ? targets[m.key] : null,
+    }));
+    const withTarget = rows.filter((r) => r.target);
+    const known = day.length ? rows.filter((r) => !r.target && !r.s.allUnknown) : [];
+    const unknown = rows.filter((r) => !r.target && r.s.allUnknown).map((r) => r.m.name);
+    const anyPartly = rows.some((r) => r.s.unknown && !r.s.allUnknown);
+
+    if (!day.length && !withTarget.length) {
+      microsBox.replaceChildren(emptyState({
+        emoji: '🥦',
+        title: shownDay === today() ? 'Nothing logged today yet' : 'Nothing logged on this day',
+        text: 'Log food to see your vitamins and minerals here. Set targets under "My daily targets".',
+      }));
+      microsNote.hidden = true;
+      return;
+    }
+    const parts = withTarget.map(microTargetRow);
+    if (known.length) {
+      if (withTarget.length) parts.push(el('h3', { className: 'list-group__title' }, [el('span', { text: 'No target set' })]));
+      parts.push(...known.map(({ m, s }) => el('div', { className: 'progress-stats' }, [
+        el('span', { text: m.name }),
+        el('strong', { text: `${s.unknown ? 'at least ' : ''}${microAmount(m.unit, s.total)}` }),
+      ])));
+    }
+    if (unknown.length) {
+      parts.push(el('p', { className: 'progress-note', text: `❔ Unknown (no info in the foods logged): ${unknown.join(', ')}` }));
+    }
+    if (!day.length) parts.push(el('p', { className: 'progress-note', text: 'Log food to fill these in ✨' }));
+    microsBox.replaceChildren(...parts);
+    microsNote.textContent = '"At least" means some foods you logged have that value left blank, so the real total may be higher.';
+    microsNote.hidden = !anyPartly;
+  }
+
   // ---- My daily targets (FOOD-3) ----
   const targetFields = TARGET_MACROS.map((n) => {
     const f = input({
@@ -1048,15 +1141,57 @@ export async function render(root) {
     f.input.addEventListener('input', () => f.setError(''));
     return f;
   });
+  // FOOD-4: a box per vitamin/mineral (your own ones too), in a fold-out. Rebuilt when your own
+  // nutrients change, keeping whatever is typed.
+  const microTargetGrid = el('div', { className: 'field-grid' });
+  let microTargetFields = []; // [{ m, f }]
+  function buildMicroTargets() {
+    const typed = new Map(microTargetFields.map(({ m, f }) => [m.key, f.input.value]));
+    microTargetFields = microList(extras).map((m) => {
+      const f = input({
+        label: `${m.name} (${m.unit})`, inputmode: 'decimal',
+        value: typed.has(m.key) ? typed.get(m.key) : (targets[m.key] > 0 ? String(targets[m.key]) : ''),
+      });
+      f.input.addEventListener('input', () => f.setError(''));
+      return { m, f };
+    });
+    microTargetGrid.replaceChildren(...microTargetFields.map((x) => x.f));
+  }
+  buildMicroTargets();
+  const microTargetsBox = el('details', {
+    className: 'settings-details',
+    open: microList(extras).some((m) => targets[m.key] > 0),
+  }, [
+    el('summary', { text: 'Vitamins & minerals (optional)' }),
+    el('div', { className: 'stack' }, [
+      el('p', { className: 'progress-note', text: 'Only the ones you fill in get a bar. Check the amounts that suit you (e.g. with your doctor).' }),
+      microTargetGrid,
+    ]),
+  ]);
+
   const targetsForm = el('form', { className: 'stack', novalidate: true }, [
     el('p', { className: 'progress-note', text: 'Leave a box empty if you don\'t want a target for it.' }),
     el('div', { className: 'field-grid' }, targetFields),
+    microTargetsBox,
     button({ label: 'Save targets', variant: 'primary', type: 'submit', block: true }),
   ]);
   targetsForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const next = {};
+    const next = { ...targets }; // keeps targets of nutrients not shown (e.g. one deleted, for Undo)
     let ok = true;
+    let microError = false;
+    microTargetFields.forEach(({ m, f }) => {
+      const v = parseNum(f.input.value.replace(/,/g, ''));
+      const max = m.unit === 'g' ? MAX_MICRO_TARGET.g : MAX_MICRO_TARGET.other;
+      if (v === '') { next[m.key] = null; return; }
+      if (Number.isNaN(v)) f.setError('Please type a number, e.g. 18');
+      else if (v <= 0) f.setError('Please type more than 0, or leave it empty');
+      else if (v > max) f.setError(`That's a lot! Please type ${formatNumber(max)} or less`);
+      else { next[m.key] = round(v, 2); return; }
+      ok = false;
+      microError = true;
+    });
+    if (microError) microTargetsBox.open = true;
     TARGET_MACROS.forEach((n, i) => {
       const f = targetFields[i];
       // Targets are big round numbers, so a comma here is a thousands comma: "2,500" = 2500.
@@ -1073,7 +1208,9 @@ export async function render(root) {
     if (!ok) return;
     targets = (await saveSettings('food', { targets: next })).targets;
     toast({ message: 'Daily targets saved 🎯' });
-    showMacros(await listByDate('foodLog', shownDay));
+    const dayNow = await listByDate('foodLog', shownDay);
+    showMacros(dayNow);
+    showMicros(dayNow);
   });
 
   async function deleteLog(entry) {
@@ -1094,9 +1231,12 @@ export async function render(root) {
   buildAddForm();
   const macrosCard = card({ title: "Today's macros", module: 'food', children: [macrosBox, macrosNote] });
   macrosTitle = macrosCard.querySelector('.card__title > span:last-child');
+  const microsCard = card({ title: "Today's vitamins & minerals", module: 'food', children: [microsBox, microsNote] });
+  microsTitle = microsCard.querySelector('.card__title > span:last-child');
   root.append(el('div', { className: 'mod-food stack' }, [
     card({ title: 'Log food', module: 'food', children: [logForm] }),
     macrosCard,
+    microsCard,
     card({ title: 'Food log', module: 'food', children: [el('div', { className: 'stack' }, [
       el('div', { className: 'month-nav' }, [prevDay, dayLabel, nextDay]),
       logListBox,

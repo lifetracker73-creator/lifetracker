@@ -169,6 +169,8 @@ plus `extraNutrients`, and the entry also keeps `foodName`, `servingName`, `serv
 **Settings:** daily targets for kcal, protein, carbs, fat, fibre and any micros the user chooses.
 Added in FOOD-3: `targets` ({ kcal, proteinG, carbsG, fatG, fibreG }; null = no target), suggested
 2,000 kcal, 60 g protein, 250 g carbs, 65 g fat, 30 g fibre until the user saves their own.
+Added in FOOD-4: the same `targets` also hold optional micro targets, built-in ones by key (e.g. `ironMg`)
+and your own extra nutrients by their id. No suggested values; empty = no target.
 
 | Code | Unit |
 |---|---|
