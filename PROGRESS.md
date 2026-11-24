@@ -775,6 +775,6 @@
   reminder this way, so it uses your calendar's usual alert. The calendar file still keeps the exact reminder
   and works offline (on the laptop it opens in Outlook because that's the laptop's calendar app).
 - Checked at 360px in dark mode with a pretend task: both buttons, the Google link (timed and all-day, monthly
-  repeat, notes), the file download, no sideways scrolling. Pretend task removed; Google Sync waiting list back to 12.
+  repeat, notes), the file download, no sideways scrolling. Pretend task removed (this preview had an empty Google Sync waiting list, and it is empty again).
 - Known issue: the release secret scan only allows certain links, so `calendar.google.com` in `tasks/index.js`
   needs to be on the allowed list (CLAUDE.md) or the release will stop on it.
