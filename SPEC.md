@@ -58,6 +58,7 @@ have to think about backups. Reliability and security come before features. Keep
   (foods, categories, books) go into the year they were created. If an edit moves an entry
   to another year, it is removed from the old year's file.
 - Exactly 8 tabs, one per module: Water, Sleep, Weight, Food, Expenses, Tasks, Reading, Medical log.
+  (Later: "Gym log" added in GYM-1 and "Refills" in REF-1, making 10.)
   Modules that save more than one kind of thing share their tab, with a "Type" column first:
   Food (Food log / Food library / Recipe), Expenses (Expense / Category),
   Reading (Book / Check-in / Weekly reflection). Medical log holds only visits, one row each.
@@ -302,10 +303,111 @@ The Excel export (CORE-7) includes a "Medical log" sheet.
 
 ---
 
+## GYM: Gym log 🏋️ (added 25 Nov 2026)
+Log workouts, see what I did last time, celebrate personal records.
+Folder `gym/`, screen `#/gym`, its own pastel accent (`mod-gym`, a soft coral), emoji 🏋️.
+
+**Session (drawer `gymSessions`):** `date`, `typeId`, `durationMin` (optional), `note` (optional).
+**Exercise in a session (drawer `gymSets`, one record per exercise done):** `sessionId`, `exerciseId`, `order`, and
+- strength: `sets`, `reps`, `weightKg` (1 decimal place; blank = bodyweight)
+- cardio: `durationMin`, `distanceKm` (optional, 2 decimal places)
+**Exercise library (drawer `gymExercises`):** `name`, `kind` ('strength' / 'cardio'). Names are suggested while
+typing so the same exercise is always called the same thing (needed for "last time" and records).
+**Routine (drawer `gymRoutines`):** `name`, `typeId`, `items` (a list of `{ exerciseId, sets, reps, weightKg,
+durationMin, distanceKm }`).
+**Settings:** `types` (`{ id, name }` list, starting with Strength, Cardio, Yoga, Sports, Other; I can add,
+rename, remove my own; a type still in use can't be removed), `weeklyGoal` (workouts per week, default 3).
+
+**Rules**
+- "Last time": while adding an exercise, show the most recent earlier time I did it
+  (e.g. "Last time, 21 Nov: 3 × 10 @ 40 kg" or "Last time, 19 Nov: 25 min, 4.2 km").
+- Personal record 🏆: strength = heaviest weight ever for that exercise; cardio = longest distance.
+  Beating it shows a cheerful "New record!" badge on save, and the badge stays on that entry in the list.
+- Weeks run Monday to Sunday. Gym streak = weeks in a row that reached the weekly goal
+  (the current week counts once it's reached).
+- Everything calculated (records, streaks, counts) is worked out on screen, not stored.
+
+**Sync and export:** Google Sheet tab "Gym log" with a "Type" column first (Session / Exercise / Exercise library /
+Routine) and a column for every field (Date, Type of workout, Duration (min), Note, Session (date + type),
+Exercise, Kind, Sets, Reps, Weight (kg), Distance (km), Routine name, Routine items as readable text), names
+instead of IDs. Same add / edit / delete / offline outbox / no duplicates as every other module (built into storage).
+The Apps Script gets "Gym log" added to its tab list; existing yearly files get the tab added automatically the
+first time a Gym row arrives, nothing else in them changes. (After this unit I must paste the new Code.gs into
+Google once.) The Excel export (CORE-7) gets a "Gym log" sheet automatically.
+The Sheet has no Summary tab, so no Sheet summaries are added.
+
+| Code | Unit |
+|---|---|
+| GYM-1 | Gym screen, accent and 🏋️ in the Customise menu / More and Home tiles; workout types (defaults + my own); add / edit / delete a session (Undo); sessions list newest first; "Gym log" Sheet tab and Excel sheet |
+| GYM-2 | Exercises inside a session: exercise library with name suggestions, strength (sets, reps, kg) or cardio (min, km), add / edit / delete / reorder |
+| GYM-3 | "Last time" hint while adding an exercise |
+| GYM-4 | Personal record 🏆 badge when I beat my best (on save and in the list) |
+| GYM-5 | Routines: save a session as a routine, edit / delete routines, start a new session from one in one tap |
+| GYM-6 | Insights: workouts per week chart (last 12 weeks), gym streak with weekly goal (goal in Settings), most-trained exercises list |
+| GYM-7 | Home "Today" card: worked out today or not, workouts this week vs goal, streak |
+
+---
+
+## REFILLS: Refills 🔄 (added 25 Nov 2026)
+Regular things I buy again and again (gas cylinder, rice, milk, water can, internet plan) and what they
+cost me per day. Folder `refills/`, screen `#/refills`, its own pastel accent (`mod-refills`, a soft teal), emoji 🔄.
+
+**Item (drawer `refillItems`):** `name`, `unit` (can / kg / litre / pack / month, or my own typed unit),
+`categoryId` (a Money category), `remind` (yes/no), `remindDaysBefore` (default 1).
+**Refill (drawer `refills`):** `itemId`, `date`, `quantity` (number, decimals allowed),
+`pricePerUnitPaise`, `vendor` (optional; names used before are suggested), `note` (optional),
+`paymentMethod` (UPI / cash / card / other, same as Money, because the matching expense needs it),
+`expenseId` (the linked Money expense), `taskId` (the linked reminder task, if any).
+Total = quantity × price per unit, rounded to whole paise; worked out on screen, not stored.
+
+**Worked out per item (needs at least 2 refills, otherwise "Not enough data yet")**
+- Average days a refill lasts: average gap between refill dates (last 6 refills).
+- Cost per day: money spent on those refills (all but the newest) ÷ days between the first and the newest.
+- Price change: price per unit now vs the first and the previous refill (₹ and %), with a small line chart.
+- Expected next refill: last refill date + average days ("in 4 days" / "2 days late").
+- Optional reminder: a task in Tasks ("🔄 Refill Gas cylinder", due on the expected date minus `remindDaysBefore`).
+  Logging the next refill marks it done and makes the next one; switching the reminder off deletes it.
+
+**"Daily cost of living" card:** total cost per day of all items that have enough data, and per month (× 30),
+with a short list of each item's share.
+
+**Link to Money (no double counting, no duplicates)**
+- Saving a refill also saves one expense in Money: date, total, the item's category, payment method,
+  note "🔄 Refill: <item> (<quantity> <unit>)", and new optional fields `source: 'refill'` and `refillId`.
+  Old expenses don't change and need no migration.
+- Editing the refill updates that same expense; deleting it removes it (Undo brings both back).
+- In Money, a refill expense shows a 🔄 Refill tag. Opening it says "This comes from Refills" with a button to
+  edit it there, so the two can never disagree.
+- On opening Refills, a quick check repairs any refill whose expense is missing and removes any extra copy.
+- Money totals count each refill once (as its expense). The refill baseline below is only a guide line,
+  never added on top.
+
+**Money daily spend view (new Money screen):** a bar chart of actual spend per day (last 30 days, from expenses)
+with a flat "regular refills per day" line from the Daily cost of living, plus the average daily spend.
+Because Money can't import from Refills, the cost-per-day maths lives in one small shared helper in `core/`.
+
+**Sync and export:** Google Sheet tab "Refills" with a "Type" column first (Item / Refill) and a column for every
+field (Item, Unit, Money category, Reminder, Days before, Date, Quantity, Price per unit (₹), Total (₹), Vendor,
+Payment method, Note), names instead of IDs; the matching expenses still go to the Expenses tab as usual.
+Same sync rules, Apps Script tab list, automatic new tab in existing yearly files and Excel sheet as Gym.
+The Sheet has no Summary tab, so no Sheet summaries are added.
+
+| Code | Unit |
+|---|---|
+| REF-1 | Refills screen, accent and 🔄 in the Customise menu / More and Home tiles; items: add / edit / delete (name, unit incl. my own, Money category); "Refills" Sheet tab and Excel sheet |
+| REF-2 | Log a refill: date, quantity, price per unit, live total, vendor with suggestions, payment method, note; refills list per item; edit / delete (Undo) |
+| REF-3 | Money link: each refill creates / updates / removes its matching expense tagged 🔄 Refill; refill expenses in Money open in Refills; repair check for missing or duplicate links |
+| REF-4 | Per-item numbers: average days a refill lasts, cost per day, price change with a small chart, expected next refill date |
+| REF-5 | Optional next-refill reminder per item, kept as a task in Tasks |
+| REF-6 | "Daily cost of living" card (per day and per month) and a Home "Today" card (next refill due, daily cost) |
+| REF-7 | Money daily spend view: actual spend per day chart with the "regular refills per day" line, from a shared helper in `core/` |
+
+---
+
 ## Suggested build order
 CORE-1 → CORE-2 → CORE-3 → CORE-4 → CORE-5 → WTR-1 → SHEETS-SYNC → WTR-2 → CORE-6 → WTR-3 → WGT-1…3 →
 SLP-1…2 → MON-1…6 → TSK-1…2 → CORE-9 → TSK-3…4 → RDG-1…4 → FOOD-1…6 → MED-1…6 →
-CORE-7 → CORE-8 → HOME-1 → HOME-SUMMARY
+CORE-7 → CORE-8 → HOME-1 → HOME-SUMMARY → GYM-1…7 → REF-1…7
 
 ---
 

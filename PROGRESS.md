@@ -1539,3 +1539,8 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - The floating "+" button can sit over the right end of the Install button while scrolling (it floats on top).
 - The phone gets this at the final "release".
+
+## Plan change (25 Nov 2026): 🏋️ Gym log and 🔄 Refills added to SPEC.md
+- New units GYM-1…7 and REF-1…7 planned (not built yet). Build order: Gym first, then Refills.
+- TELEGRAM-BOT was not in SPEC.md, so nothing was removed.
+- The Google Sheet has no Summary tab, so no Sheet summaries are planned.
