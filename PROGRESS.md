@@ -1617,3 +1617,38 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - If you delete a refill reminder task in ✅ Tasks yourself, it stays gone until the next refill.
 - In Money a refill row shows 🔄 twice (the tag and the note).
 - The phone gets this at the final "release".
+
+## PRIVACY + AUDIT: Privacy protection, full app check and fixes (25 Nov 2026)
+**Privacy**
+- `.gitignore` is now an allowlist: only app code, icons, fonts and the docs can be uploaded. Backups, exports,
+  Excel/CSV, PDFs, screenshots, `.claude/`, `.env` and `PRIVATE.md` are blocked by name as well.
+- `PRIVATE.md` (laptop only, never uploaded) lists words that must never be public.
+- Local privacy guard in `.git/hooks` (laptop only): checks every commit and commit message for anything in
+  PRIVATE.md, the computer username, emails (except noreply), phone numbers, Google Script/Drive/Docs/Sheet links,
+  secret keys, tokens, passwords and risky file types. `sh .git/hooks/privacy-check.sh full` scans all history.
+  Tested: 10 kinds of fake secrets were all blocked.
+- Full audit: nothing personal in any file, in all past commits, on GitHub or on the live site. Git author is the
+  neutral noreply one in every commit. Icons hold no hidden metadata.
+- `index.html` asks search engines not to list the app (noindex).
+- CLAUDE.md release rule: full privacy scan → preview of files and changes → wait for "yes" → bump, push,
+  re-scan what is live. Sample/test data must always be clearly fake.
+
+**Full app check (on a fresh test copy with fake data, pretend Google)**
+- All 12 sections and inner pages open with no errors. Add / edit / delete / Undo checked in every section.
+- Refills ↔ Money: one expense per refill, edits update it, deletes remove it, Undo brings both back, no duplicates.
+- Customise menu, settings, appearance and the first-run welcome work. Data survives refresh and closing the browser.
+- Export to Excel has all 10 tabs. Backup → Restore brings everything back exactly (Sheet follows too).
+- Offline (real Chrome, no server): app opens, all screens work, new entries are kept.
+- Google Sync: adds, edits, deletes reach the right tabs; offline entries sent later; no duplicates; wrong key,
+  bad link and Google errors handled; year moves; attachments upload once; status icon ✅ / ⏳ / ⚠️ correct.
+- 360px phone width in light and dark: no sideways scrolling, all buttons ≥ 44px, all text readable.
+
+**Fixed**
+- 🏋️ Deleting a whole workout and 🤝 deleting a split group now show the Undo message (it used to vanish at once).
+- The app asks the phone to protect its saved data from automatic clean-up (`askToKeepData` in storage.js).
+- Google Sheet and Excel export show "Cash / Card / Other / Online" instead of small letters.
+
+**Known issues**
+- The "New version available" message and notifications can't be tested in Claude's built-in browser; check on the phone.
+- Whether the phone agrees to protect the data is up to the phone (usually yes for an installed app).
+- Recipes, weekly reflections, "Going to bed" and Daily spend opened without errors but weren't tested in depth.
