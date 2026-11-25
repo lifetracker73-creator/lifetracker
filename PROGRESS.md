@@ -1678,6 +1678,7 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The guide describes Google's screens as they look today; Google sometimes renames buttons.
+- Guide step 9 (in v26) now says "open Google Drive" instead of showing a web address (goes up with the next release).
 
 ## TEXT SIZE: 🔠 Text size in Settings → Appearance (25 Nov 2026)
 **Built**
