@@ -649,7 +649,11 @@ async function groupScreen(root, id) {
         const gone = await remove('splitGroups', group.id);
         const goneItems = [];
         for (const it of items) { const r = await remove('splitItems', it.id); if (r) goneItems.push(r); }
-        navigate('money/split');
+        // Waits for the move to the groups list, so the Undo message isn't hidden by the screen change.
+        await new Promise((resolve) => {
+          window.addEventListener('hashchange', () => resolve(), { once: true });
+          navigate('money/split');
+        });
         toast({
           message: `Deleted ${gone.emoji} ${gone.name}`,
           actionLabel: 'Undo',

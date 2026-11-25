@@ -43,7 +43,7 @@
   <script type="module">
     import { el, badge, button, card, modules, icons } from './core/ui.js';
     import { startRouter } from './core/router.js';
-    import { getSettings } from './core/storage.js';
+    import { getSettings, askToKeepData } from './core/storage.js';
     import { today, currentHour, formatDate, addDays } from './core/dates.js';
     import { buddy, withName } from './core/buddy.js';
     import { startSync, onStatus, syncNow } from './core/sync.js';
@@ -176,6 +176,9 @@
         : '';
     });
     startSync();
+
+    // Ask the phone to protect saved data from automatic clean-up when storage runs low.
+    askToKeepData();
 
     // Offline helper (CORE-5): saves the app on the phone so it works with no internet.
     // When a new version has been downloaded, a message offers to switch to it.

@@ -92,8 +92,12 @@ function label(field) {
   return m ? `${text} (${UNITS[m[2]]})` : text;
 }
 
+// How payment methods are shown in the Sheet (the app saves them as 'UPI', 'cash', 'card', 'other', 'online').
+const PAY_WORDS = { UPI: 'UPI', upi: 'UPI', cash: 'Cash', card: 'Card', other: 'Other', online: 'Online' };
+
 function cellValue(field, value, names) {
   if (value === null || value === undefined || value === '') return '';
+  if ((field === 'paymentMethod' || field === 'paymentMode') && typeof value === 'string') return PAY_WORDS[value] || value;
   if (LINKS[field]) {
     const lookup = (id) => names[LINKS[field]]?.get(id) || id;
     return Array.isArray(value) ? value.map(lookup).join(', ') : lookup(value);

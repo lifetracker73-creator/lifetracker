@@ -528,3 +528,18 @@ export async function saveSettings(moduleName, values) {
   const { module, updatedAt, ...saved } = record;
   return saved;
 }
+
+/**
+ * Asks the phone to keep this app's saved data safe from automatic clean-up when storage runs low
+ * (browsers may otherwise clear website data). Quietly does nothing if the phone doesn't support it.
+ * Returns true if the data is protected.
+ */
+export async function askToKeepData() {
+  try {
+    if (!navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+}

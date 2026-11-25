@@ -825,9 +825,11 @@ async function sessionScreen(root, sessionId) {
         ...lines.map((t) => el('p', { className: 'muted', text: t })),
         el('div', { className: 'btn-row' }, [
           button({ label: 'Edit details', icon: 'edit', variant: 'secondary', onClick: () => { editingDetails = true; drawDetails(); } }),
-          button({ label: 'Delete', icon: 'trash', variant: 'danger', onClick: () => deleteSession(d, session, async (undone) => {
-            if (undone) navigate(`gym/session/${session.id}`); else navigate('gym');
-          }) }),
+          // Waits for the move to the next screen, so the Undo message isn't hidden by the screen change.
+          button({ label: 'Delete', icon: 'trash', variant: 'danger', onClick: () => deleteSession(d, session, (undone) => new Promise((resolve) => {
+            window.addEventListener('hashchange', () => resolve(), { once: true });
+            navigate(undone ? `gym/session/${session.id}` : 'gym');
+          })) }),
         ]),
       ])],
     }));
