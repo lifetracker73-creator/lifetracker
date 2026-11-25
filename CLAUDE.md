@@ -79,8 +79,10 @@ water/  sleep/  weight/  food/  money/  tasks/  reading/  medical/
        new images/PDFs; that no backups, exports, Excel/CSV, PDFs, screenshots, PRIVATE.md or
        `.claude/` files are tracked; that the git author is the neutral noreply one.
      - Only these are allowed: the app's own GitHub/GitHub Pages links, the link pattern and Google
-       permission addresses in the sync code, licence links in `core/fonts/OFL.txt`, and made-up
-       examples like `name@gmail.com`.
+       permission addresses in the sync code, licence links in `core/fonts/OFL.txt`, the two Chart.js
+       credit links in `core/vendor/chart.umd.min.js` (chartjs.org and github.com/kurkle/color), the
+       Google Calendar "add an event" link (calendar.google.com/calendar/render) in `tasks/index.js`,
+       and made-up examples like `name@gmail.com`.
   2. Show me the release preview: the exact list of files that will be uploaded (new/changed),
      a plain-words summary of what changed, the new version number, and "privacy scan ✅ clean".
   3. WAIT for me to type "yes". Anything else means don't release.
