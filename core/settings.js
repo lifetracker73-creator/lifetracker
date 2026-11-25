@@ -250,8 +250,8 @@ async function menuCard() {
     children: [
       el('p', { className: 'muted', text: `🏠 Home is always first and 🌈 More always last. ${BAR_SIZE} modules sit on the bottom bar; the rest are in More. The ↑/↓ arrows set the order on the bar, in More and on the home screen.` }),
       note,
-      rows,
-      reset,
+      // Same gap above "Reset to default" as between the other parts of Settings.
+      el('div', { className: 'stack' }, [rows, reset]),
     ],
   });
 }

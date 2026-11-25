@@ -1693,3 +1693,4 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The phone's own text-size setting still works on top of this.
+- Also fixed: "Reset to default" in 🧭 Customise menu now has the same gap above it as the rest of Settings.
