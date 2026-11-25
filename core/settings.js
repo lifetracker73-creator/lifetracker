@@ -349,6 +349,198 @@ function notificationsCard() {
   });
 }
 
+// ---------- ℹ️ About your data ----------
+// Plain answers about where data lives, backups and the Google Sheet, plus a step-by-step guide
+// (written for a beginner) to linking a Google Sheet. Text only: nothing here reads or saves data.
+
+// The two script files, shown as plain text on the app's own GitHub (so they can be copied, not downloaded).
+const SCRIPT_FILES = 'https://raw.githubusercontent.com/lifetracker73-creator/lifetracker/main/google-apps-script/';
+
+const fileLink = (name) => el('a', { href: SCRIPT_FILES + name, target: '_blank', rel: 'noopener', text: name });
+const bold = (text) => el('strong', { text });
+const steps = (items, start = 1) => el('ol', { className: 'settings-steps', start: start > 1 ? start : null },
+  items.map((item) => el('li', {}, Array.isArray(item) ? item : [item])));
+const dots = (items) => el('ul', { className: 'settings-steps' }, items.map((item) => el('li', {}, item)));
+const question = (title, children, id) => el('details', { className: 'settings-details about-q', id }, [
+  el('summary', { text: title }),
+  el('div', { className: 'about-a' }, children),
+]);
+
+const GUIDE = [
+  ['🧰 Part 1: Get ready', [
+    'Use a computer (a laptop is easiest). A phone screen is too small for this part.',
+    'Open Google Chrome.',
+    'Check you are signed in to the Google account where you want your data to go. Its round picture is at the top right of any Google page.',
+    'Keep your phone nearby. You will need it at the end.',
+  ]],
+  ['📁 Part 2: Make a new script', [
+    ['Click the address bar at the top, type ', bold('script.google.com'), ' and press Enter.'],
+    'If it asks you to sign in, sign in.',
+    'Click the "New project" button (it has a big + on it).',
+    'A new page opens. At the top it says "Untitled project". Click those words.',
+    'Type LifeTracker and click "Rename".',
+  ]],
+  ['👀 Part 3: Show the hidden settings file', [
+    'On the far left there is a thin row of icons. Click the ⚙️ gear icon ("Project Settings").',
+    'Find the box "Show "appsscript.json" manifest file in editor". Click it so it gets a tick ✔️.',
+    'Click the < > icon ("Editor") on the far left to go back.',
+    'On the left you now see two files: Code.gs and appsscript.json.',
+  ]],
+  ['📋 Part 4: Copy in the first file (Code.gs)', [
+    'Click "Code.gs" in the list on the left.',
+    'Click anywhere inside the big writing area.',
+    'Press the Ctrl and A keys together. This selects everything. (On a Mac, use ⌘ instead of Ctrl.)',
+    'Press the Delete key. The writing area is now empty.',
+    ['Open this link (it opens in a new tab): ', fileLink('Code.gs'), '. You will see a page full of code.'],
+    'Click anywhere on that page. Press Ctrl + A, then Ctrl + C. This copies it.',
+    'Go back to the script tab. Click inside the empty writing area.',
+    'Press Ctrl + V. This pastes it, and the code appears.',
+    'Press Ctrl + S to save (or click the 💾 save icon).',
+  ]],
+  ['📋 Part 5: Copy in the second file (appsscript.json)', [
+    'Click "appsscript.json" in the list on the left.',
+    'Click inside the writing area, press Ctrl + A, then press Delete.',
+    ['Open this link: ', fileLink('appsscript.json'), '.'],
+    'Click on that page, press Ctrl + A, then Ctrl + C.',
+    'Go back to the script tab, click inside the empty writing area and press Ctrl + V.',
+    'Press Ctrl + S to save.',
+  ]],
+  ['▶️ Part 6: Run "setup" to make your secret key', [
+    'Click "Code.gs" on the left again.',
+    'At the top, next to the "▶ Run" button, there is a small box with a name in it. Click it and choose "setup".',
+    'Click "▶ Run".',
+    'A box pops up: "Authorization required". Click "Review permissions".',
+    'Click your Google account.',
+    'Google shows a warning: "Google hasn\'t verified this app". Don\'t worry. This is your own script, so it is safe.',
+    'Click the small word "Advanced" at the bottom left.',
+    'Click "Go to LifeTracker (unsafe)".',
+    'If you see tick boxes, tick all of them. Then click "Allow" (or "Continue").',
+    'At the bottom, a box called "Execution log" opens. Wait until it says "Setup done ✅".',
+    'Under it you see "Your secret key:" and then letters and numbers in groups, like ABCD-EFGH-… . That is your secret key.',
+    'Select the key with your mouse and press Ctrl + C. Paste it into a private note just for you. Never show it to anyone.',
+  ]],
+  ['🚀 Part 7: Switch the script on (make your link)', [
+    'At the top right, click the blue "Deploy" button.',
+    'Click "New deployment".',
+    'Next to "Select type", click the ⚙️ gear and choose "Web app".',
+    'In "Description", type LifeTracker.',
+    'In "Execute as", choose "Me".',
+    'In "Who has access", choose "Anyone". (Don\'t worry: without your secret key, nobody can use it.)',
+    'Click "Deploy".',
+    'If Google asks for permission again, do the same as in Part 6: your account → Advanced → Go to LifeTracker (unsafe) → Allow.',
+    'You now see "Web app" with a long link that ends in /exec. Click "Copy" under it.',
+    'Paste the link into your private note too. Then click "Done".',
+  ]],
+  ['📱 Part 8: Connect your phone', [
+    'Get the link and the key onto your phone privately, for example by emailing them to yourself. Never send them to anyone else, and delete that message once you are connected.',
+    'On your phone, open Lifetracker.',
+    'Tap ⚙️ at the top right to open Settings.',
+    'Scroll to "☁️ Google Sync".',
+    'Press and hold the "Apps Script link" box, then tap "Paste".',
+    'Press and hold the "Secret key" box, then tap "Paste".',
+    'Tap "Connect".',
+    'Wait a few seconds. You should see "Connected: (your email) ✅". Your entries are now being copied.',
+  ]],
+  ['✅ Part 9: Check it worked', [
+    'In the app, add a glass of water.',
+    'Wait until the small icon at the top shows ✅.',
+    ['On your computer, go to ', bold('drive.google.com'), '.'],
+    'Open the folder "LifeTracker", then the file "LifeTracker 2026" (the year you are in).',
+    'At the bottom, click the "Water" tab. Your glass of water is there! 🎉',
+  ]],
+  ['🔄 Later: when you are told to update the script', [
+    'Open script.google.com and click your LifeTracker project.',
+    'Do Part 4 again (Code.gs). Only if you are told to, do Part 5 again too.',
+    'Click the blue "Deploy" button, then "Manage deployments".',
+    'Click the ✏️ pencil icon.',
+    'Under "Version", choose "New version".',
+    'Click "Deploy". Your link stays the same, so you don\'t need to change anything on your phone.',
+    'Never use "New deployment" for an update: that makes a new link.',
+  ]],
+  ['🆘 If something goes wrong', [
+    '"The secret key is wrong": copy the key again carefully. Lost it? In the script, click ⚙️ Project Settings and scroll to "Script Properties". The value next to SECRET_KEY is your key.',
+    '"The Apps Script link isn\'t working": check you copied the whole link (it ends in /exec), and that "Who has access" is "Anyone".',
+    'Someone saw your key? In the script, choose "newKey" in the box next to ▶ Run and click Run. Copy the new key from the log. Then in the app: Settings → Google Sync → Change account, and paste the same link with the new key.',
+    'Still stuck? Your entries are safe on your phone. Ask for help.',
+  ]],
+];
+
+function guide() {
+  const parts = [];
+  for (const [title, items] of GUIDE) {
+    parts.push(el('p', { className: 'about-part', text: title }), steps(items));
+  }
+  return question('🧩 Step by step: link your Google Sheet', [
+    el('p', { text: 'This takes about 15 minutes, once. Go slowly and do one step at a time. ✨' }),
+    ...parts,
+  ], 'about-guide');
+}
+
+/** Opens the step-by-step guide and scrolls to it (used by the Google Sync card). */
+function openGuide() {
+  const box = document.getElementById('about-guide');
+  if (!box) return;
+  box.open = true;
+  box.scrollIntoView({ block: 'start' });
+}
+
+function aboutCard() {
+  return card({
+    title: 'ℹ️ About your data',
+    children: [
+      el('p', { className: 'muted', text: 'Tap a question to read the answer.' }),
+      question('📱 Where is my data kept?', [
+        el('p', { text: 'Only on this phone, inside the app. There is no account and no company server, and nobody else can see it.' }),
+        el('p', { text: 'The app\'s code is on GitHub, but your entries never go there.' }),
+      ]),
+      question('✈️ Does it work without internet?', [
+        el('p', { text: 'Yes. Everything works offline, and entries are saved straight away.' }),
+      ]),
+      question('⚠️ When could I lose my data?', [
+        dots([
+          'If you clear this browser\'s data or "site data", or uninstall the browser.',
+          'If you lose or reset your phone.',
+          'On iPhone, if you use the app in Safari (not from the home screen) and don\'t open it for a few weeks.',
+        ]),
+        el('p', { className: 'settings-note', text: 'To be safe: add the app to your home screen, download a backup now and then, and link your Google Sheet.' }),
+      ]),
+      question('🔁 Is my data on my other phone or laptop too?', [
+        el('p', { text: 'No. Each phone and each browser has its own separate copy.' }),
+        el('p', { text: 'Moving to a new phone? Install the app there, then use "Restore from backup".' }),
+      ]),
+      question('💾 What is a backup?', [
+        el('p', { text: '"Download backup" saves everything (even medical photos and PDFs) in one file.' }),
+        el('p', { className: 'settings-note', text: 'Keep that file somewhere private. It holds all your personal details, so never share it or post it anywhere.' }),
+        el('p', { text: '"Restore from backup" replaces everything on this phone with what is in the file.' }),
+      ]),
+      question('📊 What is "Export to Excel"?', [
+        el('p', { text: 'An easy-to-read copy of everything, to look at on a computer. Keep it just as private as a backup.' }),
+        el('p', { text: 'You can\'t restore the app from it. Use a backup for that.' }),
+      ]),
+      question('☁️ How does the Google Sheet link work?', [
+        dots([
+          'It is optional. Once linked, every add, change and delete is copied to a Sheet in your own Google Drive: folder "LifeTracker", one Sheet per year (like "LifeTracker 2026").',
+          'Medical photos and PDFs go to the folder "LifeTracker" → "Reports".',
+          'It only copies from the phone to the Sheet. Changing the Sheet does not change the app, and the app can\'t be restored from the Sheet (use a backup for that).',
+          'Entries made offline are sent by themselves when you are back online.',
+          'The small icon at the top shows: ✅ everything copied, ⏳ waiting to send, ⚠️ a problem (your entries are still safe on the phone).',
+          'To link it, follow the step-by-step guide below.',
+        ]),
+      ]),
+      guide(),
+      question('🔒 Keeping it private', [
+        dots([
+          'Never share your LifeTracker Sheets or folder with "Anyone with the link".',
+          'Keep your secret key secret. With your link and key, someone could add entries to your Sheet, but they still couldn\'t read it.',
+          'The link and key are saved only on this phone. They are never in backups, exports or the app\'s code.',
+          'Removing a photo in the app doesn\'t delete its copy in Google Drive. Delete that by hand.',
+          'This app is for your own notes, not medical advice.',
+        ]),
+      ]),
+    ],
+  });
+}
+
 export async function render(root) {
   const cfg = await getConfig();
   const connected = Boolean(cfg.url && cfg.key);
@@ -399,16 +591,10 @@ export async function render(root) {
     },
   });
 
-  const steps = el('details', { className: 'settings-details', open: !connected }, [
-    el('summary', { text: 'How to connect a Google account' }),
-    el('ol', { className: 'settings-steps' }, [
-      'On a computer, sign in to the Google account you want, and open script.google.com → New project.',
-      'Paste in the two LifeTracker script files (Code.gs and appsscript.json from the google-apps-script folder of this project). Claude can walk you through it.',
-      'Choose "setup" at the top and press Run. Allow access. Google will say "Google hasn\'t verified this app": tap Advanced, then "Go to … (unsafe)". It\'s safe: it\'s your own script.',
-      'Copy the secret key shown in the log at the bottom.',
-      'Deploy → New deployment → Web app. Execute as: Me. Who has access: Anyone. Copy the Web app link.',
-      'Paste the link and the key here and tap Connect. All your entries are then uploaded to that account.',
-    ].map((text) => el('li', { text }))),
+  // The full beginner guide lives in ℹ️ About your data; this just points to it.
+  const steps = el('div', { className: 'stack' }, [
+    el('p', { className: 'muted', text: 'You need a link and a secret key from your own Google script. Setting it up takes about 15 minutes, once.' }),
+    button({ label: '📖 How to link a Google Sheet, step by step', variant: 'secondary', block: true, onClick: openGuide }),
   ]);
 
   const form = el('div', { className: 'stack', hidden: connected }, [
@@ -460,12 +646,6 @@ export async function render(root) {
     }),
     notificationsCard(),
     backupCard(),
-    card({
-      title: '🔒 Keep it private',
-      children: [
-        el('p', { className: 'settings-note', text: 'Your LifeTracker Sheets and the LifeTracker folder in Google Drive should stay private. Never share them with "Anyone with the link".' }),
-        el('p', { className: 'muted', text: 'The link and key are saved only on this phone, never in the app\'s code or on GitHub. The script only accepts entries; it can\'t send your data back out.' }),
-      ],
-    }),
+    aboutCard(),
   );
 }

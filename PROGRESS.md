@@ -1660,3 +1660,21 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - Chart.js credit links and the Google Calendar link added to the release allow-list (user approved).
 - Next on the phone: paste the latest `Code.gs` into Google (new version, same link), update the app,
   clear old test entries, bin the old test Sheet, connect Google Sync, then start real use on 26 Nov 2026.
+
+## ABOUT: ℹ️ About your data (25 Nov 2026)
+**Built**
+- Settings → new last card "ℹ️ About your data" with 9 tap-to-open questions in very simple words: where data is
+  kept, offline, when data could be lost, other phones, backups, Export to Excel, how the Google Sheet link works,
+  a step-by-step guide, and keeping it private (replaces the old "🔒 Keep it private" card).
+- "🧩 Step by step: link your Google Sheet": 9 parts (get ready → new script → show appsscript.json → paste
+  Code.gs → paste appsscript.json → run setup → deploy → connect phone → check), plus "update the script later"
+  and "if something goes wrong" (lost key, bad link, leaked key). Links to the two script files as plain text on
+  the app's own GitHub (raw.githubusercontent.com), so they can be copied, not downloaded.
+- The Google Sync card's short steps are replaced by a "📖 How to link a Google Sheet, step by step" button that
+  opens the guide and scrolls to it (stops below the header).
+- Only `core/settings.js` and `core/styles.css` changed. No new files, no change to saved data.
+- Checked at 360px in light and dark: all questions start closed, guide opens from the button, links open in a
+  new tab, all text readable, no sideways scrolling, no errors.
+
+**Known issues**
+- The guide describes Google's screens as they look today; Google sometimes renames buttons.
