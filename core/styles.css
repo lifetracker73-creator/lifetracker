@@ -1636,3 +1636,7 @@ a.btn { text-decoration: none; }
 .size-sample--normal { font-size: 1.1rem; }
 .size-sample--large { font-size: 1.35rem; }
 .size-sample--xlarge { font-size: 1.6rem; }
+/* The ☰ More icon inside text and buttons (Settings → Customise menu), sized like the letters around it. */
+.more-icon { display: inline-flex; vertical-align: -0.15em; }
+.more-icon svg { width: 1.1em; height: 1.1em; }
+.menu-place .more-icon { margin-right: var(--space-1); }

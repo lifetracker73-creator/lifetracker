@@ -1,6 +1,6 @@
 // ⚙️ Settings screen: your name, goals and "Customise menu" (CORE-8), Appearance,
 // Google Sync (SHEETS-SYNC), Notifications (CORE-9) and Backup (CORE-7).
-import { card, button, input, el, toast, modules } from './ui.js';
+import { card, button, input, el, toast, modules, icons } from './ui.js';
 import { getSettings, saveSettings } from './storage.js';
 import { getMenu, saveMenu, resetMenu, BAR_SIZE } from './menu.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
@@ -170,6 +170,13 @@ async function goalsCard() {
   return card({ title: '🎯 Goals', children: [form, shortcuts] });
 }
 
+// The same ☰ (three lines) icon as the bottom bar's More button, to sit inside text and buttons.
+function moreIcon() {
+  const span = el('span', { className: 'more-icon', 'aria-hidden': 'true' });
+  span.innerHTML = icons.menu;
+  return span;
+}
+
 // 🧭 Customise menu: pick 4 modules for the bottom bar; ↑/↓ also sets the home card order.
 async function menuCard() {
   let menu = await getMenu();
@@ -210,11 +217,11 @@ async function menuCard() {
   function draw() {
     const picking = swapFrom !== null;
     const pickingOn = picking && menu.bar.includes(swapFrom);
-    note.textContent = !picking
-      ? 'Tap a module\'s place button to swap it between the bottom bar and More.'
+    note.replaceChildren(...(!picking
+      ? ['Tap a module\'s place button to swap it between the bottom bar and More.']
       : pickingOn
-        ? `Now tap a 🌈 More module to put it on the bar instead of ${modules[swapFrom].label}.`
-        : `Now tap a ⭐ Bar module to swap with ${modules[swapFrom].label}.`;
+        ? ['Now tap a ', moreIcon(), ` More module to put it on the bar instead of ${modules[swapFrom].label}.`]
+        : [`Now tap a ⭐ Bar module to swap with ${modules[swapFrom].label}.`]));
     rows.replaceChildren(...menu.order.map((key, i) => {
       const on = menu.bar.includes(key);
       const place = el('button', {
@@ -223,7 +230,7 @@ async function menuCard() {
         'aria-pressed': String(swapFrom === key),
         'aria-label': `${modules[key].label}: ${on ? 'on the bottom bar' : 'in More'}. Tap to swap.`,
         onClick: () => pick(key),
-      }, [el('span', { text: on ? '⭐ Bar' : '🌈 More' })]);
+      }, on ? [el('span', { text: '⭐ Bar' })] : [moreIcon(), el('span', { text: 'More' })]);
       const up = button({ label: '↑', variant: 'ghost', ariaLabel: `Move ${modules[key].label} up`, disabled: i === 0, onClick: () => move(i, -1) });
       const down = button({ label: '↓', variant: 'ghost', ariaLabel: `Move ${modules[key].label} down`, disabled: i === menu.order.length - 1, onClick: () => move(i, 1) });
       up.classList.add('menu-up', 'menu-arrow');
@@ -248,7 +255,7 @@ async function menuCard() {
   return card({
     title: '🧭 Customise menu',
     children: [
-      el('p', { className: 'muted', text: `🏠 Home is always first and 🌈 More always last. ${BAR_SIZE} modules sit on the bottom bar; the rest are in More. The ↑/↓ arrows set the order on the bar, in More and on the home screen.` }),
+      el('p', { className: 'muted' }, ['🏠 Home is always first and ', moreIcon(), ` More always last. ${BAR_SIZE} modules sit on the bottom bar; the rest are in More. The ↑/↓ arrows set the order on the bar, in More and on the home screen.`]),
       note,
       // Same gap above "Reset to default" as between the other parts of Settings.
       el('div', { className: 'stack' }, [rows, reset]),
