@@ -139,6 +139,13 @@ const OUTFITS = {
     <rect class="buddy__fill-gym" x="150" y="610" width="300" height="34" rx="17" transform="rotate(-6 300 627)"/>`, hold: `
     <path class="buddy__line" d="M100 880 C100 840 156 840 156 880"/>
     <circle class="buddy__fill-gym" cx="128" cy="918" r="46"/>` },
+  // 😎 Swag (💭 Philosophy screen): dark sunglasses with a little shine.
+  swag: { wear: `
+    <path class="buddy__line" d="M282 702 Q294 688 306 700 M132 694 L104 684 M460 688 L492 676"/>
+    <rect class="buddy__fill-dark" x="130" y="670" width="152" height="88" rx="36"/>
+    <rect class="buddy__fill-dark" x="304" y="662" width="158" height="92" rx="38"/>
+    <ellipse class="buddy__shine" cx="174" cy="694" rx="20" ry="8" transform="rotate(-18 174 694)"/>
+    <ellipse class="buddy__shine" cx="352" cy="686" rx="22" ry="8" transform="rotate(-18 352 686)"/>` },
 };
 
 let count = 0;

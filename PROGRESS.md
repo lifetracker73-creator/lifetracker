@@ -1695,3 +1695,19 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - The phone's own text-size setting still works on top of this.
 - Also fixed: "Reset to default" in 🧭 Customise menu now has the same gap above it as the rest of Settings.
 - Also fixed: 🧭 Customise menu shows the same ☰ (three lines) icon for "More" as the bottom bar, instead of 🌈.
+
+## PHILOSOPHY: 💭 Philosophy page in More (25 Nov 2026)
+**Built**
+- ☰ More panel: a new last tile "Philosophy" with a simple dot (•) icon. It opens "#/philosophy"
+  (☰ More stays highlighted there; the page title has no badge so the long word fits on a 360px phone).
+- New file `core/philosophy.js` (added to the offline list). The builder's essay goes in its `ESSAY` list,
+  one paragraph per line. While it is empty, the page shows the buddy in a new 😎 "swag" outfit (sunglasses,
+  added in `core/buddy.js`), holding up a banner on two poles: "Builder is cooking something, it will be worth the wait".
+- Title bar text now has its own fixed size (`--font-size-title`, same as before at Normal), so the Text size
+  setting never pushes ⚙️ off the bar. Found while testing: at Extra large, Home, Reading, Medical log and
+  Settings used to overflow.
+- Checked at 360px: all 13 screens × 4 text sizes fit in the title bar (52 checks), tile same size as the others,
+  page and tile look right in light and dark, no errors.
+
+**Known issues**
+- None known.

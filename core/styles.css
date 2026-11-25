@@ -114,6 +114,7 @@
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
   --font-size-xl: 1.6rem;
+  --font-size-title: 25.6px;      /* title bar: fixed (= 1.6rem at Normal), so Text size never crowds the bar */
   --font-weight-normal: 400;
   --font-weight-bold: 700;
   --line-height: 1.5;
@@ -620,7 +621,7 @@ textarea.input {
 
 .app-header__title {
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-title);
 }
 .app-header__title:focus { outline: none; }
 
@@ -1640,3 +1641,67 @@ a.btn { text-decoration: none; }
 .more-icon { display: inline-flex; vertical-align: -0.15em; }
 .more-icon svg { width: 1.1em; height: 1.1em; }
 .menu-place .more-icon { margin-right: var(--space-1); }
+
+
+/* 💭 Philosophy screen while the essay is empty: the swag buddy holds up a banner on two poles. */
+.swag-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4) 0 var(--space-2);
+}
+.swag-banner {
+  position: relative;
+  z-index: 1;
+  max-width: 280px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  transform: rotate(-2deg);
+}
+.swag-banner__text {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+/* The buddy holds two poles: poles go behind it, its little round hands grip them at its sides. */
+.swag-holder {
+  position: relative;
+  width: 150px;
+  padding-top: 52px;
+  margin-top: -6px;
+}
+.swag-pole {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 150px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted); /* shows on light and dark cards */
+}
+.swag-pole--left { left: 14px; }
+.swag-pole--right { right: 30px; }
+.swag-buddy { position: relative; z-index: 1; display: block; }
+.swag-hand {
+  position: absolute;
+  z-index: 2;
+  top: 132px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--buddy-body);
+  box-shadow: 0 0 0 3px var(--buddy-line);
+}
+.swag-hand--left { left: 6px; }
+.swag-hand--right { right: 22px; }
+/* 💭 Philosophy tile in More: a simple dot as its icon. */
+.philosophy-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-on-accent);
+}

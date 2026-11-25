@@ -106,6 +106,11 @@
     // REFINE-7: a plain ☰ (three lines) icon in the text colour instead of an emoji.
     moreButton.querySelector('.nav-item__emoji').innerHTML = icons.menu;
     const moreGrid = el('div', { className: 'tile-grid' });
+    // 💭 Philosophy: always the last tile in More, with a simple dot as its icon.
+    const philosophyTile = el('a', { className: 'tile tile--philosophy', href: '#/philosophy' }, [
+      el('span', { className: 'tile__emoji', 'aria-hidden': 'true' }, [el('span', { className: 'philosophy-dot' })]),
+      el('span', { className: 'tile__label', text: 'Philosophy' }),
+    ]);
     // Draws the bottom bar and the More panel's tiles from your menu.
     function drawMenu() {
       nav.replaceChildren(el('div', { className: 'bottom-nav__inner' }, [
@@ -113,7 +118,7 @@
         ...menu.bar.map((key) => navItem({ key, emoji: modules[key].emoji, label: modules[key].label, href: `#/${key}` })),
         moreButton,
       ]));
-      moreGrid.replaceChildren(...moreModules.map(tile));
+      moreGrid.replaceChildren(...moreModules.map(tile), philosophyTile);
     }
     drawMenu();
     // Changed in Settings → Customise menu: redraw at once.
@@ -330,10 +335,14 @@
     let firstScreen = true;
     function onChange(name) {
       if (sheet.open) sheet.close();
-      const mod = modules[name] || (name === 'settings' ? { emoji: '⚙️', label: 'Settings' } : null);
+      const mod = modules[name] || {
+        settings: { emoji: '⚙️', label: 'Settings' },
+        philosophy: { emoji: '', label: 'Philosophy' },
+      }[name] || null;
       titleEl.textContent = mod ? mod.label : 'Lifetracker';
+      // Philosophy shows no badge: its long one-word title needs the room on a narrow phone.
       badgeEl.replaceChildren(modules[name] ? badge(name)
-        : mod ? el('span', { className: 'badge', 'aria-hidden': 'true', text: mod.emoji }) : '');
+        : mod && name !== 'philosophy' ? el('span', { className: 'badge', 'aria-hidden': 'true', text: mod.emoji }) : '');
       document.title = mod ? `${mod.label} · Lifetracker` : 'Lifetracker';
       highlight(name);
       if (!firstScreen) titleEl.focus({ preventScroll: true });
@@ -344,7 +353,8 @@
     let currentScreen = '';
     function highlight(name) {
       currentScreen = name;
-      const activeKey = moreModules.includes(name) ? 'more' : name;
+      // Philosophy opens from the More panel, so ☰ More lights up there too.
+      const activeKey = moreModules.includes(name) || name === 'philosophy' ? 'more' : name;
       // ⚙️ in the title bar looks "pressed" while you're on Settings.
       const settingsLink = document.getElementById('settings-link');
       settingsLink.classList.toggle('is-active', name === 'settings');
@@ -380,7 +390,7 @@
 
     startRouter({
       outlet: app, home: homeScreen, onChange,
-      screens: { settings: () => import('./core/settings.js') },
+      screens: { settings: () => import('./core/settings.js'), philosophy: () => import('./core/philosophy.js') },
     });
 
     // ⏰ Task reminders (TSK-3): checked while the app is open; missed ones show as a banner on opening.

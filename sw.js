@@ -34,6 +34,7 @@ const FILES = [
   './core/buddy.js',
   './core/welcome.js',
   './core/refills.js',
+  './core/philosophy.js',
   './core/vendor/chart.umd.min.js',
   './core/fonts/Nunito-Variable.ttf',
   './core/fonts/Quicksand-Variable.ttf',
