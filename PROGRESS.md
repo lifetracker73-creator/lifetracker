@@ -1652,3 +1652,11 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 - The "New version available" message and notifications can't be tested in Claude's built-in browser; check on the phone.
 - Whether the phone agrees to protect the data is up to the phone (usually yes for an installed app).
 - Recipes, weekly reflections, "Going to bed" and Daily spend opened without errors but weren't tested in depth.
+
+## RELEASE v25 (25 Nov 2026)
+- Released the whole app to GitHub Pages (cache version 25). Before: full privacy scan ✅ clean.
+  After: all 52 files on GitHub and the live link checked identical to the laptop and scanned ✅ clean;
+  PRIVATE.md, `.claude/` and the privacy guard are not online; noindex is live.
+- Chart.js credit links and the Google Calendar link added to the release allow-list (user approved).
+- Next on the phone: paste the latest `Code.gs` into Google (new version, same link), update the app,
+  clear old test entries, bin the old test Sheet, connect Google Sync, then start real use on 26 Nov 2026.
