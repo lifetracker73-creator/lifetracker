@@ -5,7 +5,7 @@ import { getSettings, saveSettings } from './storage.js';
 import { getMenu, saveMenu, resetMenu, BAR_SIZE } from './menu.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
-import { MODES, THEMES, FONTS, getAppearance, setAppearance } from './appearance.js';
+import { MODES, THEMES, FONTS, SIZES, getAppearance, setAppearance } from './appearance.js';
 import { backupCard } from './backup.js';
 import { buddy, getBuddyName, setBuddyName } from './buddy.js';
 
@@ -297,6 +297,11 @@ function appearanceCard() {
       el('span', { className: `font-sample--${o.value}`, text: o.label }),
       note(o.note),
     ]),
+    group('size', SIZES, 'Text size', (o) => [
+      el('span', { className: `size-sample size-sample--${o.value}`, 'aria-hidden': 'true', text: 'A' }),
+      note(o.label),
+    ], 'appearance-choices--sizes'),
+    el('p', { className: 'muted', text: 'Makes all the words in the app smaller or bigger.' }),
   ]);
   paint();
   // Keep the highlighted choice right when the ☀️/🌙 button at the top is tapped.

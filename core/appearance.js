@@ -1,6 +1,6 @@
-// 🎨 Appearance: light/dark mode, colour theme and font.
+// 🎨 Appearance: light/dark mode, colour theme, font and text size.
 // Saved in storage (settings row "appearance"), applied to the page as
-//   <html data-mode="light|dark" data-theme="..." data-font="...">
+//   <html data-mode="light|dark" data-theme="..." data-font="..." data-size="...">
 // core/styles.css holds the colours and fonts for each choice.
 // Anything that draws its own colours (charts) listens for the "appearancechange" event on document.
 import { getSettings, saveSettings } from './storage.js';
@@ -25,7 +25,15 @@ export const FONTS = [
   { value: 'lora', label: 'Lora', note: 'Gentle book style' },
 ];
 
-const DEFAULTS = { mode: 'auto', theme: 'lavender', font: 'nunito' };
+// Text size: Normal is the size the app always had; the others scale every text size together.
+export const SIZES = [
+  { value: 'small', label: 'Small' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'large', label: 'Large' },
+  { value: 'xlarge', label: 'Extra large' },
+];
+
+const DEFAULTS = { mode: 'auto', theme: 'lavender', font: 'nunito', size: 'normal' };
 const pick = (list, value, fallback) => (list.some((o) => o.value === value) ? value : fallback);
 
 let current = { ...DEFAULTS };
@@ -36,7 +44,7 @@ export function isDark() {
   return document.documentElement.dataset.mode === 'dark';
 }
 
-/** The saved choices: { mode, theme, font }. */
+/** The saved choices: { mode, theme, font, size }. */
 export function getAppearance() {
   return { ...current };
 }
@@ -47,6 +55,7 @@ function apply() {
   root.dataset.mode = dark ? 'dark' : 'light';
   root.dataset.theme = current.theme;
   root.dataset.font = current.font;
+  root.dataset.size = current.size;
   // Phone status bar colour follows the app background.
   const bg = getComputedStyle(root).getPropertyValue('--color-bg').trim();
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { if (bg) m.content = bg; });
@@ -62,6 +71,7 @@ export async function startAppearance() {
       mode: pick(MODES, saved.mode, DEFAULTS.mode),
       theme: pick(THEMES, saved.theme, DEFAULTS.theme),
       font: pick(FONTS, saved.font, DEFAULTS.font),
+      size: pick(SIZES, saved.size, DEFAULTS.size),
     };
   } catch {
     // Storage not available: keep the defaults.
@@ -75,6 +85,7 @@ export async function setAppearance(changes) {
     mode: pick(MODES, changes.mode ?? current.mode, current.mode),
     theme: pick(THEMES, changes.theme ?? current.theme, current.theme),
     font: pick(FONTS, changes.font ?? current.font, current.font),
+    size: pick(SIZES, changes.size ?? current.size, current.size),
   };
   apply();
   await saveSettings('appearance', current);

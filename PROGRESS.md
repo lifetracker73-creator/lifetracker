@@ -1678,3 +1678,18 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - The guide describes Google's screens as they look today; Google sometimes renames buttons.
+
+## TEXT SIZE: 🔠 Text size in Settings → Appearance (25 Nov 2026)
+**Built**
+- New "Text size" row in ⚙️ Settings → 🎨 Appearance: Small / Normal / Large / Extra large (15 / 16 / 18 / 20 px base),
+  each button shows an "A" at its own size. Normal is the size the app always had.
+- All text in the app grows or shrinks together (one `--text-scale` setting in styles.css); buttons and spacing
+  keep their size. Chart labels and the goal-line label follow the chosen size too.
+- Saved with the other appearance choices (settings row "appearance" gets a new `size` field, default "normal").
+  Older data and backups without it simply use Normal. Nothing else in saved data changed.
+- Files: `core/appearance.js`, `core/settings.js`, `core/styles.css`, `core/charts.js`. No new files.
+- Checked at 360px: every size on 14 screens with no sideways scrolling or cut-off text, choice kept after reload,
+  chart labels 12 → 15 px at Extra large, no errors.
+
+**Known issues**
+- The phone's own text-size setting still works on top of this.

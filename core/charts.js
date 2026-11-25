@@ -116,6 +116,8 @@ function readTheme(holder) {
     tooltipBg: text,
     tooltipText: surface,
     font: cssVar(holder, '--font-family') || 'system-ui, sans-serif',
+    // Settings → Appearance → Text size: chart words grow and shrink with the rest of the app.
+    textScale: (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16,
   };
 }
 
@@ -141,19 +143,21 @@ const goalLinePlugin = {
     ctx.stroke();
     if (opts.label) {
       ctx.setLineDash([]);
-      ctx.font = `700 11px ${opts.font}`;
+      const s = opts.scale || 1;
+      ctx.font = `700 ${Math.round(11 * s)}px ${opts.font}`;
       // Small rounded backing in the card colour so the label stays readable over bars.
       const w = ctx.measureText(opts.label).width + 10;
-      const boxTop = Math.max(top, y - 19);
+      const h = Math.round(16 * s);
+      const boxTop = Math.max(top, y - h - 3);
       ctx.fillStyle = opts.surface;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(right - w, boxTop, w, 16, 8);
-      else ctx.rect(right - w, boxTop, w, 16);
+      if (ctx.roundRect) ctx.roundRect(right - w, boxTop, w, h, h / 2);
+      else ctx.rect(right - w, boxTop, w, h);
       ctx.fill();
       ctx.fillStyle = opts.color;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText(opts.label, right - 5, boxTop + 8.5);
+      ctx.fillText(opts.label, right - 5, boxTop + h / 2 + 0.5);
     }
     ctx.restore();
   },
@@ -161,7 +165,7 @@ const goalLinePlugin = {
 
 function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero, horizontal }) {
   const fmt = (v) => (format ? format(v) : new Intl.NumberFormat('en-IN').format(v));
-  const font = { family: theme.font, size: 12 };
+  const font = { family: theme.font, size: Math.round(12 * theme.textScale) };
   // Sideways bars: labels go down the left, numbers along the bottom.
   const labelAxis = horizontal ? 'y' : 'x';
   const valueAxis = horizontal ? 'x' : 'y';
@@ -199,7 +203,7 @@ function buildOptions(theme, { format, goal, goalLabel, showLegend, beginAtZero,
         },
       },
       ltGoalLine: goal == null ? null : {
-        value: goal, label: goalLabel || '', color: theme.goal, font: theme.font, surface: theme.surface,
+        value: goal, label: goalLabel || '', color: theme.goal, font: theme.font, surface: theme.surface, scale: theme.textScale,
       },
     },
     scales: {

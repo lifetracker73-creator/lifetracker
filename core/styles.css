@@ -260,7 +260,13 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  font-size: var(--text-scale);
 }
+/* 🎨 Text size (Settings → Appearance): every rem-based text size grows or shrinks together. */
+:root { --text-scale: 100%; }
+html[data-size="small"] { --text-scale: 93.75%; }
+html[data-size="large"] { --text-scale: 112.5%; }
+html[data-size="xlarge"] { --text-scale: 125%; }
 
 body {
   margin: 0;
@@ -1623,3 +1629,10 @@ a.btn { text-decoration: none; }
 .about-part { margin: var(--space-4) 0 var(--space-2); font-weight: var(--font-weight-bold); }
 /* When the Google Sync button jumps to the guide, stop below the sticky header so its title shows. */
 .about-q { scroll-margin-top: calc(var(--space-6) * 2 + var(--space-3) + env(safe-area-inset-top, 0px)); }
+/* Settings → Appearance → Text size: four choices in a row, each "A" shown at its own size. */
+.appearance-choices--sizes { grid-template-columns: repeat(4, 1fr); }
+.size-sample { font-weight: var(--font-weight-bold); line-height: 1; }
+.size-sample--small { font-size: 0.9rem; }
+.size-sample--normal { font-size: 1.1rem; }
+.size-sample--large { font-size: 1.35rem; }
+.size-sample--xlarge { font-size: 1.6rem; }
