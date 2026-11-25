@@ -456,7 +456,7 @@ const GUIDE = [
   ['✅ Part 9: Check it worked', [
     'In the app, add a glass of water.',
     'Wait until the small icon at the top shows ✅.',
-    ['On your computer, go to ', bold('drive.google.com'), '.'],
+    'On your computer, open Google Drive. (On any Google page, click the square of 9 dots at the top right, then click "Drive".)',
     'Open the folder "LifeTracker", then the file "LifeTracker 2026" (the year you are in).',
     'At the bottom, click the "Water" tab. Your glass of water is there! 🎉',
   ]],
