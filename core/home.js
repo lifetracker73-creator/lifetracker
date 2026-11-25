@@ -99,18 +99,21 @@ async function tasks(day) {
 // Same streak rule as 🏋️ Gym log: weeks in a row at the goal; this week counts once it's reached.
 async function gym(day) {
   const [sessions, settings] = await Promise.all([list('gymSessions'), getSettings('gym', { weeklyGoal: 3, types: [] })]);
-  const goal = settings.weeklyGoal > 0 ? settings.weeklyGoal : 3;
+  // 0 means "no weekly goal": then just the count, with no bar or streak.
+  const goal = Number.isInteger(settings.weeklyGoal) && settings.weeklyGoal >= 0 ? settings.weeklyGoal : 3;
   const perWeek = new Map();
   for (const s of sessions) perWeek.set(weekStart(s.date), (perWeek.get(weekStart(s.date)) || 0) + 1);
   const thisWeek = weekStart(day);
   const done = perWeek.get(thisWeek) || 0;
   let w = done >= goal ? thisWeek : addDays(thisWeek, -7);
   let streak = 0;
-  while ((perWeek.get(w) || 0) >= goal) { streak += 1; w = addDays(w, -7); }
+  while (goal > 0 && (perWeek.get(w) || 0) >= goal) { streak += 1; w = addDays(w, -7); }
   const todays = sessions.filter((s) => s.date === day);
   const typeName = (id) => (settings.types || []).find((t) => t.id === id)?.name || 'Workout';
-  const sub = `${done} of ${goal} this week${streak ? ` · 🔥 ${streak}-week streak` : ''}`;
-  const bar = progressBar({ value: done, max: goal, label: 'Workouts this week' });
+  const sub = goal > 0
+    ? `${done} of ${goal} this week${streak ? ` · 🔥 ${streak}-week streak` : ''}`
+    : `${done} workout${done === 1 ? '' : 's'} this week`;
+  const bar = goal > 0 ? progressBar({ value: done, max: goal, label: 'Workouts this week' }) : null;
   if (!todays.length) return todayCard('gym', { main: 'No workout yet today', sub, bar, empty: true });
   return todayCard('gym', {
     main: `Worked out today 💪 ${[...new Set(todays.map((s) => typeName(s.typeId)))].join(', ')}`,

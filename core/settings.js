@@ -1,11 +1,13 @@
 // ⚙️ Settings screen: your name, goals and "Customise menu" (CORE-8), Appearance,
 // Google Sync (SHEETS-SYNC), Notifications (CORE-9) and Backup (CORE-7).
 import { card, button, input, el, toast, modules, icons } from './ui.js';
-import { getSettings, saveSettings } from './storage.js';
+import { getSettings, saveSettings, list, listByDate, listByDateRange } from './storage.js';
+import { today, weekStart, formatDate, sleepMinutes, formatDuration } from './dates.js';
+import { formatMl, formatKg, formatG, formatNumber } from './format.js';
 import { getMenu, saveMenu, resetMenu, BAR_SIZE } from './menu.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
-import { MODES, THEMES, FONTS, SIZES, getAppearance, setAppearance } from './appearance.js';
+import { MODES, THEMES, FONTS, SIZES, ON_OFF, getAppearance, setAppearance, isSerious } from './appearance.js';
 import { backupCard } from './backup.js';
 import { buddy, getBuddyName, setBuddyName } from './buddy.js';
 
@@ -50,7 +52,7 @@ async function buddyCard() {
     friend.hop();
     toast({ message: name ? `Hi, I'm ${name}! 🍄` : 'Buddy name cleared' });
   });
-  return card({ title: '🍄 Your buddy', children: [form] });
+  return card({ title: '🍄 Your buddy', className: 'buddy-settings-card', children: [form] });
 }
 
 // 🎯 Goals: the same saved values each module uses, so a change here shows there too.
@@ -77,6 +79,28 @@ function readNumber(field, { min, max, optional = false, whole = false, example 
   return { value: whole ? Math.round(v) : Math.round(v * 10) / 10 };
 }
 
+// Where you are right now, worked out from saved data (nothing new is stored).
+async function currentValues() {
+  const day = today();
+  const [water, nights, weights, food, gym] = await Promise.all([
+    listByDate('water', day), listByDate('sleep', day), list('weight'), listByDate('foodLog', day),
+    listByDateRange('gymSessions', weekStart(day), day),
+  ]);
+  const ml = water.reduce((s, e) => s + (Number(e.amountMl) || 0), 0);
+  const night = nights[0];
+  const latest = [...weights].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const sum = (field) => food.reduce((s, e) => s + (Number(e[field]) || 0), 0);
+  return {
+    water: `Today: ${formatMl(ml)}`,
+    sleep: night ? `Last night: ${formatDuration(sleepMinutes(night.bedTime, night.wakeTime))}` : 'Last night: not logged yet',
+    weight: latest ? `Now: ${formatKg(latest.weightKg)} (${formatDate(latest.date)})` : 'Now: no weight logged yet',
+    food: food.length
+      ? `Today: ${formatNumber(Math.round(sum('kcal')))} kcal · ${formatG(Math.round(sum('proteinG')))} protein · ${formatG(Math.round(sum('carbsG')))} carbs · ${formatG(Math.round(sum('fatG')))} fat · ${formatG(Math.round(sum('fibreG')))} fibre`
+      : 'Today: nothing logged yet',
+    gym: `This week: ${gym.length} workout${gym.length === 1 ? '' : 's'}`,
+  };
+}
+
 async function goalsCard() {
   const [water, sleep, weight, food] = await Promise.all([
     getSettings('water', WATER_DEFAULTS),
@@ -92,6 +116,9 @@ async function goalsCard() {
     return f;
   };
   const heading = (key, text) => el('h3', { className: `goals-heading mod-${key}`, text: `${modules[key].emoji} ${text}` });
+  const now = await currentValues();
+  // "Now: …" line under each heading, so the goal and where you are sit together.
+  const nowLine = (text) => el('p', { className: 'goals-now', text });
 
   const waterGoal = num('Daily goal (ml)', water.dailyGoalMl, 2500);
   const quick = [0, 1, 2].map((i) => num(`Button ${i + 1} (ml)`, (water.quickAmounts || [])[i], WATER_DEFAULTS.quickAmounts[i]));
@@ -99,25 +126,30 @@ async function goalsCard() {
   const height = num('Height (cm)', weight.heightCm, 165);
   const goalKg = num('Goal weight (kg)', weight.goalKg, 60);
   const foodFields = FOOD_TARGETS.map((t) => num(t.label, foodTargets[t.key] > 0 ? foodTargets[t.key] : null, t.example));
-  const gymGoal = num('Workouts each week', gym.weeklyGoal > 0 ? gym.weeklyGoal : 3, 3);
+  const gymGoal = num('Workouts each week', Number.isInteger(gym.weeklyGoal) && gym.weeklyGoal >= 0 ? gym.weeklyGoal : 3, 3);
 
   const form = el('form', { className: 'stack', novalidate: true }, [
     el('p', { className: 'muted', text: 'These are the same goals you see in each module. Change them here or there.' }),
     heading('water', 'Water'),
+    nowLine(now.water),
     waterGoal,
     el('p', { className: 'field__label', text: 'Quick-add buttons' }),
     el('div', { className: 'field-grid' }, quick),
     heading('sleep', 'Sleep'),
+    nowLine(now.sleep),
     sleepTarget,
     heading('weight', 'Weight'),
+    nowLine(now.weight),
     el('div', { className: 'field-grid' }, [height, goalKg]),
     el('p', { className: 'muted', text: 'Both optional. Height is used only for BMI. Leave a box empty to clear it.' }),
     heading('food', 'Food: daily targets'),
+    nowLine(now.food),
     el('div', { className: 'field-grid' }, foodFields),
     el('p', { className: 'muted', text: 'Leave a box empty for no target. Vitamin and mineral targets are in 🍱 Food.' }),
     heading('gym', 'Gym log'),
+    nowLine(now.gym),
     gymGoal,
-    el('p', { className: 'muted', text: 'Weeks run Monday to Sunday. Reaching this keeps your gym streak going.' }),
+    el('p', { className: 'muted', text: 'Weeks run Monday to Sunday. Reaching this keeps your gym streak going. Type 0 for no weekly goal.' }),
     button({ label: 'Save goals', variant: 'primary', type: 'submit', block: true }),
   ]);
 
@@ -141,7 +173,7 @@ async function goalsCard() {
         ? check(foodFields[i], { min: 500, max: 10000, optional: true, whole: true, example: t.example })
         : check(foodFields[i], { min: 1, max: 1000, optional: true, example: t.example });
     });
-    const weeklyGoal = check(gymGoal, { min: 1, max: 14, whole: true, example: 3 });
+    const weeklyGoal = check(gymGoal, { min: 0, max: 14, whole: true, example: 3 });
     if (!ok) {
       form.querySelector('[aria-invalid="true"]')?.focus();
       return;
@@ -292,27 +324,58 @@ function appearanceCard() {
     }
   }
   const note = (text) => el('span', { className: 'appearance-choice__note', text });
-  const body = el('div', { className: 'stack' }, [
+  const onOff = (o) => [el('span', { text: o.label })];
+  // Buddy switch (the Serious theme always hides the buddy, so it shows only for the other themes).
+  const buddyRow = el('div', { className: 'stack' }, [
+    group('buddy', ON_OFF, 'Show buddy', onOff, 'appearance-choices--modes'),
+    el('p', { className: 'muted', text: 'Off hides the little friend everywhere. Goal cheers show as a plain message instead.' }),
+  ]);
+  // Emoji switch: only in the Serious theme.
+  const emojiRow = el('div', { className: 'stack' }, [
+    group('emoji', ON_OFF, 'Show emoji on headings', onOff, 'appearance-choices--modes'),
+    el('p', { className: 'muted', text: 'Off takes the emoji off headings and section badges for a cleaner look.' }),
+  ]);
+  // Light/dark and font don't apply in the Serious theme (always dark, plain font), so they hide there.
+  const modeRow = el('div', { className: 'stack' }, [
     group('mode', MODES, 'Light or dark', (o) => [el('span', { text: `${o.emoji} ${o.label}` })], 'appearance-choices--modes'),
     el('p', { className: 'muted', text: 'Auto follows your phone. The ☀️/🌙 button at the top switches quickly too.' }),
+  ]);
+  const fontRow = el('div', { className: 'stack' }, [
+    group('font', FONTS, 'Font', (o) => [
+      el('span', { className: `font-sample--${o.value}`, text: o.label }),
+      note(o.note),
+    ]),
+  ]);
+  const seriousNote = el('p', { className: 'muted', text: 'Serious is always dark, with a plain font and no buddy. Pick another theme to bring the cute look back.' });
+  const body = el('div', { className: 'stack' }, [
+    modeRow,
     group('theme', THEMES, 'Colour theme', (o) => [
       el('span', { className: `appearance-swatches appearance-swatches--${o.value}`, 'aria-hidden': 'true' }, [el('span'), el('span'), el('span')]),
       el('span', { text: `${o.emoji} ${o.label}` }),
       note(o.note),
     ]),
-    group('font', FONTS, 'Font', (o) => [
-      el('span', { className: `font-sample--${o.value}`, text: o.label }),
-      note(o.note),
-    ]),
+    seriousNote,
+    fontRow,
     group('size', SIZES, 'Text size', (o) => [
       el('span', { className: `size-sample size-sample--${o.value}`, 'aria-hidden': 'true', text: 'A' }),
       note(o.label),
     ], 'appearance-choices--sizes'),
     el('p', { className: 'muted', text: 'Makes all the words in the app smaller or bigger.' }),
+    buddyRow,
+    emojiRow,
   ]);
+  function paintSwitches() {
+    const serious = isSerious();
+    buddyRow.hidden = serious;
+    emojiRow.hidden = !serious;
+    modeRow.hidden = serious;
+    fontRow.hidden = serious;
+    seriousNote.hidden = !serious;
+  }
   paint();
+  paintSwitches();
   // Keep the highlighted choice right when the ☀️/🌙 button at the top is tapped.
-  const repaint = () => (body.isConnected ? paint() : document.removeEventListener('appearancechange', repaint));
+  const repaint = () => (body.isConnected ? (paint(), paintSwitches()) : document.removeEventListener('appearancechange', repaint));
   document.addEventListener('appearancechange', repaint);
   return card({ title: '🎨 Appearance', children: [body] });
 }

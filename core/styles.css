@@ -240,6 +240,82 @@
 :root[data-font="lexend"] { --font-family: "Lexend", "Nunito", system-ui, sans-serif; }
 :root[data-font="lora"] { --font-family: "Lora", Georgia, "Noto Serif", serif; }
 
+/* 🖤 Serious theme (Settings → Appearance): always dark (appearance.js), plain greys with one cool blue,
+   sharper corners, thin lines instead of soft shadows, a plain font, no bounce and no buddy.
+   Comes after the dark and font blocks so it wins over them. */
+:root[data-theme="serious"] {
+  color-scheme: dark;
+  --color-bg: #0f1113;
+  --color-surface: #181b1f;
+  --color-surface-2: #23272d;
+  --color-text: #eceef1;
+  --color-text-muted: #a3a9b2;
+  --color-primary: #8fb3dc;       /* the one cool blue */
+  --color-primary-hover: #a3c2e4;
+  --color-on-accent: #0f1113;
+  --color-link: #9cc0ea;
+  --color-danger: #e8a39b;
+  --color-danger-hover: #efb6af;
+  --color-on-danger: #3a0d08;
+  --color-error-text: #f29b90;
+  --color-success: #79cf9c;
+  --color-warning: #e6c068;
+  --color-focus: #8fb3dc;
+  --shadow-card: 0 0 0 1px #2b3037;   /* a thin line instead of a soft shadow */
+  --shadow-button: none;
+  --shadow-nav: 0 -1px 0 #2b3037;
+  --color-backdrop: rgba(0, 0, 0, 0.7);
+  --color-bubble: rgba(255, 255, 255, 0.35);
+  /* No pastels: every module uses the same quiet grey (dark text stays readable on it). */
+  --accent-water: #c3c9d1;
+  --accent-sleep: #c3c9d1;
+  --accent-weight: #c3c9d1;
+  --accent-food: #c3c9d1;
+  --accent-money: #c3c9d1;
+  --accent-tasks: #c3c9d1;
+  --accent-reading: #c3c9d1;
+  --accent-medical: #c3c9d1;
+  --accent-gym: #c3c9d1;
+  --accent-refills: #c3c9d1;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 6px;
+  --bounce: 0ms linear;
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+:root[data-theme="serious"] .btn--primary { background: var(--color-primary); }
+:root[data-theme="serious"] #mode-toggle { display: none; } /* always dark, so no ☀️/🌙 switch */
+:root[data-theme="serious"] .btn:active:not(:disabled),
+:root[data-theme="serious"] .list-item--clickable:active,
+:root[data-theme="serious"] .nav-item:active,
+:root[data-theme="serious"] .tile:active {
+  transform: none;
+}
+
+/* 🍄 Buddy switched off (or Serious theme): hide the little friend everywhere. */
+:root[data-buddy="off"] .buddy,
+:root[data-buddy="off"] .buddy-card,
+:root[data-buddy="off"] .buddy-pop,
+:root[data-buddy="off"] .home-buddy,
+:root[data-buddy="off"] .swag-holder,
+:root[data-buddy="off"] .buddy-settings-card {
+  display: none;
+}
+/* Without the buddy, the empty-screen emoji stands on its own. */
+:root[data-buddy="off"] .empty__buddy-emoji {
+  position: static;
+  width: 48px;
+  height: 48px;
+  font-size: var(--font-size-lg);
+}
+
+/* Emoji off (Serious theme only): section badges go; appearance.js takes emoji out of headings. */
+:root[data-emoji="off"] .badge,
+:root[data-emoji="off"] .empty__buddy-emoji {
+  display: none;
+}
+
 /* Module accent classes */
 .mod-water { --accent: var(--accent-water); }
 .mod-sleep { --accent: var(--accent-sleep); }
@@ -1124,6 +1200,9 @@ a.btn { text-decoration: none; }
 .appearance-swatches--ocean span:nth-child(1) { background: #f2f7fa; }
 .appearance-swatches--ocean span:nth-child(2) { background: #e7f1f7; }
 .appearance-swatches--ocean span:nth-child(3) { background: #b8dcef; }
+.appearance-swatches--serious span:nth-child(1) { background: #0f1113; }
+.appearance-swatches--serious span:nth-child(2) { background: #23272d; }
+.appearance-swatches--serious span:nth-child(3) { background: #8fb3dc; }
 .appearance-swatches--forest span:nth-child(1) { background: #f4f8f1; }
 .appearance-swatches--forest span:nth-child(2) { background: #eaf2e6; }
 .appearance-swatches--forest span:nth-child(3) { background: #c3e2bf; }
@@ -1156,6 +1235,27 @@ a.btn { text-decoration: none; }
   color: var(--color-on-accent);
   font-size: var(--font-size-md);
   align-self: flex-start;
+}
+/* "Now: …" line under each goal heading: where you are today, next to the goal. */
+.goals-now {
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+/* 🩺 Medical log: the small "add a new person / visit type" box inside a visit form,
+   and the panel behind the "🔍 Filter visits" button. */
+.add-new-box,
+.filter-panel {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg); /* differs from the boxes inside, so they still stand out */
+}
+.add-new-box[hidden],
+.filter-panel[hidden] {
+  display: none;
 }
 
 /* Settings → Customise menu (CORE-8): one row per module with its place and ↑/↓ arrows. */

@@ -1712,3 +1712,30 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 
 **Known issues**
 - None known.
+
+## TWEAKS: Gym 0 goal, calendar button, goals with "now", medical add/filter, buddy switch, Serious theme (25 Nov 2026)
+**Built**
+- 🏋️ Gym: "Workouts each week" (Settings → Goals) can be 0 = no weekly goal. Then Gym → Insights shows
+  "This week: N workouts" with no bar, streak or goal line, and the Home card shows just the count.
+- ✅ Tasks: the "No date" quick button is now "📅 Choose from calendar" (own full-width row), which opens the
+  phone's date picker. No date is still possible: leave the box empty or use the picker's Clear.
+- ⚙️ Settings → 🎯 Goals: a "now" line under each heading: water today, sleep last night, latest weight (with date),
+  today's food totals, workouts this week. Worked out from saved data; nothing new is stored.
+- 🩺 Medical log → Add visit (and edit a visit): the Who and Visit type lists end with "➕ Add a new person…" /
+  "➕ Add a new visit type…". It opens a small box right there; the new one is saved and picked at once.
+- 🩺 Medical log → Visits: search + Person / Type / Year now sit behind one "🔍 Filter visits" button, which shows
+  "· N on" when filters are set; the panel has "Clear filters". Search box renamed "Doctor, clinic or note words".
+- 🎨 Settings → Appearance: "Show buddy" On/Off (hides the buddy on Home, module screens, empty screens,
+  Philosophy and the Your buddy card; goal cheers become a plain message).
+- 🎨 New "🖤 Serious" colour theme: always dark, greys with one cool blue, sharper corners, thin lines instead of
+  shadows, plain system font, no bounce, no buddy, no ☀️/🌙 button. Light/dark and Font rows hide there, and a
+  "Show emoji on headings" On/Off appears (Off hides section badges and takes emoji out of headings).
+- Saved data: the "appearance" settings row gets two new fields, `buddy` and `emoji` (default "on"); theme can be
+  "serious"; gym `weeklyGoal` may now be 0. Older data and backups simply use the defaults. No new files.
+- Files: `core/appearance.js`, `core/buddy.js`, `core/home.js`, `core/settings.js`, `core/styles.css`,
+  `gym/index.js`, `medical/index.js`, `tasks/index.js`.
+- Checked at 375px with fake data: all of the above, no sideways scrolling on 5 screens, no errors.
+
+**Known issues**
+- On a cold start in Serious theme the screen can flash the phone's light/dark colour for a moment before going dark.
+- Emoji Off covers headings and badges only; emoji inside buttons, the bottom bar and messages stay.

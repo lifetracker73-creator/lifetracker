@@ -44,7 +44,8 @@ async function loadSettings() {
     s.typesSeeded = true;
     await saveSettings('gym', { types: s.types, typesSeeded: true });
   }
-  if (!(s.weeklyGoal > 0)) s.weeklyGoal = DEFAULT_GOAL;
+  // 0 means "no weekly goal".
+  if (!(Number.isInteger(s.weeklyGoal) && s.weeklyGoal >= 0)) s.weeklyGoal = DEFAULT_GOAL;
   return s;
 }
 
@@ -136,6 +137,7 @@ function workoutsPerWeek(sessions) {
 // Weeks in a row that reached the goal. This week counts once it's reached; until then the streak
 // is counted from last week, so it isn't lost before the week is over.
 function gymStreak(sessions, goal, day = today()) {
+  if (!(goal > 0)) return 0; // no weekly goal, so no streak
   const counts = workoutsPerWeek(sessions);
   let w = weekStart(day);
   if ((counts.get(w) || 0) < goal) w = addDays(w, -7);
@@ -689,7 +691,15 @@ async function mainScreen(root) {
     const done = counts.get(thisWeek) || 0;
     const streak = gymStreak(d.sessions, goal);
 
-    const goalCard = card({ title: 'Gym streak', module: 'gym', children: [el('div', { className: 'stack' }, [
+    const goalCard = !(goal > 0)
+      ? card({ title: 'This week', module: 'gym', children: [el('div', { className: 'stack' }, [
+        el('p', { className: 'progress-stats' }, [
+          el('span', { className: 'progress-stats__amount', text: `${plural(done, 'workout')} this week` }),
+        ]),
+        el('p', { className: 'progress-note', text: 'No weekly goal set, so there is no streak.' }),
+        el('a', { className: 'btn btn--secondary btn--block', href: '#/settings' }, [el('span', { text: '🎯 Set a weekly goal in Settings' })]),
+      ])] })
+      : card({ title: 'Gym streak', module: 'gym', children: [el('div', { className: 'stack' }, [
       el('p', { className: 'progress-stats' }, [
         el('span', { className: 'progress-stats__amount', text: `${done} of ${goal} workouts this week` }),
       ]),
@@ -725,7 +735,7 @@ async function mainScreen(root) {
     insightsView.replaceChildren(goalCard, chartCard, topCard);
     chart = barChart(chartBox, {
       module: 'gym', labels: weeks, values: weeks.map((w) => counts.get(w) || 0),
-      goal, goalLabel: 'Goal', format: (v) => formatNumber(v),
+      goal: goal > 0 ? goal : null, goalLabel: 'Goal', format: (v) => formatNumber(v),
     });
     chart.catch?.((err) => console.error(err));
   }

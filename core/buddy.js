@@ -11,6 +11,7 @@
 // buddyMood('hungry', '{name} is hungry!') → change that card's face and line ({name} = the buddy's name)
 
 import { getSettings, saveSettings } from './storage.js';
+import { toast } from './ui.js';
 
 // ---------- Name ----------
 let buddyName = '';
@@ -231,6 +232,11 @@ export function screenModule() {
 let currentPop = null;
 export function celebrate(message) {
   currentPop?.remove();
+  // Buddy switched off (Settings → Appearance, or the Serious theme): just a plain message.
+  if (document.documentElement.dataset.buddy === 'off') {
+    toast({ message: withName(message) });
+    return;
+  }
   const friend = buddy({ size: 96, outfit: screenModule(), face: 'happy' });
   friend.setAttribute('aria-hidden', 'true');
   const pop = document.createElement('div');

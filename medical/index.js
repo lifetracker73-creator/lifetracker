@@ -275,18 +275,65 @@ function attachField(initial, fileRows) {
 
 let suggestCount = 0;
 
+// The last choice in the Who / Visit type lists: opens a small box to add a new one right there.
+const ADD_NEW = '__add-new__';
+
+// A small "New person / New visit type" box that opens under the lists when "➕ Add new…" is picked.
+// addName(key, name) saves it and gives back { item } or { error }. The new one is then picked.
+function addNewBox(select, { key, singular, example }, addName) {
+  let previous = select.input.value === ADD_NEW ? '' : select.input.value;
+  const field = input({ label: `New ${singular}`, name: `new-${key}`, type: 'text', placeholder: `e.g. ${example}` });
+  field.input.maxLength = MAX_NAME;
+  field.input.addEventListener('input', () => field.setError(''));
+  const close = (value) => {
+    if (value) select.input.value = value;
+    box.hidden = true;
+    field.input.value = '';
+    field.setError('');
+  };
+  const save = async () => {
+    const result = await addName(key, field.input.value);
+    if (result.error) { field.setError(result.error); field.input.focus(); return; }
+    const opt = el('option', { value: result.item.id, text: result.item.name });
+    select.input.insertBefore(opt, select.input.querySelector(`option[value="${ADD_NEW}"]`));
+    previous = result.item.id;
+    close(result.item.id);
+    select.setError('');
+    toast({ message: `Added ${result.item.name} ✨` });
+  };
+  // Enter in the name box adds it (instead of saving the whole visit).
+  field.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  const box = el('div', { className: 'stack add-new-box' }, [
+    field,
+    el('div', { className: 'btn-row' }, [
+      button({ label: 'Cancel', variant: 'secondary', onClick: () => close(previous) }),
+      button({ label: 'Add', icon: 'plus', variant: 'primary', onClick: save }),
+    ]),
+  ]);
+  box.hidden = true;
+  select.input.addEventListener('change', () => {
+    if (select.input.value !== ADD_NEW) { previous = select.input.value; box.hidden = true; return; }
+    box.hidden = false;
+    queueMicrotask(() => field.input.focus());
+  });
+  return box;
+}
+
 // The date, person, type, place, cost, note and attachment boxes. Used to add and to edit a visit.
-function visitFields(lists, places, values = {}, fileRows = new Map()) {
+function visitFields(lists, places, values = {}, fileRows = new Map(), addName = null) {
   const option = (x) => ({ value: x.id, label: x.name });
+  const withAdd = (items, label) => [...items.map(option), ...(addName ? [{ value: ADD_NEW, label }] : [])];
   const date = input({ label: 'Date', name: 'date', type: 'date', value: values.date ?? today(), max: today() });
   const person = input({
-    label: 'Who', name: 'personId', type: 'select', options: lists.people.map(option),
+    label: 'Who', name: 'personId', type: 'select', options: withAdd(lists.people, '➕ Add a new person…'),
     value: values.personId ?? lists.people[0]?.id ?? '',
   });
   const type = input({
-    label: 'Visit type', name: 'typeId', type: 'select', options: lists.types.map(option),
+    label: 'Visit type', name: 'typeId', type: 'select', options: withAdd(lists.types, '➕ Add a new visit type…'),
     value: values.typeId ?? lists.types[0]?.id ?? '',
   });
+  const newPerson = addName ? addNewBox(person, { key: 'people', singular: 'person', example: 'Mom' }, addName) : null;
+  const newType = addName ? addNewBox(type, { key: 'types', singular: 'visit type', example: 'Eye check-up' }, addName) : null;
   const place = input({
     label: 'Doctor / clinic / lab (optional)', name: 'place', type: 'text',
     value: values.place ?? '', placeholder: 'e.g. Dr Rao, City Clinic',
@@ -309,7 +356,8 @@ function visitFields(lists, places, values = {}, fileRows = new Map()) {
 
   return {
     date, person, type, place, cost, note, attach,
-    elements: [date, el('div', { className: 'btn-row' }, [person, type]), place, cost, note, attach],
+    elements: [date, el('div', { className: 'btn-row' }, [person, type]), newPerson, newType, place, cost, note, attach]
+      .filter(Boolean),
     // Gives back the visit to save, or null after showing what's wrong.
     read() {
       const dateError = checkDate(date.input.value);
@@ -319,9 +367,9 @@ function visitFields(lists, places, values = {}, fileRows = new Map()) {
       place.setError(placeError);
       const { paise, error } = checkCost(cost.input.value);
       cost.setError(error || '');
-      const personError = person.input.value ? '' : 'Add a person first (see below).';
+      const personError = person.input.value && person.input.value !== ADD_NEW ? '' : 'Pick who the visit is for, or add a new person.';
       person.setError(personError);
-      const typeError = type.input.value ? '' : 'Add a visit type first (see below).';
+      const typeError = type.input.value && type.input.value !== ADD_NEW ? '' : 'Pick a visit type, or add a new one.';
       type.setError(typeError);
       if (dateError || placeError || error || personError || typeError) return null;
       return {
@@ -485,6 +533,26 @@ export async function render(root) {
   const visitBox = el('div', { className: 'stack' });
   let fields;
 
+  // "➕ Add new…" inside a visit form: saves a new person / visit type without leaving the form.
+  async function addName(key, typed) {
+    const name = tidy(typed);
+    const example = key === 'people' ? 'Mom' : 'Eye check-up';
+    const singular = key === 'people' ? 'person' : 'visit type';
+    if (!name) return { error: `Type a name, e.g. ${example}` };
+    if (name.length > MAX_NAME) return { error: `Keep the name to ${MAX_NAME} letters or fewer.` };
+    if (lists[key].some((x) => x.name.toLowerCase() === name.toLowerCase())) {
+      return { error: `You already have a ${singular} with this name. Pick it from the list.` };
+    }
+    const item = { id: newId(), name };
+    const saved = await saveSettings('medical', { [key]: [...lists[key], item] });
+    lists = { people: saved.people, types: saved.types };
+    // Only the filters and the People & visit types card change; the open form keeps what's typed.
+    buildFilters();
+    people.refresh();
+    types.refresh();
+    return { item };
+  }
+
   // Builds the add form. Keeps what was already typed when the people / type lists change.
   function buildForm() {
     const kept = fields ? {
@@ -494,7 +562,7 @@ export async function render(root) {
     const keptCost = fields?.cost.input.value ?? '';
     if (kept.personId && !lists.people.some((x) => x.id === kept.personId)) delete kept.personId;
     if (kept.typeId && !lists.types.some((x) => x.id === kept.typeId)) delete kept.typeId;
-    fields = visitFields(lists, placesFrom(visits), kept, fileRows);
+    fields = visitFields(lists, placesFrom(visits), kept, fileRows, addName);
     fields.cost.input.value = keptCost;
     const form = el('form', { className: 'stack', novalidate: true }, [
       ...fields.elements,
@@ -520,7 +588,7 @@ export async function render(root) {
   }
 
   function visitEditRow(visit) {
-    const f = visitFields(lists, placesFrom(visits), visit, fileRows);
+    const f = visitFields(lists, placesFrom(visits), visit, fileRows, addName);
     const editForm = el('form', { className: 'stack', novalidate: true }, [
       ...f.elements,
       el('div', { className: 'btn-row' }, [
@@ -568,7 +636,7 @@ export async function render(root) {
   const filterSelects = el('div', { className: 'stack' });
   const filterNote = el('p', { className: 'progress-note' });
   const searchField = input({
-    label: 'Search', name: 'visitSearch', type: 'search', placeholder: 'Doctor, clinic or words in a note',
+    label: 'Doctor, clinic or note words', name: 'visitSearch', type: 'search', placeholder: 'e.g. Dr Example, fever',
   });
   searchField.input.setAttribute('autocomplete', 'off');
   searchField.input.addEventListener('input', () => {
@@ -595,6 +663,25 @@ export async function render(root) {
       ]),
       choice('Year', 'year', [{ value: '', label: 'All years' }, ...years.map((y) => ({ value: y, label: y }))]),
     );
+  }
+
+  // "🔍 Filter visits" button: opens the search + Person / Type / Year panel, and says how many are on.
+  const filterPanel = el('div', { className: 'stack filter-panel' });
+  const filterButton = button({
+    label: 'Filter visits', variant: 'secondary', block: true,
+    onClick: () => openFilters(filterPanel.hidden),
+  });
+  const filterLabel = filterButton.querySelector('span') || filterButton;
+  function openFilters(open) {
+    filterPanel.hidden = !open;
+    filterButton.setAttribute('aria-expanded', String(open));
+    showFilterCount();
+    if (open) queueMicrotask(() => searchField.input.focus());
+  }
+  function showFilterCount() {
+    const on = [filters.personId, filters.typeId, filters.year, tidy(filters.search)].filter(Boolean).length;
+    const arrow = filterPanel.hidden ? '▾' : '▴';
+    filterLabel.textContent = `🔍 Filter visits${on ? ` · ${on} on` : ''} ${arrow}`;
   }
 
   function clearFilters() {
@@ -628,6 +715,7 @@ export async function render(root) {
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     filterNote.hidden = !filtering;
     filterNote.textContent = `Showing ${shown.length} of ${visitsText(visits.length)}`;
+    showFilterCount();
     if (!shown.length) {
       visitBox.replaceChildren(emptyState({
         emoji: '🔍', title: 'No visits match', text: 'Try other filters or search words.',
@@ -681,6 +769,12 @@ export async function render(root) {
     countsOf: () => counts.byType,
   });
 
+  filterPanel.append(
+    searchField,
+    filterSelects,
+    button({ label: 'Clear filters', variant: 'ghost', block: true, onClick: clearFilters }),
+  );
+  openFilters(false);
   buildForm();
   buildFilters();
   refreshVisits();
@@ -703,7 +797,7 @@ export async function render(root) {
   const logView = el('div', { className: 'stack' }, [
     addButton,
     addCard,
-    card({ title: 'Visits', children: [el('div', { className: 'stack' }, [searchField, filterSelects, filterNote, visitBox])] }),
+    card({ title: 'Visits', children: [el('div', { className: 'stack' }, [filterButton, filterPanel, filterNote, visitBox])] }),
     card({
       title: 'People & visit types',
       module: 'medical',

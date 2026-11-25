@@ -232,17 +232,31 @@ function formParts(fields, { narrow = false } = {}) {
   ];
 }
 
-// Quick pills that fill the due date box ("No date" also clears the time).
+// Quick pills that fill the due date box. "Choose from calendar" opens the phone's date picker.
+// (For no date, leave the box empty or use the picker's Clear button.)
 function datePills(dateField, timeField) {
   const set = (value) => {
     dateField.input.value = value;
     dateField.setError('');
     if (!value) { timeField.input.value = ''; timeField.setError(''); }
   };
-  return el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Quick due date' }, [
-    button({ label: 'Today', variant: 'secondary', onClick: () => set(today()) }),
-    button({ label: 'Tomorrow', variant: 'secondary', onClick: () => set(addDays(today(), 1)) }),
-    button({ label: 'No date', variant: 'secondary', onClick: () => set('') }),
+  const openCalendar = () => {
+    dateField.setError('');
+    const box = dateField.input;
+    try {
+      box.showPicker();
+    } catch {
+      // Older phones: focusing the box opens their picker instead.
+      box.focus();
+      box.click();
+    }
+  };
+  return el('div', { className: 'stack', role: 'group', 'aria-label': 'Quick due date' }, [
+    el('div', { className: 'btn-row' }, [
+      button({ label: 'Today', variant: 'secondary', onClick: () => set(today()) }),
+      button({ label: 'Tomorrow', variant: 'secondary', onClick: () => set(addDays(today(), 1)) }),
+    ]),
+    button({ label: '📅 Choose from calendar', variant: 'secondary', block: true, onClick: openCalendar }),
   ]);
 }
 
