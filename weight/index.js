@@ -1,7 +1,7 @@
 // ⚖️ weight module screens.
 // WGT-1: log today's weight (one per day; saving again replaces it), list of entries, edit/delete with Undo.
 // WGT-2: history line chart (30/90/365 days) with a 7-day average line and change since start.
-// WGT-3: BMI (if height is set) and progress toward the goal weight; height in cm or feet + inches.
+// WGT-3: BMI (if height is set in ⚙️ Settings) and progress toward the goal weight.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
 import {
   add, update, remove, restore, list as listAll, listByDate, getSettings, saveSettings,
@@ -15,8 +15,6 @@ const MAX_KG = 300;
 const HISTORY_DAYS = [30, 90, 365];
 // heightCm and goalKg are always saved in metric; heightUnit only changes how height is typed/shown.
 const DEFAULTS = { heightCm: null, goalKg: null, heightUnit: 'cm' };
-const MIN_CM = 100;
-const MAX_CM = 250;
 const CM_PER_INCH = 2.54;
 
 // 170 -> { ft: 5, inch: 7 } (rounded to the nearest inch).
@@ -30,31 +28,6 @@ function heightText(cm, unit) {
   const { ft, inch } = cmToFeetInches(cm);
   const feet = `${ft} ft ${inch} in`;
   return unit === 'ftin' ? `${feet} (${formatCm(cm)})` : `${formatCm(cm)} (${feet})`;
-}
-
-// Reads typed height. Gives back { cm } (1 decimal), { cm: null } when left blank, or { error }.
-function parseHeight(unit, cmText, ftText, inText) {
-  let cm;
-  if (unit === 'ftin') {
-    const ftClean = String(ftText).trim();
-    const inClean = String(inText).trim().replace(',', '.');
-    if (!ftClean && !inClean) return { cm: null };
-    const ft = Number(ftClean || 0);
-    const inch = Number(inClean || 0);
-    if (!Number.isInteger(ft) || !Number.isFinite(inch) || ft < 0 || inch < 0 || inch >= 12) {
-      return { error: 'Type whole feet and 0–11 inches, e.g. 5 ft 7 in' };
-    }
-    cm = (ft * 12 + inch) * CM_PER_INCH;
-  } else {
-    const clean = String(cmText).trim().replace(',', '.');
-    if (!clean) return { cm: null };
-    cm = Number(clean);
-    if (!Number.isFinite(cm)) return { error: 'Type your height in cm, e.g. 170' };
-  }
-  if (cm < MIN_CM || cm > MAX_CM) {
-    return { error: 'Please enter a height between 100 and 250 cm (3 ft 4 in to 8 ft 2 in).' };
-  }
-  return { cm: Math.round(cm * 10) / 10 };
 }
 
 // BMI from kg and cm, 1 decimal, with its standard band.
@@ -132,7 +105,7 @@ export async function render(root) {
     if (!heightCm) {
       bmiLine.textContent = '';
       bmiLine.hidden = true;
-      bmiNote.textContent = 'Add your height below to see your BMI ✨';
+      bmiNote.textContent = 'Add your height in ⚙️ Settings → 📏 Height & weight to see your BMI ✨';
     } else if (!latest) {
       bmiLine.hidden = true;
       bmiNote.textContent = 'Log a weight above to see your BMI.';
@@ -171,107 +144,38 @@ export async function render(root) {
       + ` · now ${formatKg(now)}`;
   }
 
-  // My height & goal form (WGT-3). Height can be typed in cm or feet + inches; saved as cm.
-  let heightUnit = settings.heightUnit === 'ftin' ? 'ftin' : 'cm';
-  const cmField = input({
-    label: 'Height (cm)', name: 'heightCm', type: 'number', inputmode: 'decimal',
-    min: MIN_CM, max: MAX_CM, step: 0.1, placeholder: 'e.g. 170',
-  });
-  const ftField = input({ label: 'Feet', name: 'heightFt', type: 'number', inputmode: 'numeric', min: 3, max: 8, step: 1, placeholder: 'e.g. 5' });
-  const inField = input({ label: 'Inches', name: 'heightIn', type: 'number', inputmode: 'decimal', min: 0, max: 11, step: 1, placeholder: 'e.g. 7' });
-  const ftInRow = el('div', {}, [el('div', { className: 'btn-row' }, [ftField, inField])]);
-  const cmBox = el('div', {}, [cmField]); // plain wrappers, so hiding them always works
-  const heightError = el('div', { className: 'field__error', hidden: true });
+  // My goal form (WGT-3). Height is set in ⚙️ Settings → 📏 Height & weight.
   const goalField = input({
     label: 'Goal weight (kg)', name: 'goalKg', type: 'number', inputmode: 'decimal',
     min: MIN_KG, max: MAX_KG, step: 0.1, placeholder: 'e.g. 68',
   });
   const settingsNote = el('p', { className: 'progress-note' });
 
-  const unitButtons = [['cm', 'cm'], ['ftin', 'ft + in']].map(([unit, label]) => {
-    const btn = button({
-      label,
-      variant: unit === heightUnit ? 'primary' : 'secondary',
-      ariaLabel: unit === 'cm' ? 'Height in centimetres' : 'Height in feet and inches',
-      onClick: () => setHeightUnit(unit),
-    });
-    btn.dataset.unit = unit;
-    return btn;
-  });
-
-  function showHeightFields() {
-    cmBox.hidden = heightUnit !== 'cm';
-    ftInRow.hidden = heightUnit !== 'ftin';
-    unitButtons.forEach((b) => {
-      const on = b.dataset.unit === heightUnit;
-      b.classList.toggle('btn--primary', on);
-      b.classList.toggle('btn--secondary', !on);
-      b.setAttribute('aria-pressed', String(on));
-    });
-  }
-
-  // Switching unit converts whatever is typed, so nothing is lost.
-  function setHeightUnit(unit) {
-    if (unit === heightUnit) return;
-    const { cm } = parseHeight(heightUnit, cmField.input.value, ftField.input.value, inField.input.value);
-    heightUnit = unit;
-    fillHeight(cm ?? null);
-    setHeightError('');
-    showHeightFields();
-  }
-
-  function fillHeight(cm) {
-    cmField.input.value = cm ? String(cm) : '';
-    const { ft, inch } = cm ? cmToFeetInches(cm) : { ft: '', inch: '' };
-    ftField.input.value = cm ? String(ft) : '';
-    inField.input.value = cm ? String(inch) : '';
-  }
-
-  function setHeightError(message) {
-    heightError.textContent = message;
-    heightError.hidden = !message;
-  }
-
   function showSettings() {
-    fillHeight(settings.heightCm);
     goalField.input.value = settings.goalKg ? String(settings.goalKg) : '';
-    showHeightFields();
-    const parts = [];
-    if (settings.heightCm) parts.push(`Height ${heightText(settings.heightCm, settings.heightUnit)}`);
-    if (settings.goalKg) parts.push(`Goal ${formatKg(settings.goalKg)}`);
-    settingsNote.textContent = parts.length
-      ? `Saved: ${parts.join(' · ')}. Leave a box empty to clear it.`
-      : 'Both are optional. Height is used only for BMI.';
+    settingsNote.textContent = settings.goalKg
+      ? `Saved: Goal ${formatKg(settings.goalKg)}. Leave the box empty to clear it.`
+      : 'Optional. Your height (for BMI) is in ⚙️ Settings.';
   }
 
-  [cmField, ftField, inField].forEach((f) => f.input.addEventListener('input', () => setHeightError('')));
   goalField.input.addEventListener('input', () => goalField.setError(''));
 
   const settingsForm = el('form', { className: 'stack', novalidate: true }, [
-    el('div', { className: 'stack' }, [
-      el('p', { className: 'progress-note', text: 'Height in' }),
-      el('div', { className: 'btn-row', role: 'group', 'aria-label': 'Height unit' }, unitButtons),
-    ]),
-    cmBox,
-    ftInRow,
-    heightError,
     goalField,
-    button({ label: 'Save', variant: 'primary', type: 'submit', block: true }),
+    button({ label: 'Save goal', variant: 'primary', type: 'submit', block: true }),
     settingsNote,
   ]);
 
   settingsForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const height = parseHeight(heightUnit, cmField.input.value, ftField.input.value, inField.input.value);
     const goalText = goalField.input.value.trim();
     const goal = goalText ? parseKg(goalText) : { kg: null };
-    setHeightError(height.error || '');
     goalField.setError(goal.error ? goal.error.replace('your weight', 'your goal weight') : '');
-    if (height.error || goal.error) return;
-    settings = await saveSettings('weight', { heightCm: height.cm, goalKg: goal.kg, heightUnit });
+    if (goal.error) return;
+    settings = await saveSettings('weight', { goalKg: goal.kg });
     showSettings();
     refreshBmiGoal(latestEntries);
-    toast({ message: 'Height & goal saved ✨' });
+    toast({ message: 'Goal saved 🎯' });
   });
   showSettings();
 
@@ -452,7 +356,7 @@ export async function render(root) {
       chartBox,
       changeNote,
     ])] }),
-    card({ title: 'My height & goal', module: 'weight', children: [settingsForm] }),
+    card({ title: 'My goal', module: 'weight', children: [settingsForm] }),
   ]));
 
   await refresh();

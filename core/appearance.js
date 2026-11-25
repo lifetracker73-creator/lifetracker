@@ -65,7 +65,7 @@ export function getAppearance() {
 }
 
 // ---- Emoji off (Serious theme only): take emoji out of headings, and put them back when on again ----
-const HEADINGS = 'h1, h2, h3, .card__title, .goals-heading, .list-group__title';
+const HEADINGS = 'h1, h2, h3, .card__title, .list-group__title';
 const EMOJI = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍|\p{Extended_Pictographic}|\p{Emoji_Modifier})*\s?/gu;
 const originals = new Map(); // text node → { text: with emoji, plain: what we put there }
 let observer = null;

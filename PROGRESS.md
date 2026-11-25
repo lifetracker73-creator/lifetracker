@@ -1739,3 +1739,23 @@ Asked for after RDG-2 (not a separate unit in SPEC.md; the book details there we
 **Known issues**
 - On a cold start in Serious theme the screen can flash the phone's light/dark colour for a moment before going dark.
 - Emoji Off covers headings and badges only; emoji inside buttons, the bottom bar and messages stay.
+
+## TWEAKS-2: Goals moved into each module, Height & weight in Settings, People & types folded away (25 Nov 2026)
+**Built**
+- ⚙️ Settings: the 🎯 Goals card is gone (with its "now" lines and module shortcuts). New card "📏 Height & weight":
+  height (cm, 100–250) and current weight (kg). Height is the same saved value the Weight screen uses for BMI.
+  Saving a current weight logs it as today's weigh-in (replaces one already saved today); unchanged = nothing logged.
+- ⚖️ Weight: "My height & goal" is now "My goal" (goal weight only). With no height, the BMI card points to Settings.
+  Daily weigh-ins, chart and history stay.
+- 💧 Water: new "My goal" card (daily goal + the 3 quick-add amounts); saving updates the bar, buttons and chart at once.
+- 😴 Sleep: new "My goal" card (hours each night, 3–14); saving moves the chart's target line.
+- 🏋️ Gym → Insights: the "change in Settings" link is now a weekly goal box right there (0 = no weekly goal).
+- 🩺 Medical log: the People & visit types card is folded behind a small "⚙️ Manage people & visit types" button at the
+  bottom; it only renames/removes now (its "New person / New visit type" boxes are gone — add from "Add visit").
+- No change to how data is saved. Files: `core/settings.js`, `core/styles.css`, `core/appearance.js`,
+  `weight/index.js`, `water/index.js`, `sleep/index.js`, `gym/index.js`, `medical/index.js`.
+- Checked at 375px with fake data: every new box saves and updates its screen, no sideways scrolling, no errors.
+
+**Known issues**
+- Height in Settings is typed in cm only (the Weight screen's old ft + in option is gone). A height saved earlier
+  in ft + in still shows that way in the BMI note.

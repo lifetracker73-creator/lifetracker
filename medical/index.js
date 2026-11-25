@@ -413,21 +413,7 @@ export async function render(root) {
       listsChanged(); // MED-2: update the visit form choices and the names in the visit list
     }
 
-    const addField = input({ label: `New ${singular}`, name: `${key}Name`, type: 'text', placeholder: `e.g. ${example}` });
-    addField.input.addEventListener('input', () => addField.setError(''));
-    const addForm = el('form', { className: 'stack', novalidate: true }, [
-      addField,
-      button({ label: `Add ${singular}`, icon: 'plus', variant: 'primary', type: 'submit', block: true }),
-    ]);
-    addForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = readName(addField);
-      if (!name) return;
-      await save([...lists[key], { id: newId(), name }]);
-      addField.input.value = '';
-      toast({ message: `Added ${name} ✨` });
-      refresh();
-    });
+    // New ones are added from "➕ Add a new…" in the visit form; here they can be renamed or removed.
 
     function editRow(item) {
       const field = input({ label: 'Name', name: `${key}Rename`, type: 'text', value: item.name });
@@ -499,13 +485,12 @@ export async function render(root) {
     function refresh() {
       box.replaceChildren(lists[key].length
         ? list(lists[key].map(row))
-        : emptyState({ emoji, title: `No ${title.toLowerCase()} yet`, text: 'Add one above.' }));
+        : emptyState({ emoji, title: `No ${title.toLowerCase()} yet`, text: 'Add one from "Add visit".' }));
     }
     refresh();
 
     const wrapper = el('div', { className: 'stack' }, [
       el('h3', { className: 'list-group__title' }, [el('span', { text: `${emoji} ${title}` })]),
-      addForm,
       box,
     ]);
     wrapper.refresh = refresh;
@@ -794,19 +779,33 @@ export async function render(root) {
   }
   showAddForm(false);
 
+  // Rename or remove people and visit types: folded away behind a small button at the bottom.
+  const manageCard = card({
+    title: 'People & visit types',
+    module: 'medical',
+    children: [el('div', { className: 'stack' }, [
+      el('p', { className: 'progress-note', text: 'Tap one to rename it (all its visits change too), or remove one with no visits. Add new ones from "Add visit".' }),
+      people,
+      types,
+    ])],
+  });
+  const manageButton = button({
+    label: '⚙️ Manage people & visit types', variant: 'ghost', block: true,
+    onClick: () => {
+      manageCard.hidden = !manageCard.hidden;
+      manageButton.setAttribute('aria-expanded', String(!manageCard.hidden));
+      if (!manageCard.hidden) manageCard.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    },
+  });
+  manageCard.hidden = true;
+  manageButton.setAttribute('aria-expanded', 'false');
+
   const logView = el('div', { className: 'stack' }, [
     addButton,
     addCard,
     card({ title: 'Visits', children: [el('div', { className: 'stack' }, [filterButton, filterPanel, filterNote, visitBox])] }),
-    card({
-      title: 'People & visit types',
-      module: 'medical',
-      children: [el('div', { className: 'stack' }, [
-        el('p', { className: 'progress-note', text: 'Who the visits are for, and the kinds of visit. Renaming one updates all its visits.' }),
-        people,
-        types,
-      ])],
-    }),
+    manageButton,
+    manageCard,
   ]);
 
   // ---- Insights (MED-5): worked out on screen from the visits each time the tab opens ----

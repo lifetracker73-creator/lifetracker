@@ -1,9 +1,9 @@
-// ⚙️ Settings screen: your name, goals and "Customise menu" (CORE-8), Appearance,
+// ⚙️ Settings screen: your name, height & weight (BMI) and "Customise menu" (CORE-8), Appearance,
 // Google Sync (SHEETS-SYNC), Notifications (CORE-9) and Backup (CORE-7).
 import { card, button, input, el, toast, modules, icons } from './ui.js';
-import { getSettings, saveSettings, list, listByDate, listByDateRange } from './storage.js';
-import { today, weekStart, formatDate, sleepMinutes, formatDuration } from './dates.js';
-import { formatMl, formatKg, formatG, formatNumber } from './format.js';
+import { getSettings, saveSettings, list, listByDate, add, update } from './storage.js';
+import { today, formatDate } from './dates.js';
+import { formatKg } from './format.js';
 import { getMenu, saveMenu, resetMenu, BAR_SIZE } from './menu.js';
 import { getConfig, connect, syncEverything, onStatus } from './sync.js';
 import { notificationState, askPermission, notify } from './notify.js';
@@ -55,18 +55,9 @@ async function buddyCard() {
   return card({ title: '🍄 Your buddy', className: 'buddy-settings-card', children: [form] });
 }
 
-// 🎯 Goals: the same saved values each module uses, so a change here shows there too.
-// Defaults match the modules' own (water, sleep, food).
-const WATER_DEFAULTS = { dailyGoalMl: 2500, quickAmounts: [250, 500, 750] };
-const SLEEP_DEFAULTS = { targetHours: 8 };
-const FOOD_TARGETS = [
-  { key: 'kcal', label: 'Calories (kcal)', example: 2000 },
-  { key: 'proteinG', label: 'Protein (g)', example: 60 },
-  { key: 'carbsG', label: 'Carbs (g)', example: 250 },
-  { key: 'fatG', label: 'Fat (g)', example: 65 },
-  { key: 'fibreG', label: 'Fibre (g)', example: 30 },
-];
-const FOOD_DEFAULT_TARGETS = { kcal: 2000, proteinG: 60, carbsG: 250, fatG: 65, fibreG: 30 };
+// 📏 Height & weight: used for BMI on the ⚖️ Weight screen. Goals live in each module's own screen.
+// Height is the same saved value the Weight screen uses (weight settings `heightCm`, always in cm).
+// Saving a current weight logs it as today's weigh-in (replacing one already saved today).
 
 // Reads a number box. Returns { value } (null when empty and allowed) or { error }.
 function readNumber(field, { min, max, optional = false, whole = false, example }) {
@@ -79,80 +70,32 @@ function readNumber(field, { min, max, optional = false, whole = false, example 
   return { value: whole ? Math.round(v) : Math.round(v * 10) / 10 };
 }
 
-// Where you are right now, worked out from saved data (nothing new is stored).
-async function currentValues() {
-  const day = today();
-  const [water, nights, weights, food, gym] = await Promise.all([
-    listByDate('water', day), listByDate('sleep', day), list('weight'), listByDate('foodLog', day),
-    listByDateRange('gymSessions', weekStart(day), day),
+async function bodyCard() {
+  const [weight, entries] = await Promise.all([
+    getSettings('weight', { heightCm: null }),
+    list('weight'),
   ]);
-  const ml = water.reduce((s, e) => s + (Number(e.amountMl) || 0), 0);
-  const night = nights[0];
-  const latest = [...weights].sort((a, b) => b.date.localeCompare(a.date))[0];
-  const sum = (field) => food.reduce((s, e) => s + (Number(e[field]) || 0), 0);
-  return {
-    water: `Today: ${formatMl(ml)}`,
-    sleep: night ? `Last night: ${formatDuration(sleepMinutes(night.bedTime, night.wakeTime))}` : 'Last night: not logged yet',
-    weight: latest ? `Now: ${formatKg(latest.weightKg)} (${formatDate(latest.date)})` : 'Now: no weight logged yet',
-    food: food.length
-      ? `Today: ${formatNumber(Math.round(sum('kcal')))} kcal · ${formatG(Math.round(sum('proteinG')))} protein · ${formatG(Math.round(sum('carbsG')))} carbs · ${formatG(Math.round(sum('fatG')))} fat · ${formatG(Math.round(sum('fibreG')))} fibre`
-      : 'Today: nothing logged yet',
-    gym: `This week: ${gym.length} workout${gym.length === 1 ? '' : 's'}`,
-  };
-}
-
-async function goalsCard() {
-  const [water, sleep, weight, food] = await Promise.all([
-    getSettings('water', WATER_DEFAULTS),
-    getSettings('sleep', SLEEP_DEFAULTS),
-    getSettings('weight', { heightCm: null, goalKg: null }),
-    getSettings('food', { targets: FOOD_DEFAULT_TARGETS }),
-  ]);
-  const gym = await getSettings('gym', { weeklyGoal: 3 });
-  const foodTargets = food.targets || {};
+  const latest = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
   const num = (label, value, example) => {
     const f = input({ label, inputmode: 'decimal', value: value == null ? '' : String(value), placeholder: `e.g. ${example}` });
     f.input.addEventListener('input', () => f.setError(''));
     return f;
   };
-  const heading = (key, text) => el('h3', { className: `goals-heading mod-${key}`, text: `${modules[key].emoji} ${text}` });
-  const now = await currentValues();
-  // "Now: …" line under each heading, so the goal and where you are sit together.
-  const nowLine = (text) => el('p', { className: 'goals-now', text });
-
-  const waterGoal = num('Daily goal (ml)', water.dailyGoalMl, 2500);
-  const quick = [0, 1, 2].map((i) => num(`Button ${i + 1} (ml)`, (water.quickAmounts || [])[i], WATER_DEFAULTS.quickAmounts[i]));
-  const sleepTarget = num('Hours of sleep each night', sleep.targetHours, 8);
   const height = num('Height (cm)', weight.heightCm, 165);
-  const goalKg = num('Goal weight (kg)', weight.goalKg, 60);
-  const foodFields = FOOD_TARGETS.map((t) => num(t.label, foodTargets[t.key] > 0 ? foodTargets[t.key] : null, t.example));
-  const gymGoal = num('Workouts each week', Number.isInteger(gym.weeklyGoal) && gym.weeklyGoal >= 0 ? gym.weeklyGoal : 3, 3);
+  const current = num('Current weight (kg)', latest ? latest.weightKg : null, 70);
+  const note = el('p', { className: 'muted' });
+  const showNote = (entry) => {
+    note.textContent = entry
+      ? `Last weigh-in: ${formatKg(entry.weightKg)} on ${formatDate(entry.date)}. Saving a new weight logs it for today. Your BMI shows on the ⚖️ Weight screen.`
+      : 'Saving a weight logs it for today. Your BMI shows on the ⚖️ Weight screen.';
+  };
+  showNote(latest);
 
   const form = el('form', { className: 'stack', novalidate: true }, [
-    el('p', { className: 'muted', text: 'These are the same goals you see in each module. Change them here or there.' }),
-    heading('water', 'Water'),
-    nowLine(now.water),
-    waterGoal,
-    el('p', { className: 'field__label', text: 'Quick-add buttons' }),
-    el('div', { className: 'field-grid' }, quick),
-    heading('sleep', 'Sleep'),
-    nowLine(now.sleep),
-    sleepTarget,
-    heading('weight', 'Weight'),
-    nowLine(now.weight),
-    el('div', { className: 'field-grid' }, [height, goalKg]),
-    el('p', { className: 'muted', text: 'Both optional. Height is used only for BMI. Leave a box empty to clear it.' }),
-    heading('food', 'Food: daily targets'),
-    nowLine(now.food),
-    el('div', { className: 'field-grid' }, foodFields),
-    el('p', { className: 'muted', text: 'Leave a box empty for no target. Vitamin and mineral targets are in 🍱 Food.' }),
-    heading('gym', 'Gym log'),
-    nowLine(now.gym),
-    gymGoal,
-    el('p', { className: 'muted', text: 'Weeks run Monday to Sunday. Reaching this keeps your gym streak going. Type 0 for no weekly goal.' }),
-    button({ label: 'Save goals', variant: 'primary', type: 'submit', block: true }),
+    el('div', { className: 'field-grid' }, [height, current]),
+    note,
+    button({ label: 'Save height & weight', variant: 'primary', type: 'submit', block: true }),
   ]);
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     let ok = true;
@@ -162,44 +105,24 @@ async function goalsCard() {
       if (r.error) ok = false;
       return r.value;
     };
-    const goal = check(waterGoal, { min: 250, max: 10000, whole: true, example: 2500 });
-    const amounts = quick.map((f, i) => check(f, { min: 10, max: 5000, whole: true, example: WATER_DEFAULTS.quickAmounts[i] }));
-    const hours = check(sleepTarget, { min: 3, max: 14, example: '7.5' });
-    const cm = check(height, { min: 50, max: 250, optional: true, example: 165 });
-    const kg = check(goalKg, { min: 20, max: 300, optional: true, example: 60 });
-    const targets = {};
-    FOOD_TARGETS.forEach((t, i) => {
-      targets[t.key] = t.key === 'kcal'
-        ? check(foodFields[i], { min: 500, max: 10000, optional: true, whole: true, example: t.example })
-        : check(foodFields[i], { min: 1, max: 1000, optional: true, example: t.example });
-    });
-    const weeklyGoal = check(gymGoal, { min: 0, max: 14, whole: true, example: 3 });
+    const cm = check(height, { min: 100, max: 250, optional: true, example: 165 });
+    const kg = check(current, { min: 20, max: 300, optional: true, example: 70 });
     if (!ok) {
       form.querySelector('[aria-invalid="true"]')?.focus();
       return;
     }
-    await Promise.all([
-      saveSettings('gym', { weeklyGoal }),
-      saveSettings('water', { dailyGoalMl: goal, quickAmounts: amounts }),
-      saveSettings('sleep', { targetHours: hours }),
-      saveSettings('weight', { heightCm: cm, goalKg: kg }),
-      // Keep your vitamin/mineral targets; only the five above change.
-      saveSettings('food', { targets: { ...foodTargets, ...targets } }),
-    ]);
-    Object.assign(foodTargets, targets);
-    toast({ message: 'Goals saved 🎯' });
+    await saveSettings('weight', { heightCm: cm });
+    // Log the weight for today, unless it's just the last weigh-in shown again unchanged.
+    const last = [...(await list('weight'))].sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (kg != null && !(last && Number(last.weightKg) === kg)) {
+      const [todays] = await listByDate('weight', today());
+      if (todays) await update('weight', todays.id, { weightKg: kg });
+      else await add('weight', { date: today(), weightKg: kg });
+      showNote({ date: today(), weightKg: kg });
+    }
+    toast({ message: 'Height & weight saved 📏' });
   });
-
-  const shortcuts = el('div', { className: 'stack' }, [
-    el('p', { className: 'muted', text: 'Set inside their own modules:' }),
-    ...[
-      ['money', '💸 Budgets and categories'],
-      ['medical', '🩺 People and visit types'],
-      ['gym', '🏋️ Workout types and exercises'],
-      ['sleep', '😴 Automatic wake-up time'],
-    ].map(([key, text]) => el('a', { className: `btn btn--secondary btn--block mod-${key}`, href: `#/${key}` }, [el('span', { text })])),
-  ]);
-  return card({ title: '🎯 Goals', children: [form, shortcuts] });
+  return card({ title: '📏 Height & weight', children: [form] });
 }
 
 // The same ☰ (three lines) icon as the bottom bar's More button, to sit inside text and buttons.
@@ -703,11 +626,11 @@ export async function render(root) {
     },
   });
 
-  const [youCard, buddyBox, goals, menuBox] = await Promise.all([profileCard(), buddyCard(), goalsCard(), menuCard()]);
+  const [youCard, buddyBox, body, menuBox] = await Promise.all([profileCard(), buddyCard(), bodyCard(), menuCard()]);
   root.append(
     youCard,
     buddyBox,
-    goals,
+    body,
     menuBox,
     appearanceCard(),
     card({

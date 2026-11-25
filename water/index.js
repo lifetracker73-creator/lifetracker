@@ -3,7 +3,7 @@
 // WTR-2: today's progress toward the daily goal.
 // WTR-3: history bar chart (7/14/21/30 days) with a goal line, and a streak of goal days.
 import { card, button, input, list, listItem, emptyState, toast, progressBar, el } from '../core/ui.js';
-import { add, remove, restore, list as listAll, listByDate, getSettings } from '../core/storage.js';
+import { add, remove, restore, list as listAll, listByDate, getSettings, saveSettings } from '../core/storage.js';
 import { today, yesterday, addDays, dateRange, nowTime, formatTime } from '../core/dates.js';
 import { formatMl } from '../core/format.js';
 import { barChart } from '../core/charts.js';
@@ -40,7 +40,7 @@ export async function render(root) {
   const listBox = el('div');
 
   // Today's progress toward the goal (WTR-2). Worked out on screen; nothing extra is stored.
-  const goalMl = settings.dailyGoalMl > 0 ? settings.dailyGoalMl : DEFAULTS.dailyGoalMl;
+  let goalMl = settings.dailyGoalMl > 0 ? settings.dailyGoalMl : DEFAULTS.dailyGoalMl;
   const bar = progressBar({ value: 0, max: goalMl, label: 'Water today toward your goal' });
   const amountText = el('span', { className: 'progress-stats__amount' });
   const percentText = el('span', { className: 'progress-stats__percent' });
@@ -157,12 +157,51 @@ export async function render(root) {
   }
 
   // Quick-add buttons
-  const quickRow = el('div', { className: 'btn-row' }, settings.quickAmounts.map((ml) => button({
+  const quickButtons = (amounts) => amounts.map((ml) => button({
     label: `+${formatMl(ml)}`,
     variant: 'primary',
     ariaLabel: `Add ${formatMl(ml)}`,
     onClick: () => logWater(ml),
-  })));
+  }));
+  const quickRow = el('div', { className: 'btn-row' }, quickButtons(settings.quickAmounts));
+
+  // 🎯 My goal: daily goal and the three quick-add amounts (saved in water settings).
+  const goalBox = (label, value, example) => {
+    const f = input({ label, type: 'number', inputmode: 'numeric', step: 1, value: String(value ?? ''), placeholder: `e.g. ${example}` });
+    f.input.addEventListener('input', () => f.setError(''));
+    return f;
+  };
+  const goalField = goalBox('Daily goal (ml)', goalMl, 2500);
+  const quickFields = [0, 1, 2].map((i) => goalBox(`Button ${i + 1} (ml)`, settings.quickAmounts[i], DEFAULTS.quickAmounts[i]));
+  const readWhole = (f, min, max) => {
+    const text = f.input.value.trim();
+    const v = Number(text);
+    const error = !text || !Number.isFinite(v) ? 'Please type a number.'
+      : v < min ? `Please type at least ${min}.`
+        : v > max ? `That's a lot! Please type ${max} or less.` : '';
+    f.setError(error);
+    return error ? null : Math.round(v);
+  };
+  const goalForm = el('form', { className: 'stack', novalidate: true }, [
+    goalField,
+    el('p', { className: 'field__label', text: 'Quick-add buttons' }),
+    el('div', { className: 'field-grid' }, quickFields),
+    button({ label: 'Save goal', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  goalForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const goal = readWhole(goalField, 250, 10000);
+    const amounts = quickFields.map((f) => readWhole(f, 10, 5000));
+    if (goal == null || amounts.includes(null)) {
+      goalForm.querySelector('[aria-invalid="true"]')?.focus();
+      return;
+    }
+    await saveSettings('water', { dailyGoalMl: goal, quickAmounts: amounts });
+    goalMl = goal;
+    quickRow.replaceChildren(...quickButtons(amounts));
+    await refresh();
+    toast({ message: 'Water goal saved 🎯' });
+  });
 
   // Custom amount
   const amountField = input({
@@ -209,6 +248,7 @@ export async function render(root) {
       chartBox,
       streakText,
     ])] }),
+    card({ title: 'My goal', module: 'water', children: [goalForm] }),
   ]));
 
   await refresh();

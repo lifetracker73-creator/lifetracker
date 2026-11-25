@@ -477,6 +477,32 @@ export async function render(root) {
   });
   showCutoff();
 
+  // ---------- 🎯 My goal: hours of sleep each night (setting) ----------
+  const targetField = input({
+    label: 'Hours of sleep each night', name: 'targetHours', type: 'number', inputmode: 'decimal',
+    min: 3, max: 14, step: 0.5, value: String(settings.targetHours ?? DEFAULTS.targetHours), placeholder: 'e.g. 8',
+  });
+  targetField.input.addEventListener('input', () => targetField.setError(''));
+  const targetForm = el('form', { className: 'stack', novalidate: true }, [
+    targetField,
+    button({ label: 'Save goal', variant: 'primary', type: 'submit', block: true }),
+  ]);
+  targetForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = targetField.input.value.trim().replace(',', '.');
+    const hours = Number(text);
+    if (!text || !Number.isFinite(hours) || hours < 3 || hours > 14) {
+      targetField.setError('Type hours between 3 and 14, e.g. 7.5');
+      return;
+    }
+    settings = await saveSleepSettings({ targetHours: Math.round(hours * 10) / 10 });
+    // Redraw the chart so its target line moves.
+    if (chart) (await chart)?.destroy?.();
+    chart = null;
+    await refreshHistory();
+    toast({ message: 'Sleep goal saved 🎯' });
+  });
+
   root.append(el('div', { className: 'mod-sleep stack' }, [
     card({ title: 'Bedtime', module: 'sleep', children: [tonightBox] }),
     card({ title: 'Log a night', module: 'sleep', children: [form] }),
@@ -489,6 +515,7 @@ export async function render(root) {
       chartBox,
       averagesBox,
     ])] }),
+    card({ title: 'My goal', module: 'sleep', children: [targetForm] }),
     card({ title: 'Wake-up cut-off', module: 'sleep', children: [cutoffForm] }),
   ]));
 

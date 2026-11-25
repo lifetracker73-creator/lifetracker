@@ -681,6 +681,27 @@ async function mainScreen(root) {
   // ---- Insights (GYM-6) ----
   const insightsView = el('div', { className: 'stack' });
   let chart = null;
+
+  // 🎯 Weekly goal box (0 = no weekly goal). Saving redraws the insights.
+  function weeklyGoalForm(goal) {
+    const field = numberBox('Weekly goal (workouts)', goal, { hint: 'Weeks run Monday to Sunday. Type 0 for no weekly goal.' });
+    const form = el('form', { className: 'stack', novalidate: true }, [
+      field,
+      button({ label: 'Save goal', variant: 'secondary', type: 'submit', block: true }),
+    ]);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = readNumber(field, { min: 0, max: 14, example: 3 });
+      field.setError(r.error || '');
+      if (r.error) { field.input.focus(); return; }
+      await saveSettings('gym', { weeklyGoal: r.value });
+      d.settings.weeklyGoal = r.value;
+      drawInsights();
+      toast({ message: r.value ? `Weekly goal: ${plural(r.value, 'workout')} 🎯` : 'Weekly goal switched off' });
+    });
+    return form;
+  }
+
   function drawInsights() {
     chart?.then?.((c) => c?.destroy?.());
     chart = null;
@@ -697,7 +718,7 @@ async function mainScreen(root) {
           el('span', { className: 'progress-stats__amount', text: `${plural(done, 'workout')} this week` }),
         ]),
         el('p', { className: 'progress-note', text: 'No weekly goal set, so there is no streak.' }),
-        el('a', { className: 'btn btn--secondary btn--block', href: '#/settings' }, [el('span', { text: '🎯 Set a weekly goal in Settings' })]),
+        weeklyGoalForm(goal),
       ])] })
       : card({ title: 'Gym streak', module: 'gym', children: [el('div', { className: 'stack' }, [
       el('p', { className: 'progress-stats' }, [
@@ -708,7 +729,7 @@ async function mainScreen(root) {
       el('p', { className: 'home-message', text: streak
         ? `🔥 ${plural(streak, 'week')} in a row at your goal`
         : 'Reach your weekly goal to start a streak 💪' }),
-      el('a', { className: 'btn btn--secondary btn--block', href: '#/settings' }, [el('span', { text: `🎯 Weekly goal: ${goal} (change in Settings)` })]),
+      weeklyGoalForm(goal),
     ])] });
 
     const chartBox = el('div', { className: 'chart-box' });

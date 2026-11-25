@@ -1226,25 +1226,6 @@ a.btn { text-decoration: none; }
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
 }
-/* Settings → Goals (CORE-8): a small pastel heading per module. */
-.goals-heading {
-  margin: var(--space-3) 0 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--color-on-accent);
-  font-size: var(--font-size-md);
-  align-self: flex-start;
-}
-/* "Now: …" line under each goal heading: where you are today, next to the goal. */
-.goals-now {
-  margin: 0;
-  padding: 0 var(--space-2);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-}
-
 /* 🩺 Medical log: the small "add a new person / visit type" box inside a visit form,
    and the panel behind the "🔍 Filter visits" button. */
 .add-new-box,
